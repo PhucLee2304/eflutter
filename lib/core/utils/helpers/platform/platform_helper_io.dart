@@ -1,0 +1,3 @@
+void configureUrlStrategy() {}
+
+void refreshPage() {}
