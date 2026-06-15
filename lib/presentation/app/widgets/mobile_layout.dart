@@ -7,7 +7,10 @@ class MobileLayout extends StatelessWidget {
   const MobileLayout({super.key, required this.navigationShell});
 
   void _onTabTapped(int index) {
-    navigationShell.goBranch(index, initialLocation: index == navigationShell.currentIndex);
+    navigationShell.goBranch(
+      index,
+      initialLocation: index == navigationShell.currentIndex,
+    );
   }
 
   @override
@@ -23,7 +26,11 @@ class MobileLayout extends StatelessWidget {
 }
 
 class AppNavigationBar extends StatelessWidget {
-  const AppNavigationBar({super.key, required this.currentIndex, required this.onTabTapped});
+  const AppNavigationBar({
+    super.key,
+    required this.currentIndex,
+    required this.onTabTapped,
+  });
   final int currentIndex;
   final ValueChanged<int> onTabTapped;
 

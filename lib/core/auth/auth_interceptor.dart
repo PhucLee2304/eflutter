@@ -14,10 +14,19 @@ class AuthInterceptor extends Interceptor {
   static const tokenExpired = 401;
 
   @override
-  void onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
-    final accessToken = await getIt<LocalDataBase>().getAccessToken();
-    if (accessToken != null && accessToken.isNotEmpty) {
-      options.headers['Authorization'] = 'Bearer $accessToken';
+  void onRequest(
+    RequestOptions options,
+    RequestInterceptorHandler handler,
+  ) async {
+    final localData = getIt<LocalDataBase>();
+    final isRefreshTokenRequest =
+        options.extra[isRefreshTokenRequestKey] == true;
+    final token = isRefreshTokenRequest
+        ? await localData.getRefreshToken()
+        : await localData.getAccessToken();
+
+    if (token != null && token.isNotEmpty) {
+      options.headers['Authorization'] = 'Bearer $token';
     }
     handler.next(options);
   }
@@ -39,7 +48,9 @@ class AuthInterceptor extends Interceptor {
     }
 
     try {
-      final (newAccessToken, newRefreshToken) = await remoteData.refreshToken(refreshToken);
+      final (newAccessToken, newRefreshToken) = await remoteData.refreshToken(
+        refreshToken,
+      );
       await localData.saveTokens(newAccessToken, newRefreshToken);
 
       return await _retryRequest(err.requestOptions, handler, newAccessToken);

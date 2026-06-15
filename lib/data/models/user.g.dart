@@ -10,8 +10,8 @@ _User _$UserFromJson(Map<String, dynamic> json) => _User(
   id: (json['id'] as num).toInt(),
   email: json['email'] as String,
   name: json['name'] as String,
-  avatar: json['avatar'] as String,
-  role: json['role'] as String,
+  avatar: json['avatar'] as String?,
+  role: json['role'] as String? ?? '',
 );
 
 Map<String, dynamic> _$UserToJson(_User instance) => <String, dynamic>{
