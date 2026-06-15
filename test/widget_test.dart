@@ -1,30 +1,31 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
+import 'package:eflutter/data/models/user.dart';
+import 'package:eflutter/presentation/app/navigation/app_routes.dart';
+import 'package:eflutter/presentation/app/navigation/navigation_item.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:eflutter/main.dart';
-
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  test('parses GetMe response with nullable avatar and default role', () {
+    final user = User.fromJson({
+      'id': 1,
+      'email': 'user@example.com',
+      'name': 'EFlutter User',
+      'avatar': null,
+    });
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    expect(user.id, 1);
+    expect(user.email, 'user@example.com');
+    expect(user.name, 'EFlutter User');
+    expect(user.avatar, isNull);
+    expect(user.role, '');
+  });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+  test('profile is a dedicated navigation item', () {
+    expect(NavigationItem.mobileShellBranches.map((item) => item.route), [
+      AppRoutes.home,
+      AppRoutes.profile,
+      AppRoutes.other,
+    ]);
+    expect(NavigationItem.profileItem.title, 'Profile');
+    expect(NavigationItem.profileItem.route.path, '/profile');
   });
 }

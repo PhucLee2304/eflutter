@@ -1,4 +1,5 @@
 import 'package:eflutter/presentation/app/navigation/app_routes.dart';
+import 'package:eflutter/presentation/profile/profile_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:solar_icons/solar_icons.dart';
@@ -31,19 +32,30 @@ class NavigationItem {
   });
 
   StatefulShellBranch get shellBranch => StatefulShellBranch(
-    routes: [GoRoute(path: route.path, builder: (context, state) => screen, routes: subRoutes)],
+    routes: [
+      GoRoute(
+        path: route.path,
+        builder: (context, state) => screen,
+        routes: subRoutes,
+      ),
+    ],
   );
 
-  GoRoute get goRoute =>
-      GoRoute(path: route.path, builder: (context, state) => screen, routes: subRoutes);
+  GoRoute get goRoute => GoRoute(
+    path: route.path,
+    builder: (context, state) => screen,
+    routes: subRoutes,
+  );
 
   static final allItems = itemGroups.values.expand((e) => e).toList();
   static final webShellBranches = allItems;
-  static final mobileShellBranches = [homeItem, otherItem];
-  static final mobileOtherItems = allItems.where((e) => !mobileShellBranches.contains(e)).toList();
+  static final mobileShellBranches = [homeItem, profileItem, otherItem];
+  static final mobileOtherItems = allItems
+      .where((e) => !mobileShellBranches.contains(e))
+      .toList();
 
   static final Map<NavigationItemGroup, List<NavigationItem>> itemGroups = {
-    NavigationItemGroup.general: [homeItem, otherItem],
+    NavigationItemGroup.general: [homeItem, profileItem, otherItem],
   };
 
   static final homeItem = const NavigationItem(
@@ -55,6 +67,15 @@ class NavigationItem {
     screen: Placeholder(),
   );
 
+  static final profileItem = const NavigationItem(
+    title: 'Profile',
+    shortTitle: 'Profile',
+    icon: SolarIconsOutline.user,
+    selectedIcon: SolarIconsBold.user,
+    route: AppRoutes.profile,
+    screen: ProfileScreen(),
+  );
+
   static final otherItem = NavigationItem(
     title: 'Other',
     icon: SolarIconsOutline.plain3,
@@ -62,14 +83,19 @@ class NavigationItem {
     route: AppRoutes.other,
     screen: const Placeholder(),
     subRoutes: [
-      GoRoute(path: AppRoutes.subOther.path, builder: (context, state) => const Placeholder()),
+      GoRoute(
+        path: AppRoutes.subOther.path,
+        builder: (context, state) => const Placeholder(),
+      ),
     ],
   );
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is NavigationItem && runtimeType == other.runtimeType && route == other.route;
+      other is NavigationItem &&
+          runtimeType == other.runtimeType &&
+          route == other.route;
 
   @override
   int get hashCode => route.hashCode;

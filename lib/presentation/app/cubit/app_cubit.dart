@@ -10,11 +10,14 @@ part 'app_cubit.freezed.dart';
 
 @freezed
 abstract class AppState with _$AppState {
-  const factory AppState({User? user, @Default(AppInfo()) AppInfo appInfo, Failure? failure}) =
-      _AppState;
+  const factory AppState({
+    User? user,
+    @Default(AppInfo()) AppInfo appInfo,
+    Failure? failure,
+  }) = _AppState;
 }
 
-@injectable
+@singleton
 class AppCubit extends Cubit<AppState> {
   AppCubit() : super(const AppState()) {
     initAppInfo();
@@ -27,6 +30,8 @@ class AppCubit extends Cubit<AppState> {
   }
 
   Future<void> load() async {}
+
+  void setUser(User user) => emit(state.copyWith(user: user));
 
   void clear() => emit(const AppState());
 }
