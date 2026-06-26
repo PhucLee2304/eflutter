@@ -17,6 +17,7 @@ class MainAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<AppCubit, AppState>(
       builder: (context, state) {
+        final avatarUrl = state.user?.avatar?.trim();
         return AppBar(
           title: GestureDetector(
             onTap: () => refreshPage(),
@@ -33,7 +34,10 @@ class MainAppBar extends StatelessWidget implements PreferredSizeWidget {
                   const AppLogo(width: 40),
                   Text(
                     state.appInfo.buildName,
-                    style: const TextStyle(fontSize: 10, color: ColorName.labelSecondary),
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: ColorName.labelSecondary,
+                    ),
                   ),
                 ],
               ),
@@ -60,8 +64,11 @@ class MainAppBar extends StatelessWidget implements PreferredSizeWidget {
                         ),
                       ),
                       const Text(
-                        'xin chào',
-                        style: TextStyle(fontSize: 12, color: ColorName.labelPrimary),
+                        'Hello',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: ColorName.labelPrimary,
+                        ),
                       ),
                     ],
                   ),
@@ -72,14 +79,20 @@ class MainAppBar extends StatelessWidget implements PreferredSizeWidget {
                     decoration: BoxDecoration(
                       color: ColorName.primary,
                       borderRadius: BorderRadius.circular(8),
+                      image: avatarUrl == null || avatarUrl.isEmpty
+                          ? null
+                          : DecorationImage(
+                              image: NetworkImage(avatarUrl),
+                              fit: BoxFit.cover,
+                            ),
                     ),
-                    child: const Icon(SolarIconsBold.user, color: Colors.white),
+                    child: avatarUrl == null || avatarUrl.isEmpty
+                        ? const Icon(SolarIconsBold.user, color: Colors.white)
+                        : null,
                   ),
                 ],
               ),
             ),
-            // IconButton(onPressed: onNotificationPressed, icon: const Icon(SolarIconsOutline.bell)),
-            // const SizedBox(width: 8),
           ],
           bottom: const PreferredSize(
             preferredSize: Size.fromHeight(1.0),

@@ -44,14 +44,20 @@ class LoginScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     ElevatedButton(
-                      onPressed: () => context.read<AuthCubit>().signInWithGoogle(),
+                      onPressed: () =>
+                          context.read<AuthCubit>().signInWithGoogle(),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Color(0xFF4285F4),
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
                         elevation: 2,
                         shadowColor: ColorName.primary.withValues(alpha: 0.3),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(50)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(50),
+                        ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -60,7 +66,10 @@ class LoginScreen extends StatelessWidget {
                           Assets.images.google.image(width: 24, height: 24),
                           const Text(
                             'Tiếp tục với Google',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ],
                       ),

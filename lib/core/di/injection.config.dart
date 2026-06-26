@@ -19,8 +19,11 @@ import 'package:eflutter/core/loading/loading_service.dart' as _i513;
 import 'package:eflutter/data/data_sources/local_data.dart' as _i264;
 import 'package:eflutter/data/data_sources/remote_data.dart' as _i81;
 import 'package:eflutter/data/repositories/auth_repository.dart' as _i695;
+import 'package:eflutter/data/repositories/user_repository.dart' as _i180;
 import 'package:eflutter/presentation/app/cubit/app_cubit.dart' as _i912;
 import 'package:eflutter/presentation/auth/cubit/auth_cubit.dart' as _i744;
+import 'package:eflutter/presentation/profile/cubit/profile_cubit.dart'
+    as _i1004;
 import 'package:get_it/get_it.dart' as _i174;
 import 'package:injectable/injectable.dart' as _i526;
 import 'package:shared_preferences/shared_preferences.dart' as _i460;
@@ -34,11 +37,11 @@ extension GetItInjectableX on _i174.GetIt {
   }) {
     final gh = _i526.GetItHelper(this, environment, environmentFilter);
     final registerModule = _$RegisterModule();
-    gh.factory<_i912.AppCubit>(() => _i912.AppCubit());
     gh.singleton<_i513.LoadingService>(
       () => _i513.LoadingService(),
       dispose: (i) => i.dispose(),
     );
+    gh.singleton<_i912.AppCubit>(() => _i912.AppCubit());
     gh.lazySingleton<_i393.AuthInterceptor>(() => _i393.AuthInterceptor());
     gh.lazySingleton<_i460.SharedPreferencesAsync>(
       () => registerModule.sharedPreferencesAsync,
@@ -59,6 +62,13 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i207.Talker>(),
         gh<_i90.RemoteDataBase>(),
       ),
+    );
+    gh.lazySingleton<_i180.UserRepository>(
+      () => _i180.UserRepository(gh<_i90.RemoteDataBase>()),
+    );
+    gh.factory<_i1004.ProfileCubit>(
+      () =>
+          _i1004.ProfileCubit(gh<_i180.UserRepository>(), gh<_i912.AppCubit>()),
     );
     gh.singleton<_i744.AuthCubit>(
       () => _i744.AuthCubit(gh<_i695.AuthRepository>()),

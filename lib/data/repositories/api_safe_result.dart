@@ -25,7 +25,9 @@ extension ApiSafeResult<T> on Future<T> {
         onError?.call(e);
       }
       logger.error('[UnexpectedException]:', e, st);
-      return Result.failure(message: 'An unexpected error occurred. Please try again.');
+      return Result.failure(
+        message: 'An unexpected error occurred. Please try again.',
+      );
     }
   }
 
@@ -54,7 +56,9 @@ extension ApiSafeResult<T> on Future<T> {
       return 'Server is experiencing issues (Error $statusCode). Please try again later.';
     }
 
-    if (data == null) return e.message ?? 'An unexpected error occurred. Please try again.';
+    if (data == null) {
+      return e.message ?? 'An unexpected error occurred. Please try again.';
+    }
 
     if (data is Map<String, dynamic>) {
       if (data.containsKey('message')) {
@@ -62,8 +66,12 @@ extension ApiSafeResult<T> on Future<T> {
       }
       if (data.containsKey('error')) {
         final error = data['error'];
-        if (error is String) return error;
-        if (error is Map && error.containsKey('message')) return error['message'];
+        if (error is String) {
+          return error;
+        }
+        if (error is Map && error.containsKey('message')) {
+          return error['message'];
+        }
       }
     }
 

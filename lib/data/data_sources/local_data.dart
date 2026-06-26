@@ -9,13 +9,15 @@ class LocalData implements LocalDataBase {
 
   static const _accessTokenKey = 'accessToken';
   @override
-  Future<void> saveAccessToken(String token) => _prefs.setString(_accessTokenKey, token);
+  Future<void> saveAccessToken(String token) =>
+      _prefs.setString(_accessTokenKey, token);
   @override
   Future<String?> getAccessToken() => _prefs.getString(_accessTokenKey);
 
   static const _refreshTokenKey = 'refreshToken';
   @override
-  Future<void> saveRefreshToken(String token) => _prefs.setString(_refreshTokenKey, token);
+  Future<void> saveRefreshToken(String token) =>
+      _prefs.setString(_refreshTokenKey, token);
   @override
   Future<String?> getRefreshToken() => _prefs.getString(_refreshTokenKey);
 
@@ -26,6 +28,9 @@ class LocalData implements LocalDataBase {
 
   @override
   Future<void> clearTokens() async {
-    await [_prefs.remove(_accessTokenKey), _prefs.remove(_refreshTokenKey)].wait;
+    await [
+      _prefs.remove(_accessTokenKey),
+      _prefs.remove(_refreshTokenKey),
+    ].wait;
   }
 }

@@ -15,7 +15,10 @@ class WebLayout extends StatelessWidget {
 
   void _onTabTapped(NavigationItem item) {
     final index = allItems.indexOf(item);
-    navigationShell.goBranch(index, initialLocation: index == navigationShell.currentIndex);
+    navigationShell.goBranch(
+      index,
+      initialLocation: index == navigationShell.currentIndex,
+    );
   }
 
   @override
@@ -119,7 +122,8 @@ class _NavigationSideBarState extends State<_NavigationSideBar> {
   @override
   void didUpdateWidget(covariant _NavigationSideBar oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.isDesktop != widget.isDesktop || oldWidget.isMobile != widget.isMobile) {
+    if (oldWidget.isDesktop != widget.isDesktop ||
+        oldWidget.isMobile != widget.isMobile) {
       isExpanded = widget.isDesktop || widget.isMobile;
     }
   }
@@ -135,7 +139,10 @@ class _NavigationSideBarState extends State<_NavigationSideBar> {
           Expanded(
             child: SingleChildScrollView(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 16,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   spacing: 8,
@@ -214,7 +221,8 @@ class _NavigationSideBarGroup extends StatefulWidget {
   final Function(NavigationItem item) onTabTapped;
 
   @override
-  State<_NavigationSideBarGroup> createState() => _NavigationSideBarGroupState();
+  State<_NavigationSideBarGroup> createState() =>
+      _NavigationSideBarGroupState();
 }
 
 class _NavigationSideBarGroupState extends State<_NavigationSideBarGroup> {
@@ -230,7 +238,9 @@ class _NavigationSideBarGroupState extends State<_NavigationSideBarGroup> {
   Widget build(BuildContext context) {
     return Column(
       spacing: 4,
-      crossAxisAlignment: widget.isExpanded ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+      crossAxisAlignment: widget.isExpanded
+          ? CrossAxisAlignment.start
+          : CrossAxisAlignment.center,
       children: [
         widget.isExpanded
             ? InkWell(
@@ -263,7 +273,9 @@ class _NavigationSideBarGroupState extends State<_NavigationSideBarGroup> {
                   ),
                 ),
               )
-            : const Center(child: SizedBox(width: 60, child: Divider(height: 1))),
+            : const Center(
+                child: SizedBox(width: 60, child: Divider(height: 1)),
+              ),
         Builder(
           builder: (context) {
             final itemsList = Column(
@@ -280,7 +292,10 @@ class _NavigationSideBarGroupState extends State<_NavigationSideBarGroup> {
                         onTap: () => widget.onTabTapped(item),
                         borderRadius: BorderRadius.circular(8),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: isSelected
                                 ? ColorName.primary.withValues(alpha: 0.1)
@@ -289,11 +304,15 @@ class _NavigationSideBarGroupState extends State<_NavigationSideBarGroup> {
                           ),
                           child: Flex(
                             spacing: 8,
-                            direction: widget.isExpanded ? Axis.horizontal : Axis.vertical,
+                            direction: widget.isExpanded
+                                ? Axis.horizontal
+                                : Axis.vertical,
                             children: [
                               Icon(
                                 isSelected ? item.selectedIcon : item.icon,
-                                color: isSelected ? ColorName.primary : ColorName.labelPrimary,
+                                color: isSelected
+                                    ? ColorName.primary
+                                    : ColorName.labelPrimary,
                                 size: 20,
                               ),
                               widget.isExpanded

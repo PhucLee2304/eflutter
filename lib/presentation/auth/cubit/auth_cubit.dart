@@ -10,7 +10,10 @@ part 'auth_cubit.freezed.dart';
 @freezed
 abstract class AuthState extends AuthStateBase with _$AuthState {
   const AuthState._({super.isAuthenticated = false}) : super();
-  const factory AuthState({@Default(false) bool isAuthenticated, Failure? failure}) = _AuthState;
+  const factory AuthState({
+    @Default(false) bool isAuthenticated,
+    Failure? failure,
+  }) = _AuthState;
 }
 
 @singleton
