@@ -24,27 +24,39 @@ class AppRouter {
   );
 
   static final _mobileRoutes = [
-    GoRoute(path: AppRoutes.login.path, builder: (context, state) => const LoginScreen()),
+    GoRoute(
+      path: AppRoutes.login.path,
+      builder: (context, state) => const LoginScreen(),
+    ),
     GoRoute(
       path: AppRoutes.log.path,
       builder: (context, state) => TalkerScreen(talker: getIt<Talker>()),
     ),
     StatefulShellRoute.indexedStack(
-      builder: (context, state, navigationShell) => MobileLayout(navigationShell: navigationShell),
-      branches: NavigationItem.mobileShellBranches.map((e) => e.shellBranch).toList(),
+      builder: (context, state, navigationShell) =>
+          MobileLayout(navigationShell: navigationShell),
+      branches: NavigationItem.mobileShellBranches
+          .map((e) => e.shellBranch)
+          .toList(),
     ),
     ...NavigationItem.mobileOtherItems.map((e) => e.goRoute),
   ];
 
   static final _webRoutes = [
-    GoRoute(path: AppRoutes.login.path, builder: (context, state) => const LoginScreen()),
+    GoRoute(
+      path: AppRoutes.login.path,
+      builder: (context, state) => const LoginScreen(),
+    ),
     GoRoute(
       path: AppRoutes.log.path,
       builder: (context, state) => TalkerScreen(talker: getIt<Talker>()),
     ),
     StatefulShellRoute.indexedStack(
-      builder: (context, state, navigationShell) => WebLayout(navigationShell: navigationShell),
-      branches: NavigationItem.webShellBranches.map((e) => e.shellBranch).toList(),
+      builder: (context, state, navigationShell) =>
+          WebLayout(navigationShell: navigationShell),
+      branches: NavigationItem.webShellBranches
+          .map((e) => e.shellBranch)
+          .toList(),
     ),
   ];
 

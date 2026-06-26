@@ -51,7 +51,8 @@ class AppTheme {
     dividerTheme: const DividerThemeData(color: ColorName.gray5),
 
     actionIconTheme: ActionIconThemeData(
-      backButtonIconBuilder: (context) => const Icon(SolarIconsOutline.altArrowLeft),
+      backButtonIconBuilder: (context) =>
+          const Icon(SolarIconsOutline.altArrowLeft),
     ),
 
     elevatedButtonTheme: ElevatedButtonThemeData(
