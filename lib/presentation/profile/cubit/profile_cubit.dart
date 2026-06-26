@@ -1,5 +1,6 @@
 import 'package:eflutter/core/base/result.dart';
 import 'package:eflutter/core/loading/loading_service.dart';
+import 'package:eflutter/core/utils/helpers/file_picker/local_picked_file.dart';
 import 'package:eflutter/data/models/user.dart';
 import 'package:eflutter/data/repositories/user_repository.dart';
 import 'package:eflutter/presentation/app/cubit/app_cubit.dart';
@@ -50,6 +51,11 @@ class ProfileCubit extends Cubit<ProfileState> {
   ProfileCubit(this._userRepository, this._appCubit)
     : super(const ProfileState());
 
+  void hydrate(User? user) {
+    if (user == null) return;
+    emit(state.copyWith(user: user, failure: null));
+  }
+
   Future<void> getMe() async {
     emit(state.copyWith(isLoading: true, failure: null, saved: false));
     final result = await _userRepository.getMe().withLoading();
@@ -65,28 +71,63 @@ class ProfileCubit extends Cubit<ProfileState> {
     }
   }
 
-  Future<void> updateMe({required String name, required String avatar}) async {
-    final trimmedName = name.trim();
-    final trimmedAvatar = avatar.trim();
+  Future<void> saveProfile({String? name, LocalPickedFile? avatarFile}) async {
+    final trimmedName = name?.trim();
+    final hasNameChange = trimmedName != null && trimmedName.isNotEmpty;
+    final hasAvatarChange = avatarFile != null;
 
-    if (trimmedName.isEmpty && trimmedAvatar.isEmpty) {
-      emit(
-        state.copyWith(
-          failure: const Failure(
-            message: 'Please enter a display name or avatar URL.',
-          ),
-          saved: false,
-        ),
-      );
-      emit(state.copyWith(failure: null));
+    if (!hasNameChange && !hasAvatarChange) {
       return;
     }
 
     emit(state.copyWith(isSaving: true, failure: null, saved: false));
+
+    String? avatarFileName;
+    if (avatarFile != null) {
+      avatarFileName = _normalizeUploadFileName(avatarFile.name);
+      final presignResult = await _userRepository
+          .getPresignedUploadUrl(
+            fileName: avatarFileName,
+            contentType: avatarFile.contentType,
+            folder: 'avatars',
+          )
+          .withLoading();
+
+      switch (presignResult) {
+        case Failure():
+          emit(state.copyWith(isSaving: false, failure: presignResult));
+          emit(state.copyWith(failure: null));
+          return;
+        case Cancelled():
+          emit(state.copyWith(isSaving: false));
+          return;
+        case Success(data: final presignedUrl):
+          final uploadResult = await _userRepository
+              .uploadBinaryToUrl(
+                url: presignedUrl,
+                bytes: avatarFile.bytes,
+                contentType: avatarFile.contentType,
+              )
+              .withLoading();
+
+          switch (uploadResult) {
+            case Failure():
+              emit(state.copyWith(isSaving: false, failure: uploadResult));
+              emit(state.copyWith(failure: null));
+              return;
+            case Cancelled():
+              emit(state.copyWith(isSaving: false));
+              return;
+            case Success():
+              break;
+          }
+      }
+    }
+
     final result = await _userRepository
         .updateMe(
-          name: trimmedName.isEmpty ? null : trimmedName,
-          avatar: trimmedAvatar.isEmpty ? null : trimmedAvatar,
+          name: hasNameChange ? trimmedName : null,
+          avatar: avatarFileName,
         )
         .withLoading();
 
@@ -101,5 +142,17 @@ class ProfileCubit extends Cubit<ProfileState> {
       case Cancelled():
         emit(state.copyWith(isSaving: false));
     }
+  }
+
+  String _normalizeUploadFileName(String originalName) {
+    final trimmed = originalName.trim();
+    final dotIndex = trimmed.lastIndexOf('.');
+    final extension = dotIndex > -1 ? trimmed.substring(dotIndex) : '';
+    final sanitizedBase = (dotIndex > -1 ? trimmed.substring(0, dotIndex) : trimmed)
+        .replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '-')
+        .replaceAll(RegExp(r'-{2,}'), '-')
+        .replaceAll(RegExp(r'^-|-$'), '');
+    final safeBase = sanitizedBase.isEmpty ? 'avatar' : sanitizedBase;
+    return '${DateTime.now().millisecondsSinceEpoch}-$safeBase$extension';
   }
 }

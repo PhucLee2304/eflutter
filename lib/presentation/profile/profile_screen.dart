@@ -1,5 +1,10 @@
+import 'dart:typed_data';
+
 import 'package:eflutter/core/utils/extensions/toast_bar_extension.dart';
+import 'package:eflutter/core/utils/helpers/file_picker/file_picker_helper.dart';
+import 'package:eflutter/core/utils/helpers/file_picker/local_picked_file.dart';
 import 'package:eflutter/generated/colors.gen.dart';
+import 'package:eflutter/presentation/app/cubit/app_cubit.dart';
 import 'package:eflutter/presentation/auth/cubit/auth_cubit.dart';
 import 'package:eflutter/presentation/profile/cubit/profile_cubit.dart';
 import 'package:flutter/material.dart';
@@ -21,17 +26,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _initialName = '';
   String _initialAvatar = '';
   String _draftAvatar = '';
+  Uint8List? _draftAvatarBytes;
+  LocalPickedFile? _draftAvatarFile;
   bool _isEditingName = false;
+  bool _isSyncingDraft = false;
 
   bool get _hasChanges =>
       _nameController.text.trim() != _initialName.trim() ||
-      _draftAvatar.trim() != _initialAvatar.trim();
+      _draftAvatarFile != null;
+
+  bool get _canCancel => _isEditingName || _hasChanges;
 
   @override
   void initState() {
     super.initState();
     _nameController.addListener(_handleDraftChanged);
-    context.read<ProfileCubit>().getMe();
+    final profileCubit = context.read<ProfileCubit>();
+    final appUser = context.read<AppCubit>().state.user;
+    profileCubit.hydrate(appUser);
+    if (appUser == null) {
+      profileCubit.getMe();
+    }
   }
 
   @override
@@ -43,7 +58,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _handleDraftChanged() {
-    if (mounted) {
+    if (mounted && !_isSyncingDraft) {
       setState(() {});
     }
   }
@@ -53,24 +68,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (user == null) return;
 
     final currentAvatar = user.avatar ?? '';
-    final shouldSync =
-        _syncedUserId != user.id ||
-        (!_isEditingName &&
-            (_initialName != user.name || _initialAvatar != currentAvatar));
-
-    if (!shouldSync) return;
+    final isNewUser = _syncedUserId != user.id;
+    if (!isNewUser &&
+        _initialName == user.name &&
+        _initialAvatar == currentAvatar) {
+      return;
+    }
 
     _syncedUserId = user.id;
-    _initialName = user.name;
-    _initialAvatar = currentAvatar;
-    _draftAvatar = currentAvatar;
-    _nameController.text = user.name;
+
+    _isSyncingDraft = true;
+    try {
+      if (isNewUser || !_isEditingName) {
+        _initialName = user.name;
+        _nameController.text = user.name;
+      }
+
+      _initialAvatar = currentAvatar;
+      _draftAvatar = currentAvatar;
+      _draftAvatarBytes = null;
+      _draftAvatarFile = null;
+    } finally {
+      _isSyncingDraft = false;
+    }
   }
 
   void _cancelChanges() {
     setState(() {
       _nameController.text = _initialName;
       _draftAvatar = _initialAvatar;
+      _draftAvatarBytes = null;
+      _draftAvatarFile = null;
       _isEditingName = false;
     });
   }
@@ -81,8 +109,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
   }
 
-  void _openAvatarPicker() {
-    // Upload wiring will be added later. This keeps the intended control in place.
+  Future<void> _openAvatarPicker() async {
+    if (context.read<ProfileCubit>().state.isSaving) {
+      return;
+    }
+
+    final file = await pickImageFile();
+    if (file == null || !mounted) {
+      return;
+    }
+
+    _previewAvatar(file);
+  }
+
+  void _previewAvatar(LocalPickedFile file) {
+    setState(() {
+      _draftAvatarFile = file;
+      _draftAvatarBytes = file.bytes;
+    });
   }
 
   @override
@@ -130,7 +174,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 email: state.user?.email ?? '',
                                 role: state.user?.role ?? '',
                                 avatar: _draftAvatar,
+                                avatarBytes: _draftAvatarBytes,
                                 isEditingName: _isEditingName,
+                                isBusy: state.isSaving,
                                 onEditName: _startNameEdit,
                                 onChangeAvatar: _openAvatarPicker,
                               ),
@@ -138,7 +184,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 children: [
                                   Expanded(
                                     child: OutlinedButton.icon(
-                                      onPressed: _hasChanges && !state.isSaving
+                                      onPressed: _canCancel && !state.isSaving
                                           ? _cancelChanges
                                           : null,
                                       icon: const Icon(
@@ -158,9 +204,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                               }
                                               context
                                                   .read<ProfileCubit>()
-                                                  .updateMe(
-                                                    name: _nameController.text,
-                                                    avatar: _draftAvatar,
+                                                  .saveProfile(
+                                                    name:
+                                                        _nameController.text
+                                                                    .trim() !=
+                                                                _initialName
+                                                                    .trim()
+                                                            ? _nameController
+                                                                  .text
+                                                            : null,
+                                                    avatarFile:
+                                                        _draftAvatarFile,
                                                   );
                                             }
                                           : null,
@@ -199,7 +253,9 @@ class _ProfileHeader extends StatelessWidget {
     required this.email,
     required this.role,
     required this.avatar,
+    required this.avatarBytes,
     required this.isEditingName,
+    required this.isBusy,
     required this.onEditName,
     required this.onChangeAvatar,
   });
@@ -208,7 +264,9 @@ class _ProfileHeader extends StatelessWidget {
   final String email;
   final String role;
   final String avatar;
+  final Uint8List? avatarBytes;
   final bool isEditingName;
+  final bool isBusy;
   final VoidCallback onEditName;
   final VoidCallback onChangeAvatar;
 
@@ -224,7 +282,12 @@ class _ProfileHeader extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _EditableAvatar(avatarUrl: avatarUrl, onPressed: onChangeAvatar),
+          _EditableAvatar(
+            avatarUrl: avatarUrl,
+            avatarBytes: avatarBytes,
+            isBusy: isBusy,
+            onPressed: onChangeAvatar,
+          ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
@@ -288,9 +351,16 @@ class _ProfileHeader extends StatelessWidget {
 }
 
 class _EditableAvatar extends StatelessWidget {
-  const _EditableAvatar({required this.avatarUrl, required this.onPressed});
+  const _EditableAvatar({
+    required this.avatarUrl,
+    required this.avatarBytes,
+    required this.isBusy,
+    required this.onPressed,
+  });
 
   final String avatarUrl;
+  final Uint8List? avatarBytes;
+  final bool isBusy;
   final VoidCallback onPressed;
 
   @override
@@ -301,17 +371,27 @@ class _EditableAvatar extends StatelessWidget {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          CircleAvatar(
-            radius: 40,
-            backgroundColor: ColorName.primary.withValues(alpha: 0.12),
-            foregroundImage: avatarUrl.isEmpty ? null : NetworkImage(avatarUrl),
-            child: avatarUrl.isEmpty
-                ? const Icon(
-                    SolarIconsBold.user,
-                    color: ColorName.primary,
-                    size: 34,
-                  )
-                : null,
+          Builder(
+            builder: (context) {
+              ImageProvider<Object>? imageProvider;
+              if (avatarBytes != null) {
+                imageProvider = MemoryImage(avatarBytes!);
+              } else if (avatarUrl.isNotEmpty) {
+                imageProvider = NetworkImage(avatarUrl);
+              }
+              return CircleAvatar(
+                radius: 40,
+                backgroundColor: ColorName.primary.withValues(alpha: 0.12),
+                foregroundImage: imageProvider,
+                child: imageProvider == null
+                    ? const Icon(
+                        SolarIconsBold.user,
+                        color: ColorName.primary,
+                        size: 34,
+                      )
+                    : null,
+              );
+            },
           ),
           Positioned(
             right: 0,
@@ -321,9 +401,15 @@ class _EditableAvatar extends StatelessWidget {
               height: 32,
               child: IconButton.filled(
                 tooltip: 'Change avatar',
-                onPressed: onPressed,
+                onPressed: isBusy ? null : onPressed,
                 padding: EdgeInsets.zero,
-                icon: const Icon(SolarIconsOutline.camera, size: 18),
+                icon: isBusy
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(SolarIconsOutline.camera, size: 18),
               ),
             ),
           ),
