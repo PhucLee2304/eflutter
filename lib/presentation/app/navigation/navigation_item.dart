@@ -1,6 +1,13 @@
 import 'package:eflutter/presentation/app/navigation/app_routes.dart';
+import 'package:eflutter/core/di/injection.dart';
+import 'package:eflutter/core/base/remote_data_base.dart';
+import 'package:eflutter/data/repositories/topic_repository.dart';
 import 'package:eflutter/presentation/profile/profile_screen.dart';
+import 'package:eflutter/presentation/topics/cubit/lesson_detail_cubit.dart';
+import 'package:eflutter/presentation/topics/lesson_detail_screen.dart';
+import 'package:eflutter/presentation/topics/topic_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:solar_icons/solar_icons.dart';
 
@@ -49,13 +56,18 @@ class NavigationItem {
 
   static final allItems = itemGroups.values.expand((e) => e).toList();
   static final webShellBranches = allItems;
-  static final mobileShellBranches = [homeItem, profileItem, otherItem];
+  static final mobileShellBranches = [
+    homeItem,
+    topicItem,
+    profileItem,
+    otherItem,
+  ];
   static final mobileOtherItems = allItems
       .where((e) => !mobileShellBranches.contains(e))
       .toList();
 
   static final Map<NavigationItemGroup, List<NavigationItem>> itemGroups = {
-    NavigationItemGroup.general: [homeItem, profileItem, otherItem],
+    NavigationItemGroup.general: [homeItem, topicItem, profileItem, otherItem],
   };
 
   static final homeItem = const NavigationItem(
@@ -74,6 +86,34 @@ class NavigationItem {
     selectedIcon: SolarIconsBold.user,
     route: AppRoutes.profile,
     screen: ProfileScreen(),
+  );
+
+  static final topicItem = NavigationItem(
+    title: 'Topic',
+    shortTitle: 'Topic',
+    icon: SolarIconsOutline.notebook,
+    selectedIcon: SolarIconsBold.notebook,
+    route: AppRoutes.topic,
+    screen: TopicScreen(),
+    subRoutes: [
+      GoRoute(
+        path: AppRoutes.topicLesson.path,
+        builder: (context, state) {
+          final id = int.tryParse(state.pathParameters['id'] ?? '');
+          if (id == null) {
+            return const Scaffold(
+              body: Center(child: Text('Invalid lesson id')),
+            );
+          }
+          return BlocProvider(
+            create: (_) => LessonDetailCubit(
+              TopicRepository(getIt<RemoteDataBase>()),
+            ),
+            child: LessonDetailScreen(lessonId: id),
+          );
+        },
+      ),
+    ],
   );
 
   static final otherItem = NavigationItem(
