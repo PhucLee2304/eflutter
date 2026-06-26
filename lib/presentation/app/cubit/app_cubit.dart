@@ -1,5 +1,7 @@
 import 'package:eflutter/core/base/result.dart';
+import 'package:eflutter/core/loading/loading_service.dart';
 import 'package:eflutter/data/models/user.dart';
+import 'package:eflutter/data/repositories/user_repository.dart';
 import 'package:eflutter/presentation/app/models/app_info.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
@@ -19,9 +21,11 @@ abstract class AppState with _$AppState {
 
 @singleton
 class AppCubit extends Cubit<AppState> {
-  AppCubit() : super(const AppState()) {
+  AppCubit(this._userRepository) : super(const AppState()) {
     initAppInfo();
   }
+
+  final UserRepository _userRepository;
 
   Future<void> initAppInfo() async {
     final packageInfo = await PackageInfo.fromPlatform();
@@ -29,9 +33,20 @@ class AppCubit extends Cubit<AppState> {
     emit(state.copyWith(appInfo: appInfo));
   }
 
-  Future<void> load() async {}
+  Future<void> load() async {
+    final result = await _userRepository.getMe().withLoading();
+    switch (result) {
+      case Success(data: final user):
+        emit(state.copyWith(user: user, failure: null));
+      case Failure():
+        emit(state.copyWith(failure: result));
+        emit(state.copyWith(failure: null));
+      case Cancelled():
+        break;
+    }
+  }
 
   void setUser(User user) => emit(state.copyWith(user: user));
 
-  void clear() => emit(const AppState());
+  void clear() => emit(state.copyWith(user: null, failure: null));
 }

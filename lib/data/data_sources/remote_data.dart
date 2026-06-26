@@ -1,6 +1,10 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:eflutter/core/auth/auth_interceptor.dart';
 import 'package:eflutter/core/base/remote_data_base.dart';
+import 'package:eflutter/core/utils/helpers/upload/upload_binary_to_url.dart'
+    as upload_helper;
 import 'package:eflutter/data/models/topic_lesson.dart';
 import 'package:eflutter/data/models/topic_lesson_detail.dart';
 import 'package:eflutter/data/models/topic_section.dart';
@@ -48,6 +52,37 @@ class RemoteData implements RemoteDataBase {
 
     final response = await _dio.patch('/users/api/v1/me', data: data);
     return User.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  @override
+  Future<String> getPresignedUploadUrl({
+    required String fileName,
+    required String contentType,
+    required String folder,
+  }) async {
+    final response = await _dio.post(
+      '/storage/api/v1/presign/upload',
+      data: {
+        'fileName': fileName,
+        'contentType': contentType,
+        'folder': folder,
+      },
+    );
+    final data = response.data as Map<String, dynamic>;
+    return data['url'] as String;
+  }
+
+  @override
+  Future<void> uploadBinaryToUrl({
+    required String url,
+    required Uint8List bytes,
+    required String contentType,
+  }) async {
+    await upload_helper.uploadBinaryToUrl(
+      url: url,
+      bytes: bytes,
+      contentType: contentType,
+    );
   }
 
   @override

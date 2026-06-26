@@ -41,7 +41,6 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i513.LoadingService(),
       dispose: (i) => i.dispose(),
     );
-    gh.singleton<_i912.AppCubit>(() => _i912.AppCubit());
     gh.lazySingleton<_i393.AuthInterceptor>(() => _i393.AuthInterceptor());
     gh.lazySingleton<_i460.SharedPreferencesAsync>(
       () => registerModule.sharedPreferencesAsync,
@@ -65,6 +64,9 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.lazySingleton<_i180.UserRepository>(
       () => _i180.UserRepository(gh<_i90.RemoteDataBase>()),
+    );
+    gh.singleton<_i912.AppCubit>(
+      () => _i912.AppCubit(gh<_i180.UserRepository>()),
     );
     gh.factory<_i1004.ProfileCubit>(
       () =>
