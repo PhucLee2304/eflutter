@@ -1,6 +1,10 @@
 import 'package:dio/dio.dart';
 import 'package:eflutter/core/auth/auth_interceptor.dart';
 import 'package:eflutter/core/base/remote_data_base.dart';
+import 'package:eflutter/data/models/topic_lesson.dart';
+import 'package:eflutter/data/models/topic_lesson_detail.dart';
+import 'package:eflutter/data/models/topic_section.dart';
+import 'package:eflutter/data/models/topic_summary.dart';
 import 'package:eflutter/data/models/user.dart';
 import 'package:injectable/injectable.dart';
 
@@ -44,5 +48,44 @@ class RemoteData implements RemoteDataBase {
 
     final response = await _dio.patch('/users/api/v1/me', data: data);
     return User.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  @override
+  Future<List<TopicSummary>> getTopics() async {
+    final response = await _dio.get('/topics/api/v1/topics');
+    final data = response.data as Map<String, dynamic>;
+    final topics = (data['topics'] as List<dynamic>? ?? const []);
+    return topics
+        .map((item) => TopicSummary.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  @override
+  Future<List<TopicSection>> getSectionsByTopic(int topicId) async {
+    final response = await _dio.get('/topics/api/v1/topics/$topicId');
+    final data = response.data as Map<String, dynamic>;
+    final sections = (data['sections'] as List<dynamic>? ?? const []);
+    return sections
+        .map((item) => TopicSection.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  @override
+  Future<List<TopicLesson>> getLessonsBySection(int sectionId) async {
+    final response = await _dio.get(
+      '/topics/api/v1/sections/$sectionId/lessons',
+    );
+    final data = response.data as Map<String, dynamic>;
+    final lessons = (data['lessons'] as List<dynamic>? ?? const []);
+    return lessons
+        .map((item) => TopicLesson.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  @override
+  Future<TopicLessonDetail> getLessonById(int lessonId) async {
+    final response = await _dio.get('/topics/api/v1/lessons/$lessonId');
+    final data = response.data as Map<String, dynamic>;
+    return TopicLessonDetail.fromJson(data['lesson'] as Map<String, dynamic>);
   }
 }

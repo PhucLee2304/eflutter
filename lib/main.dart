@@ -3,6 +3,7 @@ import 'package:eflutter/core/base/local_data_base.dart';
 import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:eflutter/core/utils/helpers/platform/platform_helper.dart';
 import 'package:eflutter/core/base/remote_data_base.dart';
+import 'package:eflutter/data/repositories/topic_repository.dart';
 import 'package:eflutter/data/repositories/user_repository.dart';
 import 'package:eflutter/presentation/app/cubit/app_cubit.dart';
 import 'package:eflutter/presentation/app/navigation/app_router.dart';
@@ -10,6 +11,7 @@ import 'package:eflutter/presentation/app/theme/app_theme.dart';
 import 'package:eflutter/presentation/app/widgets/app_widget.dart';
 import 'package:eflutter/presentation/auth/cubit/auth_cubit.dart';
 import 'package:eflutter/presentation/profile/cubit/profile_cubit.dart';
+import 'package:eflutter/presentation/topics/cubit/topic_cubit.dart';
 import 'package:eflutter/firebase_options.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -39,6 +41,9 @@ void main() async {
         BlocProvider(
           create: (_) =>
               ProfileCubit(UserRepository(getIt<RemoteDataBase>()), appCubit),
+        ),
+        BlocProvider(
+          create: (_) => TopicCubit(TopicRepository(getIt<RemoteDataBase>())),
         ),
       ],
       child: const MyApp(),
