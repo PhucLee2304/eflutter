@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+import 'package:eflutter/data/models/exam_detail.dart';
+import 'package:eflutter/data/models/exam_page.dart';
 import 'package:eflutter/data/models/topic_lesson.dart';
 import 'package:eflutter/data/models/topic_lesson_detail.dart';
 import 'package:eflutter/data/models/topic_section.dart';
@@ -34,4 +36,12 @@ abstract interface class RemoteDataBase {
   Future<List<TopicLesson>> getLessonsBySection(int sectionId);
 
   Future<TopicLessonDetail> getLessonById(int lessonId);
+
+  Future<ExamPage> getExams({
+    required String type,
+    required int page,
+    required int pageSize,
+  });
+
+  Future<ExamDetail> getExamById(int examId);
 }

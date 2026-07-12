@@ -5,6 +5,8 @@ import 'package:eflutter/core/auth/auth_interceptor.dart';
 import 'package:eflutter/core/base/remote_data_base.dart';
 import 'package:eflutter/core/utils/helpers/upload/upload_binary_to_url.dart'
     as upload_helper;
+import 'package:eflutter/data/models/exam_detail.dart';
+import 'package:eflutter/data/models/exam_page.dart';
 import 'package:eflutter/data/models/topic_lesson.dart';
 import 'package:eflutter/data/models/topic_lesson_detail.dart';
 import 'package:eflutter/data/models/topic_section.dart';
@@ -122,5 +124,24 @@ class RemoteData implements RemoteDataBase {
     final response = await _dio.get('/topics/api/v1/lessons/$lessonId');
     final data = response.data as Map<String, dynamic>;
     return TopicLessonDetail.fromJson(data['lesson'] as Map<String, dynamic>);
+  }
+
+  @override
+  Future<ExamPage> getExams({
+    required String type,
+    required int page,
+    required int pageSize,
+  }) async {
+    final response = await _dio.get(
+      '/exams/api/v1/exams',
+      queryParameters: {'type': type, 'page': page, 'pageSize': pageSize},
+    );
+    return ExamPage.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  @override
+  Future<ExamDetail> getExamById(int examId) async {
+    final response = await _dio.get('/exams/api/v1/exams/$examId');
+    return ExamDetail.fromJson(response.data as Map<String, dynamic>);
   }
 }

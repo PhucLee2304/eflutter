@@ -2,6 +2,8 @@ import 'package:eflutter/presentation/app/navigation/app_routes.dart';
 import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/core/base/remote_data_base.dart';
 import 'package:eflutter/data/repositories/topic_repository.dart';
+import 'package:eflutter/presentation/exams/exam_detail_screen.dart';
+import 'package:eflutter/presentation/exams/exam_list_screen.dart';
 import 'package:eflutter/presentation/profile/profile_screen.dart';
 import 'package:eflutter/presentation/topics/cubit/lesson_detail_cubit.dart';
 import 'package:eflutter/presentation/topics/lesson_detail_screen.dart';
@@ -27,6 +29,9 @@ class NavigationItem {
   final AppRoutes route;
   final Widget screen;
   final List<RouteBase> subRoutes;
+  final String? parentTitle;
+  final IconData? parentIcon;
+  final bool isChild;
 
   const NavigationItem({
     required this.title,
@@ -36,6 +41,9 @@ class NavigationItem {
     required this.route,
     required this.screen,
     this.subRoutes = const [],
+    this.parentTitle,
+    this.parentIcon,
+    this.isChild = false,
   });
 
   StatefulShellBranch get shellBranch => StatefulShellBranch(
@@ -67,7 +75,14 @@ class NavigationItem {
       .toList();
 
   static final Map<NavigationItemGroup, List<NavigationItem>> itemGroups = {
-    NavigationItemGroup.general: [homeItem, topicItem, profileItem, otherItem],
+    NavigationItemGroup.general: [
+      homeItem,
+      topicItem,
+      examThptItem,
+      examToeicItem,
+      profileItem,
+      otherItem,
+    ],
   };
 
   static final homeItem = const NavigationItem(
@@ -106,14 +121,50 @@ class NavigationItem {
             );
           }
           return BlocProvider(
-            create: (_) => LessonDetailCubit(
-              TopicRepository(getIt<RemoteDataBase>()),
-            ),
+            create: (_) =>
+                LessonDetailCubit(TopicRepository(getIt<RemoteDataBase>())),
             child: LessonDetailScreen(lessonId: id),
           );
         },
       ),
     ],
+  );
+
+  static final examThptItem = NavigationItem(
+    title: 'THPT',
+    shortTitle: 'THPT',
+    icon: SolarIconsOutline.documentText,
+    selectedIcon: SolarIconsBold.notebook,
+    route: AppRoutes.examThpt,
+    screen: const ExamListScreen(examType: 'THPT'),
+    parentTitle: 'Exam',
+    parentIcon: SolarIconsOutline.documentText,
+    isChild: true,
+    subRoutes: [_examDetailRoute],
+  );
+
+  static final examToeicItem = NavigationItem(
+    title: 'TOEIC',
+    shortTitle: 'TOEIC',
+    icon: SolarIconsOutline.microphone,
+    selectedIcon: SolarIconsBold.microphoneLarge,
+    route: AppRoutes.examToeic,
+    screen: const ExamListScreen(examType: 'TOEIC'),
+    parentTitle: 'Exam',
+    parentIcon: SolarIconsOutline.documentText,
+    isChild: true,
+    subRoutes: [_examDetailRoute],
+  );
+
+  static final _examDetailRoute = GoRoute(
+    path: AppRoutes.examDetail.path,
+    builder: (context, state) {
+      final id = int.tryParse(state.pathParameters['id'] ?? '');
+      if (id == null) {
+        return const Scaffold(body: Center(child: Text('Invalid exam id')));
+      }
+      return ExamDetailScreen(examId: id);
+    },
   );
 
   static final otherItem = NavigationItem(

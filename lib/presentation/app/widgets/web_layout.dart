@@ -227,6 +227,7 @@ class _NavigationSideBarGroup extends StatefulWidget {
 
 class _NavigationSideBarGroupState extends State<_NavigationSideBarGroup> {
   bool isGroupExpanded = true;
+  final Map<String, bool> _expandedParents = {};
 
   void toggleGroupExpanded() {
     setState(() {
@@ -234,8 +235,17 @@ class _NavigationSideBarGroupState extends State<_NavigationSideBarGroup> {
     });
   }
 
+  bool _isParentExpanded(String title) => _expandedParents[title] ?? true;
+
+  void _toggleParentExpanded(String title) {
+    setState(() {
+      _expandedParents[title] = !_isParentExpanded(title);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    String? previousParentTitle;
     return Column(
       spacing: 4,
       crossAxisAlignment: widget.isExpanded
@@ -288,63 +298,126 @@ class _NavigationSideBarGroupState extends State<_NavigationSideBarGroup> {
                   Builder(
                     builder: (context) {
                       final isSelected = widget.selectedItem == item;
-                      return InkWell(
-                        onTap: () => widget.onTabTapped(item),
-                        borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? ColorName.primary.withValues(alpha: 0.1)
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Flex(
-                            spacing: 8,
-                            direction: widget.isExpanded
-                                ? Axis.horizontal
-                                : Axis.vertical,
-                            children: [
-                              Icon(
-                                isSelected ? item.selectedIcon : item.icon,
-                                color: isSelected
-                                    ? ColorName.primary
-                                    : ColorName.labelPrimary,
-                                size: 20,
-                              ),
-                              widget.isExpanded
-                                  ? Expanded(
+                      final parentTitle = item.parentTitle;
+                      final showParentTitle =
+                          widget.isExpanded &&
+                          parentTitle != null &&
+                          parentTitle != previousParentTitle;
+                      previousParentTitle = parentTitle ?? previousParentTitle;
+                      final isParentExpanded = parentTitle == null
+                          ? true
+                          : _isParentExpanded(parentTitle);
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (showParentTitle)
+                            InkWell(
+                              onTap: () => _toggleParentExpanded(parentTitle),
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      item.parentIcon ?? item.icon,
+                                      color: ColorName.labelPrimary,
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
                                       child: Text(
-                                        item.title,
+                                        parentTitle,
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
+                                        style: const TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.w500,
-                                          color: isSelected
-                                              ? ColorName.primary
-                                              : ColorName.labelPrimary,
+                                          color: ColorName.labelPrimary,
                                         ),
                                       ),
-                                    )
-                                  : Text(
-                                      item.shortTitle ?? item.title,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w500,
-                                        color: isSelected
-                                            ? ColorName.primary
-                                            : ColorName.labelPrimary,
-                                      ),
                                     ),
-                            ],
-                          ),
-                        ),
+                                    Icon(
+                                      isParentExpanded
+                                          ? SolarIconsOutline.altArrowDown
+                                          : SolarIconsOutline.altArrowRight,
+                                      color: ColorName.labelSecondary,
+                                      size: 16,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          if (isParentExpanded)
+                            InkWell(
+                              onTap: () => widget.onTabTapped(item),
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                margin: EdgeInsets.only(
+                                  left: widget.isExpanded && item.isChild
+                                      ? 12
+                                      : 0,
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? ColorName.primary.withValues(alpha: 0.1)
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Flex(
+                                  spacing: 8,
+                                  direction: widget.isExpanded
+                                      ? Axis.horizontal
+                                      : Axis.vertical,
+                                  children: [
+                                    Icon(
+                                      isSelected
+                                          ? item.selectedIcon
+                                          : item.icon,
+                                      color: isSelected
+                                          ? ColorName.primary
+                                          : ColorName.labelPrimary,
+                                      size: 20,
+                                    ),
+                                    widget.isExpanded
+                                        ? Expanded(
+                                            child: Text(
+                                              item.title,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w500,
+                                                color: isSelected
+                                                    ? ColorName.primary
+                                                    : ColorName.labelPrimary,
+                                              ),
+                                            ),
+                                          )
+                                        : Text(
+                                            item.shortTitle ?? item.title,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w500,
+                                              color: isSelected
+                                                  ? ColorName.primary
+                                                  : ColorName.labelPrimary,
+                                            ),
+                                          ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                        ],
                       );
                     },
                   ),
