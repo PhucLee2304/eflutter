@@ -5,6 +5,10 @@ import 'package:eflutter/core/auth/auth_interceptor.dart';
 import 'package:eflutter/core/base/remote_data_base.dart';
 import 'package:eflutter/core/utils/helpers/upload/upload_binary_to_url.dart'
     as upload_helper;
+import 'package:eflutter/data/models/exam_attempt.dart';
+import 'package:eflutter/data/models/exam_attempt_page.dart';
+import 'package:eflutter/data/models/exam_detail.dart';
+import 'package:eflutter/data/models/exam_page.dart';
 import 'package:eflutter/data/models/topic_lesson.dart';
 import 'package:eflutter/data/models/topic_lesson_detail.dart';
 import 'package:eflutter/data/models/topic_section.dart';
@@ -122,5 +126,91 @@ class RemoteData implements RemoteDataBase {
     final response = await _dio.get('/topics/api/v1/lessons/$lessonId');
     final data = response.data as Map<String, dynamic>;
     return TopicLessonDetail.fromJson(data['lesson'] as Map<String, dynamic>);
+  }
+
+  @override
+  Future<ExamPage> getExams({
+    required String type,
+    required int page,
+    required int pageSize,
+  }) async {
+    final response = await _dio.get(
+      '/exams/api/v1/exams',
+      queryParameters: {'type': type, 'page': page, 'pageSize': pageSize},
+    );
+    return ExamPage.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  @override
+  Future<ExamDetail> getExamById(int examId) async {
+    final response = await _dio.get('/exams/api/v1/exams/$examId');
+    return ExamDetail.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  @override
+  Future<ExamAttempt> createExamAttempt(
+    int examId,
+    CreateExamAttemptRequest request,
+  ) async {
+    final response = await _dio.post(
+      '/exams/api/v1/exams/$examId/attempts',
+      data: request.toJson(),
+    );
+    return ExamAttempt.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  @override
+  Future<ExamAttemptPage> getAttempts({
+    required String status,
+    required int page,
+    required int pageSize,
+  }) async {
+    final response = await _dio.get(
+      '/exams/api/v1/attempts',
+      queryParameters: {
+        'status': status.toUpperCase(),
+        'page': page,
+        'pageSize': pageSize,
+      },
+    );
+    return ExamAttemptPage.fromResponse(response.data, requestedPage: page);
+  }
+
+  @override
+  Future<ExamAttempt> getAttemptQuestions(int attemptId) async {
+    final response = await _dio.get(
+      '/exams/api/v1/attempts/$attemptId/questions',
+    );
+    return ExamAttempt.fromQuestionsResponse(
+      response.data as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<ExamAttempt> submitAttempt(
+    int attemptId,
+    List<SubmitAttemptAnswer> answers,
+  ) async {
+    final response = await _dio.post(
+      '/exams/api/v1/attempts/$attemptId/submit',
+      data: {'answers': answers.map((answer) => answer.toJson()).toList()},
+    );
+    return ExamAttempt.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  @override
+  Future<ExamAttempt> cancelAttempt(int attemptId) async {
+    final response = await _dio.post(
+      '/exams/api/v1/attempts/$attemptId/cancel',
+    );
+    return ExamAttempt.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  @override
+  Future<ExamAttempt> getAttemptHistory(int attemptId) async {
+    final response = await _dio.get(
+      '/exams/api/v1/attempts/$attemptId/history',
+    );
+    return ExamAttempt.fromJson(response.data as Map<String, dynamic>);
   }
 }

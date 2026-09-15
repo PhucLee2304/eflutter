@@ -19,7 +19,7 @@ extension ApiSafeResult<T> on Future<T> {
       return Result.success(response);
     } on DioException catch (e) {
       final message = _extractDioErrorMessage(e);
-      return Result.failure(message: message);
+      return Result.failure(code: e.response?.statusCode, message: message);
     } catch (e, st) {
       if (e is Exception) {
         onError?.call(e);
