@@ -1,10 +1,12 @@
 import 'package:eflutter/core/base/remote_data_base.dart';
 import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/core/utils/extensions/toast_bar_extension.dart';
+import 'package:eflutter/data/models/exam_attempt.dart';
 import 'package:eflutter/data/models/exam_detail.dart';
 import 'package:eflutter/data/repositories/exam_repository.dart';
 import 'package:eflutter/generated/colors.gen.dart';
 import 'package:eflutter/presentation/exams/cubit/exam_detail_cubit.dart';
+import 'package:eflutter/presentation/app/navigation/app_routes.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -37,37 +39,47 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocConsumer<ExamDetailCubit, ExamDetailState>(
-      bloc: _cubit,
-      listener: (context, state) {
-        if (state.failure != null) {
-          context.handleFailure(state.failure);
-        }
-      },
-      builder: (context, state) {
-        final exam = state.exam;
-        return Scaffold(
-          body: SafeArea(
-            child: state.isLoading && exam == null
-                ? const Center(child: CircularProgressIndicator())
-                : exam == null
-                ? _MissingExam(onBack: context.pop)
-                : _ExamDetailBody(exam: exam),
-          ),
-        );
-      },
+    return BlocProvider.value(
+      value: _cubit,
+      child: BlocConsumer<ExamDetailCubit, ExamDetailState>(
+        listener: (context, state) {
+          if (state.failure != null) {
+            context.handleFailure(state.failure);
+          }
+          if (state.attemptStarted) {
+            final attempt = state.startedAttempt;
+            if (attempt != null) {
+              context.go(attemptPracticePath(attempt.id), extra: attempt);
+            }
+          }
+        },
+        builder: (context, state) {
+          final exam = state.exam;
+          return Scaffold(
+            body: SafeArea(
+              child: state.isLoading && exam == null
+                  ? const Center(child: CircularProgressIndicator())
+                  : exam == null
+                  ? _MissingExam(onBack: context.pop)
+                  : _ExamDetailBody(exam: exam, state: state),
+            ),
+          );
+        },
+      ),
     );
   }
 }
 
 class _ExamDetailBody extends StatelessWidget {
-  const _ExamDetailBody({required this.exam});
+  const _ExamDetailBody({required this.exam, required this.state});
 
   final ExamDetail exam;
+  final ExamDetailState state;
 
   @override
   Widget build(BuildContext context) {
     final profile = _ExamTypeProfile.fromType(exam.type);
+    final isToeic = exam.type.toUpperCase() == 'TOEIC';
     return CustomScrollView(
       slivers: [
         SliverPadding(
@@ -82,9 +94,13 @@ class _ExamDetailBody extends StatelessWidget {
             children: [
               _MetricGrid(exam: exam),
               const SizedBox(height: 16),
-              _SectionOverview(sections: exam.sections),
-              const SizedBox(height: 16),
-              _PartOverview(parts: exam.parts, type: exam.type),
+              _AttemptSetupCard(exam: exam, isStarting: state.isStarting),
+              if (isToeic) ...[
+                const SizedBox(height: 16),
+                _SectionOverview(sections: exam.sections),
+                const SizedBox(height: 16),
+                _PartOverview(parts: exam.parts),
+              ],
             ],
           ),
         ),
@@ -187,13 +203,42 @@ class _MetricGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isToeic = exam.type.toUpperCase() == 'TOEIC';
+    final cards = [
+      _MetricCard(
+        icon: SolarIconsOutline.playCircle,
+        label: 'Duration',
+        value: '${exam.duration} min',
+      ),
+      _MetricCard(
+        icon: SolarIconsOutline.documentText,
+        label: 'Questions',
+        value: '${exam.totalQuestions}',
+      ),
+      if (isToeic) ...[
+        _MetricCard(
+          icon: SolarIconsOutline.layers,
+          label: 'Sections',
+          value: '${exam.totalSections}',
+        ),
+        _MetricCard(
+          icon: SolarIconsOutline.book,
+          label: 'Parts',
+          value: exam.parts.isEmpty ? '-' : '${exam.parts.length}',
+        ),
+      ],
+    ];
+
     return LayoutBuilder(
       builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 860
-            ? 4
-            : constraints.maxWidth >= 560
-            ? 2
-            : 1;
+        final maxColumns = isToeic ? 4 : 2;
+        final columns =
+            (constraints.maxWidth >= 860
+                    ? maxColumns
+                    : constraints.maxWidth >= 560
+                    ? 2
+                    : 1)
+                .clamp(1, cards.length);
         return GridView(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -203,28 +248,7 @@ class _MetricGrid extends StatelessWidget {
             mainAxisSpacing: 12,
             mainAxisExtent: 94,
           ),
-          children: [
-            _MetricCard(
-              icon: SolarIconsOutline.playCircle,
-              label: 'Duration',
-              value: '${exam.duration} min',
-            ),
-            _MetricCard(
-              icon: SolarIconsOutline.documentText,
-              label: 'Questions',
-              value: '${exam.totalQuestions}',
-            ),
-            _MetricCard(
-              icon: SolarIconsOutline.layers,
-              label: 'Sections',
-              value: '${exam.totalSections}',
-            ),
-            _MetricCard(
-              icon: SolarIconsOutline.book,
-              label: 'Parts',
-              value: exam.parts.isEmpty ? '-' : '${exam.parts.length}',
-            ),
-          ],
+          children: cards,
         );
       },
     );
@@ -285,6 +309,345 @@ class _MetricCard extends StatelessWidget {
   }
 }
 
+enum _AttemptMode {
+  practice('PRACTICE', 'Practice'),
+  test('TEST', 'Test');
+
+  const _AttemptMode(this.value, this.label);
+
+  final String value;
+  final String label;
+}
+
+enum _AttemptScopeType {
+  full('Full test'),
+  section('Section'),
+  part('Part');
+
+  const _AttemptScopeType(this.label);
+
+  final String label;
+}
+
+class _AttemptSetupCard extends StatefulWidget {
+  const _AttemptSetupCard({required this.exam, required this.isStarting});
+
+  final ExamDetail exam;
+  final bool isStarting;
+
+  @override
+  State<_AttemptSetupCard> createState() => _AttemptSetupCardState();
+}
+
+class _AttemptSetupCardState extends State<_AttemptSetupCard> {
+  static const _thptPracticeDurations = <int?>[null, 10, 15, 20, 30, 45, 60];
+  static const _toeicPracticeDurations = <int?>[
+    null,
+    10,
+    15,
+    20,
+    30,
+    45,
+    60,
+    75,
+    90,
+    120,
+  ];
+
+  _AttemptMode _mode = _AttemptMode.practice;
+  _AttemptScopeType _scopeType = _AttemptScopeType.full;
+  String? _selectedSection;
+  final Set<String> _selectedParts = {};
+  int? _duration;
+
+  bool get _isToeic => widget.exam.type.toUpperCase() == 'TOEIC';
+  bool get _isThpt => widget.exam.type.toUpperCase() == 'THPT';
+  List<int?> get _practiceDurations =>
+      _isToeic ? _toeicPracticeDurations : _thptPracticeDurations;
+
+  bool get _canUsePart => _mode == _AttemptMode.practice && _isToeic;
+
+  bool get _canUseSection => _mode == _AttemptMode.practice && _isToeic;
+
+  bool get _canStart =>
+      !widget.isStarting &&
+      (_scopeType != _AttemptScopeType.part || _selectedParts.isNotEmpty);
+
+  @override
+  void didUpdateWidget(covariant _AttemptSetupCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.exam.id != widget.exam.id) {
+      _mode = _AttemptMode.practice;
+      _scopeType = _AttemptScopeType.full;
+      _selectedSection = null;
+      _selectedParts.clear();
+      _duration = null;
+    }
+  }
+
+  void _setMode(_AttemptMode mode) {
+    setState(() {
+      _mode = mode;
+      if (mode == _AttemptMode.test) {
+        _scopeType = _AttemptScopeType.full;
+        _selectedSection = null;
+        _selectedParts.clear();
+        _duration = null;
+      }
+    });
+  }
+
+  void _setScope(_AttemptScopeType scopeType) {
+    setState(() {
+      _scopeType = scopeType;
+      if (scopeType != _AttemptScopeType.section) {
+        _selectedSection = null;
+      } else {
+        _selectedSection ??= widget.exam.sections.firstOrNull?.code;
+      }
+      if (scopeType != _AttemptScopeType.part) {
+        _selectedParts.clear();
+      } else if (_selectedParts.isEmpty) {
+        final firstPart = _partCode(widget.exam.parts.firstOrNull?.part);
+        if (firstPart != null) {
+          _selectedParts.add(firstPart);
+        }
+      }
+    });
+  }
+
+  void _startAttempt() {
+    final section = _isThpt
+        ? null
+        : _scopeType == _AttemptScopeType.section
+        ? _selectedSection
+        : null;
+    final parts = _isThpt || _scopeType != _AttemptScopeType.part
+        ? <String>[]
+        : _selectedParts.toList();
+    parts.sort();
+
+    context.read<ExamDetailCubit>().createAttempt(
+      widget.exam.id,
+      CreateExamAttemptRequest(
+        mode: _mode.value,
+        section: section,
+        parts: parts,
+        duration: _mode == _AttemptMode.practice ? _duration : null,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final testDuration = widget.exam.type.toUpperCase() == 'TOEIC' ? 120 : 60;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        border: Border.all(color: ColorName.gray5),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: 16,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Start attempt',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: ColorName.labelPrimary,
+                  ),
+                ),
+              ),
+              if (_mode == _AttemptMode.test)
+                _Pill(label: '$testDuration min', color: ColorName.orange),
+            ],
+          ),
+          _SegmentedBlock<_AttemptMode>(
+            title: 'Mode',
+            values: _AttemptMode.values,
+            selected: _mode,
+            labelBuilder: (value) => value.label,
+            onSelected: widget.isStarting ? null : _setMode,
+          ),
+          if (_isToeic)
+            _SegmentedBlock<_AttemptScopeType>(
+              title: 'Scope',
+              values: [
+                _AttemptScopeType.full,
+                if (_canUseSection) _AttemptScopeType.section,
+                if (_canUsePart) _AttemptScopeType.part,
+              ],
+              selected: _scopeType,
+              labelBuilder: (value) => value.label,
+              onSelected: widget.isStarting ? null : _setScope,
+            ),
+          if (_isToeic && _scopeType == _AttemptScopeType.section)
+            _ChoiceBlock(
+              title: 'Section',
+              children: widget.exam.sections
+                  .map(
+                    (section) => ChoiceChip(
+                      label: Text(section.title),
+                      selected: _selectedSection == section.code,
+                      onSelected: widget.isStarting
+                          ? null
+                          : (_) => setState(() {
+                              _selectedSection = section.code;
+                            }),
+                    ),
+                  )
+                  .toList(),
+            ),
+          if (_isToeic && _scopeType == _AttemptScopeType.part)
+            _ChoiceBlock(
+              title: 'Part',
+              children: widget.exam.parts.map((part) {
+                final partCode = _partCode(part.part);
+                return ChoiceChip(
+                  label: Text(part.part),
+                  selected:
+                      partCode != null && _selectedParts.contains(partCode),
+                  onSelected: widget.isStarting
+                      ? null
+                      : (selected) => setState(() {
+                          if (partCode == null) {
+                            return;
+                          }
+                          if (selected) {
+                            _selectedParts.add(partCode);
+                          } else {
+                            _selectedParts.remove(partCode);
+                          }
+                        }),
+                );
+              }).toList(),
+            ),
+          if (_isToeic &&
+              _scopeType == _AttemptScopeType.part &&
+              _selectedParts.isEmpty)
+            const Text(
+              'Select at least one part.',
+              style: TextStyle(color: ColorName.red),
+            ),
+          if (_mode == _AttemptMode.practice)
+            _ChoiceBlock(
+              title: 'Duration',
+              children: _practiceDurations
+                  .map(
+                    (duration) => ChoiceChip(
+                      label: Text(
+                        duration == null ? 'Unlimited' : '$duration min',
+                      ),
+                      selected: _duration == duration,
+                      onSelected: widget.isStarting
+                          ? null
+                          : (_) => setState(() {
+                              _duration = duration;
+                            }),
+                    ),
+                  )
+                  .toList(),
+            ),
+          FilledButton.icon(
+            onPressed: _canStart ? _startAttempt : null,
+            icon: widget.isStarting
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(SolarIconsOutline.playCircle),
+            label: const Text('Start attempt'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String? _partCode(String? partLabel) {
+    if (partLabel == null) return null;
+    final match = RegExp(r'\d+').firstMatch(partLabel);
+    return match?.group(0);
+  }
+}
+
+class _SegmentedBlock<T> extends StatelessWidget {
+  const _SegmentedBlock({
+    required this.title,
+    required this.values,
+    required this.selected,
+    required this.labelBuilder,
+    required this.onSelected,
+  });
+
+  final String title;
+  final List<T> values;
+  final T selected;
+  final String Function(T value) labelBuilder;
+  final ValueChanged<T>? onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: 8,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontWeight: FontWeight.w700,
+            color: ColorName.labelPrimary,
+          ),
+        ),
+        SegmentedButton<T>(
+          segments: values
+              .map(
+                (value) => ButtonSegment<T>(
+                  value: value,
+                  label: Text(labelBuilder(value)),
+                ),
+              )
+              .toList(),
+          selected: {selected},
+          onSelectionChanged: onSelected == null
+              ? null
+              : (values) => onSelected!(values.first),
+        ),
+      ],
+    );
+  }
+}
+
+class _ChoiceBlock extends StatelessWidget {
+  const _ChoiceBlock({required this.title, required this.children});
+
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: 8,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontWeight: FontWeight.w700,
+            color: ColorName.labelPrimary,
+          ),
+        ),
+        Wrap(spacing: 8, runSpacing: 8, children: children),
+      ],
+    );
+  }
+}
+
 class _SectionOverview extends StatelessWidget {
   const _SectionOverview({required this.sections});
 
@@ -312,10 +675,9 @@ class _SectionOverview extends StatelessWidget {
 }
 
 class _PartOverview extends StatelessWidget {
-  const _PartOverview({required this.parts, required this.type});
+  const _PartOverview({required this.parts});
 
   final List<ExamPartSummary> parts;
-  final String type;
 
   @override
   Widget build(BuildContext context) {
@@ -325,10 +687,8 @@ class _PartOverview extends StatelessWidget {
         children: [
           _OverviewRow(
             icon: SolarIconsOutline.documentText,
-            title: type.toUpperCase() == 'THPT' ? 'Full test' : 'No parts',
-            subtitle: type.toUpperCase() == 'THPT'
-                ? 'THPT is organized as one full section.'
-                : 'No part summary available.',
+            title: 'No parts',
+            subtitle: 'No part summary available.',
           ),
         ],
       );

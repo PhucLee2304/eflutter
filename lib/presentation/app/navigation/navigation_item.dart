@@ -2,7 +2,11 @@ import 'package:eflutter/presentation/app/navigation/app_routes.dart';
 import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/core/base/remote_data_base.dart';
 import 'package:eflutter/data/repositories/topic_repository.dart';
+import 'package:eflutter/presentation/exams/attempt_practice_screen.dart';
 import 'package:eflutter/presentation/exams/exam_detail_screen.dart';
+import 'package:eflutter/presentation/exams/exam_history_screen.dart';
+import 'package:eflutter/presentation/exams/exam_history_detail_screen.dart';
+import 'package:eflutter/data/models/exam_attempt.dart';
 import 'package:eflutter/presentation/exams/exam_list_screen.dart';
 import 'package:eflutter/presentation/profile/profile_screen.dart';
 import 'package:eflutter/presentation/topics/cubit/lesson_detail_cubit.dart';
@@ -80,6 +84,7 @@ class NavigationItem {
       topicItem,
       examThptItem,
       examToeicItem,
+      historiesItem,
       profileItem,
       otherItem,
     ],
@@ -165,6 +170,54 @@ class NavigationItem {
       }
       return ExamDetailScreen(examId: id);
     },
+  );
+
+  static final historiesItem = NavigationItem(
+    title: 'Histories',
+    shortTitle: 'Histories',
+    icon: SolarIconsOutline.documentText,
+    selectedIcon: SolarIconsBold.notebook,
+    route: AppRoutes.histories,
+    screen: const ExamHistoryScreen(),
+    parentTitle: 'Exam',
+    parentIcon: SolarIconsOutline.documentText,
+    isChild: true,
+    subRoutes: [
+      GoRoute(
+        path: AppRoutes.attemptPractice.path,
+        builder: (context, state) {
+          final id = int.tryParse(state.pathParameters['id'] ?? '');
+          if (id == null) {
+            return const Scaffold(
+              body: Center(child: Text('Invalid attempt id')),
+            );
+          }
+          return AttemptPracticeScreen(
+            attemptId: id,
+            initialAttempt: state.extra is ExamAttempt
+                ? state.extra as ExamAttempt
+                : null,
+          );
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.attemptHistoryDetail.path,
+        builder: (context, state) {
+          final id = int.tryParse(state.pathParameters['id'] ?? '');
+          if (id == null) {
+            return const Scaffold(
+              body: Center(child: Text('Invalid attempt id')),
+            );
+          }
+          return ExamHistoryDetailScreen(
+            attemptId: id,
+            initialAttempt: state.extra is ExamAttempt
+                ? state.extra as ExamAttempt
+                : null,
+          );
+        },
+      ),
+    ],
   );
 
   static final otherItem = NavigationItem(
