@@ -1,5 +1,9 @@
 import 'dart:typed_data';
 
+import 'package:eflutter/data/models/exam_attempt.dart';
+import 'package:eflutter/data/models/exam_attempt_page.dart';
+import 'package:eflutter/data/models/exam_detail.dart';
+import 'package:eflutter/data/models/exam_page.dart';
 import 'package:eflutter/data/models/topic_lesson.dart';
 import 'package:eflutter/data/models/topic_lesson_detail.dart';
 import 'package:eflutter/data/models/topic_section.dart';
@@ -34,4 +38,34 @@ abstract interface class RemoteDataBase {
   Future<List<TopicLesson>> getLessonsBySection(int sectionId);
 
   Future<TopicLessonDetail> getLessonById(int lessonId);
+
+  Future<ExamPage> getExams({
+    required String type,
+    required int page,
+    required int pageSize,
+  });
+
+  Future<ExamDetail> getExamById(int examId);
+
+  Future<ExamAttempt> createExamAttempt(
+    int examId,
+    CreateExamAttemptRequest request,
+  );
+
+  Future<ExamAttemptPage> getAttempts({
+    required String status,
+    required int page,
+    required int pageSize,
+  });
+
+  Future<ExamAttempt> getAttemptQuestions(int attemptId);
+
+  Future<ExamAttempt> submitAttempt(
+    int attemptId,
+    List<SubmitAttemptAnswer> answers,
+  );
+
+  Future<ExamAttempt> cancelAttempt(int attemptId);
+
+  Future<ExamAttempt> getAttemptHistory(int attemptId);
 }
