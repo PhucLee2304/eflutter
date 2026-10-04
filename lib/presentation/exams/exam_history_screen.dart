@@ -139,7 +139,7 @@ class _HistoryHeader extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Histories',
+                      'History',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(

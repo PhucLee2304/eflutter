@@ -124,7 +124,12 @@ class _ReviewHeader extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    '${attempt.status}  |  ${attempt.answeredCount}/${attempt.totalQuestions} answered',
+                    '${switch (attempt.status) {
+                      'SUBMITTED' => 'Submitted',
+                      'ACTIVE' => 'Active',
+                      'CANCELLED' => 'Cancelled',
+                      _ => attempt.status,
+                    }}  |  ${attempt.answeredCount}/${attempt.totalQuestions} answered',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(color: ColorName.labelSecondary),

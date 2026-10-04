@@ -65,7 +65,7 @@ class LoginScreen extends StatelessWidget {
                         children: [
                           Assets.images.google.image(width: 24, height: 24),
                           const Text(
-                            'Tiếp tục với Google',
+                            'Continue with Google',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,

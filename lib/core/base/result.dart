@@ -56,7 +56,7 @@ class Failure<T> extends Result<T> {
   final int? code;
   final String? message;
 
-  const Failure({this.code, this.message = 'Something went wrong!'});
+  const Failure({this.code, this.message = 'Something went wrong. Please try again.'});
 
   @override
   String toString() => 'Failure(code: $code, message: $message)';

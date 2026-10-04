@@ -11,6 +11,8 @@ enum AppRoutes {
   attemptPractice(path: 'attempts/:id/practice'),
   attemptHistoryDetail(path: 'attempts/:id/history'),
   profile(path: '/profile'),
+  classrooms(path: '/classrooms'),
+  classroomDetail(path: ':id'),
 
   other(path: '/other'),
   subOther(path: 'other-sub-route');

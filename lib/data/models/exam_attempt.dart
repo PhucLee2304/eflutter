@@ -5,20 +5,26 @@ class CreateExamAttemptRequest {
   final String? section;
   final List<String> parts;
   final int? duration;
+  final String contextType;
+  final int? contextId;
 
   const CreateExamAttemptRequest({
     required this.mode,
     this.section,
     this.parts = const [],
     this.duration,
+    this.contextType = 'STANDALONE',
+    this.contextId,
   });
 
   Map<String, dynamic> toJson() {
     return {
       'mode': mode,
+      'contextType': contextType,
       if (section != null) 'section': section,
       if (parts.isNotEmpty) 'parts': parts,
       if (duration != null) 'duration': duration,
+      if (contextId != null) 'contextId': contextId,
     };
   }
 }
