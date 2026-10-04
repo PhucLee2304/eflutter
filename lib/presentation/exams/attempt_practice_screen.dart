@@ -528,5 +528,6 @@ class _MissingAttempt extends StatelessWidget {
 String _socketLabel(AttemptSocketStatus status) => switch (status) {
   AttemptSocketStatus.connected => 'Saved online',
   AttemptSocketStatus.connecting => 'Connecting',
-  AttemptSocketStatus.disconnected => 'Offline, answers kept locally',
+  AttemptSocketStatus.disconnected =>
+    'Offline, answers kept locally',
 };

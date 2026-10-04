@@ -2,6 +2,21 @@ import 'package:eflutter/data/models/exam_attempt.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('create attempt request sends standalone context by default', () {
+    const request = CreateExamAttemptRequest(
+      mode: 'PRACTICE',
+      section: 'LISTENING',
+      duration: 30,
+    );
+
+    expect(request.toJson(), {
+      'mode': 'PRACTICE',
+      'contextType': 'STANDALONE',
+      'section': 'LISTENING',
+      'duration': 30,
+    });
+  });
+
   test('parses submitted review fields and nullable option content', () {
     final attempt = ExamAttempt.fromJson({
       'id': 7,

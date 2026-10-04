@@ -36,15 +36,15 @@ extension ApiSafeResult<T> on Future<T> {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
       case DioExceptionType.receiveTimeout:
-        return 'Connection timeout. Please check your internet connection.';
+        return 'Connection timed out. Please check your internet connection.';
       case DioExceptionType.connectionError:
         return 'No internet connection.';
       case DioExceptionType.badResponse:
         return _extractDioBadResponseErrorMessage(e);
       case DioExceptionType.cancel:
-        return 'The request has been canceled.';
+        return 'The request was cancelled.';
       default:
-        return 'Undefined connection error.';
+        return 'Could not connect to the server.';
     }
   }
 
@@ -53,32 +53,49 @@ extension ApiSafeResult<T> on Future<T> {
     final statusCode = e.response?.statusCode;
 
     if (statusCode != null && statusCode >= 500) {
-      return 'Server is experiencing issues (Error $statusCode). Please try again later.';
+      return 'The server is unavailable (error $statusCode). Please try again later.';
     }
 
-    if (data == null) {
-      return e.message ?? 'An unexpected error occurred. Please try again.';
-    }
-
+    String? detail;
     if (data is Map<String, dynamic>) {
-      if (data.containsKey('message')) {
-        return data['message'];
+      detail = data['message'] is String ? data['message'] as String : null;
+      final error = data['error'];
+      detail ??= error is String ? error : null;
+      if (error is Map && error['message'] is String) {
+        detail ??= error['message'] as String;
       }
-      if (data.containsKey('error')) {
-        final error = data['error'];
-        if (error is String) {
-          return error;
-        }
-        if (error is Map && error.containsKey('message')) {
-          return error['message'];
-        }
-      }
+    } else if (data is String && data.isNotEmpty) {
+      detail = data;
     }
 
-    if (data is String && data.isNotEmpty) {
-      return data;
+    final normalized = detail
+        ?.replaceFirst(
+          RegExp(r'^\[(ERROR|FORBIDDEN|CONFLICT|UNAUTHORIZED)\]\s*'),
+          '',
+        )
+        .trim();
+    const translations = {
+      'Classroom is not active': 'This classroom is no longer active.',
+      'Classroom access denied': 'You cannot access this classroom.',
+      'Classroom capacity is full': 'This classroom is full.',
+      'Teacher cannot join own classroom as student':
+          'Teachers cannot join their own classroom as students.',
+      'Active attempt already exists':
+          'You already have an active attempt.',
+    };
+    if (normalized != null && translations.containsKey(normalized)) {
+      return translations[normalized]!;
     }
-
-    return 'An unexpected error occurred while processing the request.';
+    if (normalized != null && !RegExp(r'[À-ỹĐđ]').hasMatch(normalized)) {
+      return normalized;
+    }
+    return switch (statusCode) {
+      400 => 'Invalid request.',
+      401 => 'Your session has expired. Please sign in again.',
+      403 => 'You do not have permission to do that.',
+      404 => 'The requested item was not found.',
+      409 => 'This item already exists or is in use.',
+      _ => 'Could not process the request. Please try again.',
+    };
   }
 }

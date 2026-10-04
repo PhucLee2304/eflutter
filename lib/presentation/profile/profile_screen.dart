@@ -207,12 +207,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                                   .saveProfile(
                                                     name:
                                                         _nameController.text
-                                                                    .trim() !=
-                                                                _initialName
-                                                                    .trim()
-                                                            ? _nameController
-                                                                  .text
-                                                            : null,
+                                                                .trim() !=
+                                                            _initialName.trim()
+                                                        ? _nameController.text
+                                                        : null,
                                                     avatarFile:
                                                         _draftAvatarFile,
                                                   );
@@ -426,7 +424,13 @@ class _RoleBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = role.trim().isEmpty ? 'Unknown' : role.trim();
+    final label = switch (role.trim().toLowerCase()) {
+      'admin' => 'Administrator',
+      'teacher' => 'Teacher',
+      'student' => 'Student',
+      '' => 'Unknown',
+      _ => role.trim(),
+    };
     return DecoratedBox(
       decoration: BoxDecoration(
         color: ColorName.primary.withValues(alpha: 0.1),

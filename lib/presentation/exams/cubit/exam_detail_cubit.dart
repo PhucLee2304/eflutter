@@ -96,15 +96,15 @@ class ExamDetailCubit extends Cubit<ExamDetailState> {
         );
         emit(state.copyWith(attemptStarted: false));
       case Failure():
-        if (result.code == 409) {
+        if (result.code == 409 && request.contextType == 'STANDALONE') {
           final activeResult = await _examRepository.getAttempts(
             status: 'ACTIVE',
             page: 1,
             pageSize: 1,
           );
-          if (activeResult case Success(
-            data: final page,
-          ) when page.attempts.isNotEmpty) {
+          if (activeResult case Success(data: final page)
+              when page.attempts.isNotEmpty &&
+                  page.attempts.first.examId == examId) {
             emit(
               state.copyWith(
                 startedAttempt: page.attempts.first,
