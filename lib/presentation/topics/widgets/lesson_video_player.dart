@@ -78,7 +78,11 @@ class LessonVideoController extends ChangeNotifier {
 }
 
 class LessonVideoPlayer extends StatefulWidget {
-  const LessonVideoPlayer({required this.url, required this.controller, super.key});
+  const LessonVideoPlayer({
+    required this.url,
+    required this.controller,
+    super.key,
+  });
 
   final String url;
   final LessonVideoController controller;

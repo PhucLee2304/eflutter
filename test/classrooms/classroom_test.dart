@@ -62,4 +62,54 @@ void main() {
     expect(member.approved, isNull);
     expect(member.user?.id, '34');
   });
+
+  test('parses assignment and student submission state', () {
+    final assignment = ClassroomAssignment.fromJson({
+      'id': 21,
+      'classroomId': 4,
+      'title': 'Listening test',
+      'description': 'Unit 1',
+      'examId': 15,
+      'opensAt': '2026-10-04T01:00:00Z',
+      'dueAt': '2026-10-05T01:00:00Z',
+      'submission': {
+        'id': 7,
+        'assignmentId': 21,
+        'attemptId': 19,
+        'status': 'IN_PROGRESS',
+      },
+    });
+
+    expect(assignment.examId, 15);
+    expect(assignment.submission?.attemptId, 19);
+    expect(assignment.submission?.status, 'IN_PROGRESS');
+  });
+
+  test('parses assignment gradebook submissions', () {
+    final assignment = ClassroomAssignment.fromJson({
+      'id': 21,
+      'classroomId': 4,
+      'title': 'Listening test',
+      'examId': 15,
+      'opensAt': '2026-10-04T01:00:00Z',
+      'dueAt': '2026-10-05T01:00:00Z',
+      'submissions': [
+        {
+          'id': 7,
+          'assignmentId': 21,
+          'attemptId': 19,
+          'status': 'SUBMITTED',
+          'score': 8.5,
+          'student': {
+            'id': 'student-1',
+            'name': 'Student',
+            'email': 'student@example.com',
+          },
+        },
+      ],
+    });
+
+    expect(assignment.submissions.single.student?.id, 'student-1');
+    expect(assignment.submissions.single.score, 8.5);
+  });
 }

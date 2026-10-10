@@ -1,7 +1,7 @@
 import 'package:eflutter/data/models/exam_questions.dart';
 
 class CreateExamAttemptRequest {
-  final String mode;
+  final String? mode;
   final String? section;
   final List<String> parts;
   final int? duration;
@@ -9,7 +9,7 @@ class CreateExamAttemptRequest {
   final int? contextId;
 
   const CreateExamAttemptRequest({
-    required this.mode,
+    this.mode,
     this.section,
     this.parts = const [],
     this.duration,
@@ -19,7 +19,7 @@ class CreateExamAttemptRequest {
 
   Map<String, dynamic> toJson() {
     return {
-      'mode': mode,
+      if (mode != null && mode!.isNotEmpty) 'mode': mode,
       'contextType': contextType,
       if (section != null) 'section': section,
       if (parts.isNotEmpty) 'parts': parts,

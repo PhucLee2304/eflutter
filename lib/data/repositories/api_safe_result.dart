@@ -80,8 +80,7 @@ extension ApiSafeResult<T> on Future<T> {
       'Classroom capacity is full': 'This classroom is full.',
       'Teacher cannot join own classroom as student':
           'Teachers cannot join their own classroom as students.',
-      'Active attempt already exists':
-          'You already have an active attempt.',
+      'Active attempt already exists': 'You already have an active attempt.',
     };
     if (normalized != null && translations.containsKey(normalized)) {
       return translations[normalized]!;

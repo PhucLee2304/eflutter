@@ -11,6 +11,7 @@ import 'package:eflutter/presentation/exams/exam_list_screen.dart';
 import 'package:eflutter/presentation/profile/profile_screen.dart';
 import 'package:eflutter/presentation/classrooms/classroom_list_screen.dart';
 import 'package:eflutter/presentation/classrooms/classroom_detail_screen.dart';
+import 'package:eflutter/presentation/classrooms/classroom_gradebook_screen.dart';
 import 'package:eflutter/presentation/topics/cubit/lesson_detail_cubit.dart';
 import 'package:eflutter/presentation/topics/lesson_detail_screen.dart';
 import 'package:eflutter/presentation/topics/topic_screen.dart';
@@ -124,9 +125,33 @@ class NavigationItem {
         builder: (context, state) {
           final id = int.tryParse(state.pathParameters['id'] ?? '');
           return id == null
-              ? const Scaffold(body: Center(child: Text('Invalid classroom ID')))
+              ? const Scaffold(
+                  body: Center(child: Text('Invalid classroom ID')),
+                )
               : ClassroomDetailScreen(classroomId: id);
         },
+        routes: [
+          GoRoute(
+            path: AppRoutes.classroomGradebook.path,
+            builder: (context, state) {
+              final classroomId = int.tryParse(
+                state.pathParameters['id'] ?? '',
+              );
+              final assignmentId = int.tryParse(
+                state.pathParameters['assignmentId'] ?? '',
+              );
+              if (classroomId == null || assignmentId == null) {
+                return const Scaffold(
+                  body: Center(child: Text('Invalid gradebook URL')),
+                );
+              }
+              return ClassroomGradebookScreen(
+                classroomId: classroomId,
+                assignmentId: assignmentId,
+              );
+            },
+          ),
+        ],
       ),
     ],
   );
@@ -189,9 +214,7 @@ class NavigationItem {
     builder: (context, state) {
       final id = int.tryParse(state.pathParameters['id'] ?? '');
       if (id == null) {
-        return const Scaffold(
-          body: Center(child: Text('Invalid exam ID')),
-        );
+        return const Scaffold(body: Center(child: Text('Invalid exam ID')));
       }
       return ExamDetailScreen(examId: id);
     },
