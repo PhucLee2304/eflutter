@@ -255,6 +255,13 @@ class AttemptSessionCubit extends Cubit<AttemptSessionState> {
   }
 
   void _handleSocketEvent(AttemptSocketEvent event) {
+    if (event.type == 'ATTEMPT_SUBMITTING' &&
+        event.attemptId == state.attempt?.id) {
+      _countdownTimer?.cancel();
+      emit(state.copyWith(isLocked: true, isSubmitting: true, failure: null));
+      _waitForBackendSubmission();
+      return;
+    }
     if (event.type == 'ATTEMPT_SUBMITTED' &&
         event.attemptId == state.attempt?.id) {
       emit(state.copyWith(isLocked: true, isSubmitting: true, failure: null));

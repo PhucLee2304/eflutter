@@ -344,3 +344,66 @@ class CreatedAssignments {
             .toList(),
       );
 }
+
+class ExamAuditScoreChange {
+  const ExamAuditScoreChange({
+    required this.attemptId,
+    required this.studentId,
+    this.beforeScore,
+    this.afterScore,
+  });
+
+  final int attemptId;
+  final String studentId;
+  final double? beforeScore;
+  final double? afterScore;
+
+  factory ExamAuditScoreChange.fromJson(Map<String, dynamic> json) =>
+      ExamAuditScoreChange(
+        attemptId: (json['attemptId'] as num?)?.toInt() ?? 0,
+        studentId: json['studentId'] as String? ?? '',
+        beforeScore: (json['beforeScore'] as num?)?.toDouble(),
+        afterScore: (json['afterScore'] as num?)?.toDouble(),
+      );
+}
+
+class ExamAudit {
+  const ExamAudit({
+    required this.id,
+    required this.examId,
+    required this.actorId,
+    this.actor,
+    required this.reason,
+    required this.createdAt,
+    required this.scoreChanges,
+    this.regradedAt,
+  });
+
+  final int id;
+  final int examId;
+  final String actorId;
+  final ClassroomUser? actor;
+  final String reason;
+  final DateTime createdAt;
+  final DateTime? regradedAt;
+  final List<ExamAuditScoreChange> scoreChanges;
+
+  factory ExamAudit.fromJson(Map<String, dynamic> json) => ExamAudit(
+    id: (json['id'] as num?)?.toInt() ?? 0,
+    examId: (json['examId'] as num?)?.toInt() ?? 0,
+    actorId: json['actorId'] as String? ?? '',
+    actor: json['actor'] is Map<String, dynamic>
+        ? ClassroomUser.fromJson(json['actor'] as Map<String, dynamic>)
+        : null,
+    reason: json['reason'] as String? ?? '',
+    createdAt: DateTime.parse(json['createdAt'] as String).toLocal(),
+    regradedAt: json['regradedAt'] == null
+        ? null
+        : DateTime.parse(json['regradedAt'] as String).toLocal(),
+    scoreChanges: (json['scoreChanges'] as List<dynamic>? ?? const [])
+        .map(
+          (item) => ExamAuditScoreChange.fromJson(item as Map<String, dynamic>),
+        )
+        .toList(),
+  );
+}

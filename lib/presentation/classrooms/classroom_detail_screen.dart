@@ -426,6 +426,24 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
     }
   }
 
+  Future<void> viewAssignmentAudits(ClassroomAssignment assignment) async {
+    setState(() => busy = true);
+    final result = await repository.getAssignmentAudits(
+      classroomId: widget.classroomId,
+      assignmentId: assignment.id,
+    );
+    if (!mounted) return;
+    setState(() => busy = false);
+    switch (result) {
+      case Success(data: final audits):
+        await showAssignmentAuditSheet(context, audits);
+      case Failure(message: final message):
+        showMessage(message ?? 'Could not load assignment change history');
+      case Cancelled():
+        break;
+    }
+  }
+
   Future<void> editAssignmentSchedule(ClassroomAssignment assignment) async {
     final schedule = await showAssignmentScheduleDialog(
       context,
@@ -853,6 +871,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
                                     onAssignToClasses: assignToMoreClasses,
                                     onEditSchedule: editAssignmentSchedule,
                                     onEditContent: editAssignmentContent,
+                                    onViewAudits: viewAssignmentAudits,
                                     onSetActive: setAssignmentActive,
                                   ),
                                   _ => Column(
