@@ -162,6 +162,56 @@ class ClassroomRepository {
       )
       .safeResult();
 
+  Future<Result<List<CalendarEntry>>> getCalendar({
+    required int classroomId,
+    required DateTime from,
+    required DateTime to,
+  }) => _dio
+      .get(
+        '$_base/$classroomId/calendar',
+        queryParameters: {
+          'from': from.toUtc().toIso8601String(),
+          'to': to.toUtc().toIso8601String(),
+        },
+      )
+      .then(
+        (response) => (response.data as List<dynamic>)
+            .map((item) => CalendarEntry.fromJson(item as Map<String, dynamic>))
+            .toList(),
+      )
+      .safeResult();
+
+  Future<Result<CalendarEntry>> createSchedule({
+    required int classroomId,
+    required ClassroomScheduleInput input,
+  }) => _dio
+      .post('$_base/$classroomId/schedules', data: input.toJson())
+      .then(
+        (response) =>
+            CalendarEntry.fromJson(response.data as Map<String, dynamic>),
+      )
+      .safeResult();
+
+  Future<Result<CalendarEntry>> updateSchedule({
+    required int classroomId,
+    required int scheduleId,
+    required ClassroomScheduleInput input,
+  }) => _dio
+      .patch('$_base/$classroomId/schedules/$scheduleId', data: input.toJson())
+      .then(
+        (response) =>
+            CalendarEntry.fromJson(response.data as Map<String, dynamic>),
+      )
+      .safeResult();
+
+  Future<Result<void>> deleteSchedule({
+    required int classroomId,
+    required int scheduleId,
+  }) => _dio
+      .delete<void>('$_base/$classroomId/schedules/$scheduleId')
+      .then((_) {})
+      .safeResult();
+
   Future<Result<ClassroomAssignment>> setAssignmentActive(
     int classroomId,
     int assignmentId,

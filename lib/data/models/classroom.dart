@@ -407,3 +407,62 @@ class ExamAudit {
         .toList(),
   );
 }
+
+class CalendarEntry {
+  const CalendarEntry({
+    required this.id,
+    required this.classroomId,
+    required this.calendarType,
+    required this.title,
+    required this.startsAt,
+    required this.editable,
+    this.description,
+    this.endsAt,
+    this.relatedAssignmentId,
+  });
+
+  final int id;
+  final int classroomId;
+  final String calendarType;
+  final String title;
+  final String? description;
+  final DateTime startsAt;
+  final DateTime? endsAt;
+  final int? relatedAssignmentId;
+  final bool editable;
+
+  factory CalendarEntry.fromJson(Map<String, dynamic> json) => CalendarEntry(
+    id: (json['id'] as num?)?.toInt() ?? 0,
+    classroomId: (json['classroomId'] as num?)?.toInt() ?? 0,
+    calendarType: json['calendarType'] as String? ?? 'CLASS_SCHEDULE',
+    title: json['title'] as String? ?? '',
+    description: json['description'] as String?,
+    startsAt: DateTime.parse(json['startsAt'] as String).toLocal(),
+    endsAt: json['endsAt'] == null
+        ? null
+        : DateTime.parse(json['endsAt'] as String).toLocal(),
+    relatedAssignmentId: (json['relatedAssignmentId'] as num?)?.toInt(),
+    editable: json['editable'] as bool? ?? false,
+  );
+}
+
+class ClassroomScheduleInput {
+  const ClassroomScheduleInput({
+    required this.title,
+    required this.startsAt,
+    required this.endsAt,
+    this.description = '',
+  });
+
+  final String title;
+  final String description;
+  final DateTime startsAt;
+  final DateTime endsAt;
+
+  Map<String, dynamic> toJson() => {
+    'title': title.trim(),
+    'description': description.trim(),
+    'startsAt': startsAt.toUtc().toIso8601String(),
+    'endsAt': endsAt.toUtc().toIso8601String(),
+  };
+}

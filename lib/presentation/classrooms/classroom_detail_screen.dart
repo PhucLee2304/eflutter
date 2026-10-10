@@ -11,6 +11,7 @@ import 'package:eflutter/data/repositories/exam_repository.dart';
 import 'package:eflutter/presentation/app/navigation/app_routes.dart';
 import 'package:eflutter/presentation/app/cubit/app_cubit.dart';
 import 'package:eflutter/presentation/classrooms/classroom_assignments.dart';
+import 'package:eflutter/presentation/classrooms/classroom_calendar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
@@ -260,6 +261,29 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
         showMessage(message ?? 'Could not resume the active attempt');
       case Failure(message: final message):
         showMessage(message ?? 'Could not start the assignment');
+      case Cancelled():
+        break;
+    }
+  }
+
+  Future<void> openAssignmentById(int assignmentId) async {
+    final cached = assignments.where((item) => item.id == assignmentId);
+    if (cached.isNotEmpty) {
+      await openAssignment(cached.first);
+      return;
+    }
+    setState(() => busy = true);
+    final result = await repository.getAssignment(
+      widget.classroomId,
+      assignmentId,
+    );
+    if (!mounted) return;
+    setState(() => busy = false);
+    switch (result) {
+      case Success(data: final assignment):
+        await openAssignment(assignment);
+      case Failure(message: final message):
+        showMessage(message ?? 'Could not open the assignment');
       case Cancelled():
         break;
     }
@@ -874,6 +898,13 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
                                     onViewAudits: viewAssignmentAudits,
                                     onSetActive: setAssignmentActive,
                                   ),
+                                  2 => ClassroomCalendarView(
+                                    repository: repository,
+                                    classroomId: widget.classroomId,
+                                    isTeacher: isTeacher,
+                                    classroomActive: item.active,
+                                    onOpenAssignment: openAssignmentById,
+                                  ),
                                   _ => Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
@@ -1139,7 +1170,8 @@ class TabsBar extends StatelessWidget {
       segments: const [
         ButtonSegment(value: 0, label: Text('Stream')),
         ButtonSegment(value: 1, label: Text('Classwork')),
-        ButtonSegment(value: 2, label: Text('People')),
+        ButtonSegment(value: 2, label: Text('Calendar')),
+        ButtonSegment(value: 3, label: Text('People')),
       ],
       selected: {selected},
       onSelectionChanged: (v) => onSelected(v.first),
