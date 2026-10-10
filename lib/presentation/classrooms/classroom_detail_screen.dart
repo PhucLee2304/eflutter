@@ -798,6 +798,13 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
           onPressed: () => context.go('/classrooms'),
         ),
         actions: [
+          if (item != null && isTeacher)
+            IconButton(
+              tooltip: 'Class gradebook',
+              icon: const Icon(Icons.table_chart_outlined),
+              onPressed: () =>
+                  context.go(classGradebookPath(widget.classroomId)),
+            ),
           if (item != null && isTeacher && item.active) ...[
             IconButton(
               tooltip: 'Edit classroom',

@@ -466,3 +466,136 @@ class ClassroomScheduleInput {
     'endsAt': endsAt.toUtc().toIso8601String(),
   };
 }
+
+class StudentAssignmentProgress {
+  const StudentAssignmentProgress({
+    required this.assignmentId,
+    required this.title,
+    required this.dueAt,
+    required this.status,
+    this.score,
+  });
+  final int assignmentId;
+  final String title;
+  final DateTime dueAt;
+  final String status;
+  final double? score;
+  factory StudentAssignmentProgress.fromJson(Map<String, dynamic> json) =>
+      StudentAssignmentProgress(
+        assignmentId: (json['assignmentId'] as num).toInt(),
+        title: json['title'] as String? ?? '',
+        dueAt: DateTime.parse(json['dueAt'] as String).toLocal(),
+        status: json['status'] as String? ?? 'NOT_STARTED',
+        score: (json['score'] as num?)?.toDouble(),
+      );
+}
+
+class StudentProgress {
+  const StudentProgress({
+    required this.student,
+    required this.assignments,
+    required this.completionRate,
+    this.averageScore,
+  });
+  final ClassroomUser student;
+  final List<StudentAssignmentProgress> assignments;
+  final double? averageScore;
+  final double completionRate;
+  factory StudentProgress.fromJson(Map<String, dynamic> json) =>
+      StudentProgress(
+        student: ClassroomUser.fromJson(
+          json['student'] as Map<String, dynamic>,
+        ),
+        assignments: (json['assignments'] as List<dynamic>? ?? const [])
+            .map(
+              (e) =>
+                  StudentAssignmentProgress.fromJson(e as Map<String, dynamic>),
+            )
+            .toList(),
+        averageScore: (json['averageScore'] as num?)?.toDouble(),
+        completionRate: (json['completionRate'] as num?)?.toDouble() ?? 0,
+      );
+}
+
+class ClassGradebook {
+  const ClassGradebook({
+    required this.classroomId,
+    required this.assignments,
+    required this.students,
+    required this.completionRate,
+    this.averageScore,
+  });
+  final int classroomId;
+  final List<Map<String, dynamic>> assignments;
+  final List<StudentProgress> students;
+  final double? averageScore;
+  final double completionRate;
+  factory ClassGradebook.fromJson(Map<String, dynamic> json) => ClassGradebook(
+    classroomId: (json['classroomId'] as num).toInt(),
+    assignments: (json['assignments'] as List<dynamic>? ?? const [])
+        .map((e) => e as Map<String, dynamic>)
+        .toList(),
+    students: (json['students'] as List<dynamic>? ?? const [])
+        .map((e) => StudentProgress.fromJson(e as Map<String, dynamic>))
+        .toList(),
+    averageScore: (json['averageScore'] as num?)?.toDouble(),
+    completionRate: (json['completionRate'] as num?)?.toDouble() ?? 0,
+  );
+}
+
+class QuestionAnalytics {
+  const QuestionAnalytics({
+    required this.questionId,
+    required this.content,
+    required this.order,
+    required this.answeredCount,
+    required this.wrongCount,
+    required this.wrongRate,
+  });
+  final int questionId, order, answeredCount, wrongCount;
+  final String content;
+  final double wrongRate;
+  factory QuestionAnalytics.fromJson(Map<String, dynamic> json) =>
+      QuestionAnalytics(
+        questionId: (json['questionId'] as num).toInt(),
+        content: json['content'] as String? ?? '',
+        order: (json['order'] as num).toInt(),
+        answeredCount: (json['answeredCount'] as num).toInt(),
+        wrongCount: (json['wrongCount'] as num).toInt(),
+        wrongRate: (json['wrongRate'] as num?)?.toDouble() ?? 0,
+      );
+}
+
+class AssignmentAnalytics {
+  const AssignmentAnalytics({
+    required this.totalStudents,
+    required this.notStarted,
+    required this.inProgress,
+    required this.submitted,
+    required this.late,
+    required this.completionRate,
+    required this.questions,
+    this.averageScore,
+    this.minimumScore,
+    this.maximumScore,
+  });
+  final int totalStudents, notStarted, inProgress, submitted, late;
+  final double? averageScore, minimumScore, maximumScore;
+  final double completionRate;
+  final List<QuestionAnalytics> questions;
+  factory AssignmentAnalytics.fromJson(Map<String, dynamic> json) =>
+      AssignmentAnalytics(
+        totalStudents: (json['totalStudents'] as num).toInt(),
+        notStarted: (json['notStarted'] as num).toInt(),
+        inProgress: (json['inProgress'] as num).toInt(),
+        submitted: (json['submitted'] as num).toInt(),
+        late: (json['late'] as num).toInt(),
+        averageScore: (json['averageScore'] as num?)?.toDouble(),
+        minimumScore: (json['minimumScore'] as num?)?.toDouble(),
+        maximumScore: (json['maximumScore'] as num?)?.toDouble(),
+        completionRate: (json['completionRate'] as num?)?.toDouble() ?? 0,
+        questions: (json['questions'] as List<dynamic>? ?? const [])
+            .map((e) => QuestionAnalytics.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+}
