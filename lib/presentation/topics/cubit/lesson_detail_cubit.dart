@@ -9,11 +9,7 @@ class LessonDetailState {
   final bool isLoading;
   final Failure? failure;
 
-  const LessonDetailState({
-    this.lesson,
-    this.isLoading = false,
-    this.failure,
-  });
+  const LessonDetailState({this.lesson, this.isLoading = false, this.failure});
 
   LessonDetailState copyWith({
     Object? lesson = _lessonDetailSentinel,
@@ -44,13 +40,7 @@ class LessonDetailCubit extends Cubit<LessonDetailState> {
     final result = await _topicRepository.getLessonById(lessonId).withLoading();
     switch (result) {
       case Success(data: final lesson):
-        emit(
-          state.copyWith(
-            lesson: lesson,
-            isLoading: false,
-            failure: null,
-          ),
-        );
+        emit(state.copyWith(lesson: lesson, isLoading: false, failure: null));
       case Failure():
         emit(state.copyWith(isLoading: false, failure: result));
         emit(state.copyWith(failure: null));

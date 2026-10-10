@@ -12,6 +12,7 @@ import 'package:eflutter/presentation/app/widgets/app_widget.dart';
 import 'package:eflutter/presentation/auth/cubit/auth_cubit.dart';
 import 'package:eflutter/presentation/profile/cubit/profile_cubit.dart';
 import 'package:eflutter/presentation/topics/cubit/topic_cubit.dart';
+import 'package:eflutter/presentation/notifications/notification_push_service.dart';
 import 'package:eflutter/firebase_options.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -29,6 +30,7 @@ void main() async {
     Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform),
     authCubit.init(),
   ].wait;
+  await getIt<NotificationPushService>().initialize();
 
   configureUrlStrategy();
   final appCubit = getIt<AppCubit>();
@@ -77,7 +79,7 @@ class MyApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: const [Locale('vi', 'VN')],
+      supportedLocales: const [Locale('en', 'US')],
       themeMode: ThemeMode.light,
       theme: AppTheme.lightTheme,
       builder: (context, child) {

@@ -95,6 +95,7 @@ class AttemptSessionCubit extends Cubit<AttemptSessionState> {
   StreamSubscription<AttemptSocketStatus>? _statusSubscription;
   Timer? _countdownTimer;
   Timer? _reconnectTimer;
+  Timer? _completionPollTimer;
   bool _closing = false;
 
   Future<void> load(int attemptId, {ExamAttempt? initialAttempt}) async {
@@ -254,6 +255,19 @@ class AttemptSessionCubit extends Cubit<AttemptSessionState> {
   }
 
   void _handleSocketEvent(AttemptSocketEvent event) {
+    if (event.type == 'ATTEMPT_SUBMITTING' &&
+        event.attemptId == state.attempt?.id) {
+      _countdownTimer?.cancel();
+      emit(state.copyWith(isLocked: true, isSubmitting: true, failure: null));
+      _waitForBackendSubmission();
+      return;
+    }
+    if (event.type == 'ATTEMPT_SUBMITTED' &&
+        event.attemptId == state.attempt?.id) {
+      emit(state.copyWith(isLocked: true, isSubmitting: true, failure: null));
+      _waitForBackendSubmission();
+      return;
+    }
     final questionId = _questionByRequest.remove(event.requestId);
     if (questionId == null || _latestRequest[questionId] != event.requestId) {
       return;
@@ -271,7 +285,7 @@ class AttemptSessionCubit extends Cubit<AttemptSessionState> {
         socketMessage: event.success ? null : event.message ?? event.code,
       ),
     );
-    if (event.code == 'ATTEMPT_EXPIRED') unawaited(submit());
+    if (event.code == 'ATTEMPT_EXPIRED') _waitForBackendSubmission();
   }
 
   void _handleSocketStatus(AttemptSocketStatus status) {
@@ -300,8 +314,15 @@ class AttemptSessionCubit extends Cubit<AttemptSessionState> {
       final remaining = expiresAt.toLocal().difference(DateTime.now());
       if (remaining <= Duration.zero) {
         _countdownTimer?.cancel();
-        emit(state.copyWith(remaining: Duration.zero, isLocked: true));
-        unawaited(submit());
+        emit(
+          state.copyWith(
+            remaining: Duration.zero,
+            isLocked: true,
+            isSubmitting: true,
+            failure: null,
+          ),
+        );
+        _waitForBackendSubmission();
       } else {
         emit(state.copyWith(remaining: remaining));
       }
@@ -309,6 +330,44 @@ class AttemptSessionCubit extends Cubit<AttemptSessionState> {
 
     tick();
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) => tick());
+  }
+
+  void _waitForBackendSubmission() {
+    if (_closing || _completionPollTimer?.isActive == true) return;
+    final startedAt = DateTime.now();
+
+    Future<void> poll() async {
+      final attempt = state.attempt;
+      if (_closing || attempt == null || state.completedAttempt != null) return;
+      final result = await _repository.getAttemptHistory(attempt.id);
+      if (result case Success(data: final completed)) {
+        await _socket.close();
+        emit(
+          state.copyWith(
+            attempt: completed,
+            completedAttempt: completed,
+            isSubmitting: false,
+            isLocked: true,
+          ),
+        );
+        return;
+      }
+      if (DateTime.now().difference(startedAt) >= const Duration(minutes: 2)) {
+        emit(
+          state.copyWith(
+            isSubmitting: false,
+            failure: const Failure(
+              message:
+                  'Submission is still processing. Please reload the result.',
+            ),
+          ),
+        );
+        return;
+      }
+      _completionPollTimer = Timer(const Duration(seconds: 2), poll);
+    }
+
+    unawaited(poll());
   }
 
   static Iterable<ExamQuestion> _allQuestions(ExamAttempt attempt) sync* {
@@ -325,6 +384,7 @@ class AttemptSessionCubit extends Cubit<AttemptSessionState> {
     _closing = true;
     _countdownTimer?.cancel();
     _reconnectTimer?.cancel();
+    _completionPollTimer?.cancel();
     await _eventSubscription?.cancel();
     await _statusSubscription?.cancel();
     await _socket.close();

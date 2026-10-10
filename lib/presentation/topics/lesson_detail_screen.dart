@@ -13,10 +13,7 @@ import 'package:go_router/go_router.dart';
 import 'package:solar_icons/solar_icons.dart';
 
 class LessonDetailScreen extends StatefulWidget {
-  const LessonDetailScreen({
-    required this.lessonId,
-    super.key,
-  });
+  const LessonDetailScreen({required this.lessonId, super.key});
 
   final int lessonId;
 
@@ -142,7 +139,8 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                       lesson: lesson,
                       isLoading: state.isLoading,
                       videoController: _videoController,
-                      selectedTranscriptIdListenable: _selectedTranscriptIdNotifier,
+                      selectedTranscriptIdListenable:
+                          _selectedTranscriptIdNotifier,
                       transcriptScrollController: _transcriptScrollController,
                       transcriptKeyBuilder: _keyForTranscript,
                       onTranscriptTap: (transcript) async {
@@ -188,10 +186,7 @@ class _LessonDetailContent extends StatelessWidget {
       builder: (context, constraints) {
         final isCompact = constraints.maxWidth < 960;
         return ListView(
-          padding: EdgeInsets.only(
-            right: isCompact ? 18 : 24,
-            bottom: 16,
-          ),
+          padding: EdgeInsets.only(right: isCompact ? 18 : 24, bottom: 16),
           children: [
             _LessonTopBar(
               title: lesson.title.isEmpty ? 'Lesson detail' : lesson.title,
@@ -200,10 +195,7 @@ class _LessonDetailContent extends StatelessWidget {
             _LessonSummaryCard(lesson: lesson),
             const SizedBox(height: 16),
             if (isCompact) ...[
-              _VideoPanel(
-                lessonUrl: lesson.url,
-                controller: videoController,
-              ),
+              _VideoPanel(lessonUrl: lesson.url, controller: videoController),
               const SizedBox(height: 16),
               SizedBox(
                 height: 420,
@@ -265,10 +257,7 @@ class _LessonDetailContent extends StatelessWidget {
 }
 
 class _VideoPanel extends StatelessWidget {
-  const _VideoPanel({
-    required this.lessonUrl,
-    required this.controller,
-  });
+  const _VideoPanel({required this.lessonUrl, required this.controller});
 
   final String lessonUrl;
   final LessonVideoController controller;
@@ -298,10 +287,7 @@ class _VideoPanel extends StatelessWidget {
           AspectRatio(
             aspectRatio: 16 / 9,
             child: hasUrl
-                ? LessonVideoPlayer(
-                    url: lessonUrl,
-                    controller: controller,
-                  )
+                ? LessonVideoPlayer(url: lessonUrl, controller: controller)
                 : const Center(
                     child: Text(
                       'Video unavailable',
@@ -635,10 +621,7 @@ class _TimeBadge extends StatelessWidget {
 }
 
 class _InfoChip extends StatelessWidget {
-  const _InfoChip({
-    required this.icon,
-    required this.label,
-  });
+  const _InfoChip({required this.icon, required this.label});
 
   final IconData icon;
   final String label;

@@ -2,6 +2,7 @@ enum AppRoutes {
   login(path: '/login'),
   log(path: '/log'),
   home(path: '/'),
+  notifications(path: 'notifications'),
   topic(path: '/topic'),
   topicLesson(path: 'lessons/:id'),
   examThpt(path: '/exams/thpt'),
@@ -11,6 +12,11 @@ enum AppRoutes {
   attemptPractice(path: 'attempts/:id/practice'),
   attemptHistoryDetail(path: 'attempts/:id/history'),
   profile(path: '/profile'),
+  classrooms(path: '/classrooms'),
+  classroomDetail(path: ':id'),
+  classroomGradebook(path: 'assignments/:assignmentId/gradebook'),
+  classGradebook(path: 'gradebook'),
+  studentProgress(path: 'students/:userId/progress'),
 
   other(path: '/other'),
   subOther(path: 'other-sub-route');
@@ -20,6 +26,8 @@ enum AppRoutes {
 }
 
 final publicPaths = [AppRoutes.login.path];
+
+String get notificationsPath => '/notifications';
 
 String topicLessonPath(int lessonId) =>
     '${AppRoutes.topic.path}/lessons/$lessonId';
@@ -36,3 +44,15 @@ String attemptPracticePath(int attemptId) =>
 
 String attemptHistoryDetailPath(int attemptId) =>
     '${AppRoutes.histories.path}/attempts/$attemptId/history';
+
+String classroomPath(int classroomId) =>
+    '${AppRoutes.classrooms.path}/$classroomId';
+
+String classroomGradebookPath(int classroomId, int assignmentId) =>
+    '${classroomPath(classroomId)}/assignments/$assignmentId/gradebook';
+
+String classGradebookPath(int classroomId) =>
+    '${classroomPath(classroomId)}/gradebook';
+
+String studentProgressPath(int classroomId, String userId) =>
+    '${classroomPath(classroomId)}/students/${Uri.encodeComponent(userId)}/progress';

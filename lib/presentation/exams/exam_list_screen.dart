@@ -21,7 +21,7 @@ class ExamListScreen extends StatefulWidget {
 }
 
 class _ExamListScreenState extends State<ExamListScreen> {
-  late final ExamListCubit _cubit;
+  late ExamListCubit _cubit;
 
   @override
   void initState() {
@@ -30,6 +30,18 @@ class _ExamListScreenState extends State<ExamListScreen> {
       ExamRepository(getIt<RemoteDataBase>()),
       examType: widget.examType,
     )..load();
+  }
+
+  @override
+  void didUpdateWidget(covariant ExamListScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.examType == widget.examType) return;
+    final previous = _cubit;
+    _cubit = ExamListCubit(
+      ExamRepository(getIt<RemoteDataBase>()),
+      examType: widget.examType,
+    )..load();
+    previous.close();
   }
 
   @override

@@ -87,12 +87,7 @@ class _CustomVideoControlsState extends State<CustomVideoControls> {
     // We only render the bottom bar. The empty area above passes taps to Chewie.
     return Stack(
       children: [
-        Positioned(
-          bottom: 0,
-          left: 0,
-          right: 0,
-          child: _buildBottomBar(),
-        ),
+        Positioned(bottom: 0, left: 0, right: 0, child: _buildBottomBar()),
       ],
     );
   }
@@ -150,13 +145,12 @@ class _CustomVideoControlsState extends State<CustomVideoControls> {
                           _latestValue.volume == 0
                               ? Icons.volume_off
                               : _latestValue.volume < 0.5
-                                  ? Icons.volume_down
-                                  : Icons.volume_up,
+                              ? Icons.volume_down
+                              : Icons.volume_up,
                           color: Colors.white,
                         ),
                         onPressed: _toggleMute,
-                        tooltip:
-                            _latestValue.volume == 0 ? 'Unmute' : 'Mute',
+                        tooltip: _latestValue.volume == 0 ? 'Unmute' : 'Mute',
                       ),
                       AnimatedContainer(
                         duration: const Duration(milliseconds: 250),
@@ -169,9 +163,11 @@ class _CustomVideoControlsState extends State<CustomVideoControls> {
                             child: SliderTheme(
                               data: SliderThemeData(
                                 thumbShape: const RoundSliderThumbShape(
-                                    enabledThumbRadius: 6),
+                                  enabledThumbRadius: 6,
+                                ),
                                 overlayShape: const RoundSliderOverlayShape(
-                                    overlayRadius: 14),
+                                  overlayRadius: 14,
+                                ),
                                 trackHeight: 4,
                               ),
                               child: Slider(
@@ -192,17 +188,16 @@ class _CustomVideoControlsState extends State<CustomVideoControls> {
                 const SizedBox(width: 8),
                 Text(
                   '${_formatDuration(_latestValue.position)} / ${_formatDuration(_latestValue.duration)}',
-                  style:
-                      const TextStyle(color: Colors.white, fontSize: 13),
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
                 ),
                 const Spacer(),
                 Theme(
-                  data: Theme.of(context).copyWith(
-                    cardColor: const Color(0xFF282828),
-                  ),
+                  data: Theme.of(
+                    context,
+                  ).copyWith(cardColor: const Color(0xFF282828)),
                   child: PopupMenuButton<double>(
                     initialValue: _latestValue.playbackSpeed,
-                    tooltip: 'Tốc độ phát',
+                    tooltip: 'Playback speed',
                     onSelected: (speed) {
                       controller.setPlaybackSpeed(speed);
                     },
@@ -217,14 +212,13 @@ class _CustomVideoControlsState extends State<CustomVideoControls> {
                           value: speed,
                           height: 36,
                           child: Text(
-                            speed == 1.0 ? 'Chuẩn' : '${speed}x',
+                            speed == 1.0 ? 'Normal' : '${speed}x',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 14,
-                              fontWeight:
-                                  _latestValue.playbackSpeed == speed
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
+                              fontWeight: _latestValue.playbackSpeed == speed
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
                             ),
                           ),
                         );

@@ -19,11 +19,17 @@ import 'package:eflutter/core/loading/loading_service.dart' as _i513;
 import 'package:eflutter/data/data_sources/local_data.dart' as _i264;
 import 'package:eflutter/data/data_sources/remote_data.dart' as _i81;
 import 'package:eflutter/data/repositories/auth_repository.dart' as _i695;
+import 'package:eflutter/data/repositories/topic_repository.dart' as _i441;
 import 'package:eflutter/data/repositories/user_repository.dart' as _i180;
 import 'package:eflutter/presentation/app/cubit/app_cubit.dart' as _i912;
 import 'package:eflutter/presentation/auth/cubit/auth_cubit.dart' as _i744;
+import 'package:eflutter/presentation/notifications/notification_controller.dart'
+    as _i834;
+import 'package:eflutter/presentation/notifications/notification_push_service.dart'
+    as _i339;
 import 'package:eflutter/presentation/profile/cubit/profile_cubit.dart'
     as _i1004;
+import 'package:eflutter/presentation/topics/cubit/topic_cubit.dart' as _i1049;
 import 'package:get_it/get_it.dart' as _i174;
 import 'package:injectable/injectable.dart' as _i526;
 import 'package:shared_preferences/shared_preferences.dart' as _i460;
@@ -55,6 +61,9 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i90.RemoteDataBase>(
       () => _i81.RemoteData(gh<_i361.Dio>()),
     );
+    gh.lazySingleton<_i834.NotificationController>(
+      () => _i834.NotificationController(gh<_i361.Dio>()),
+    );
     gh.lazySingleton<_i695.AuthRepository>(
       () => _i695.AuthRepository(
         gh<_i942.LocalDataBase>(),
@@ -62,8 +71,27 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i90.RemoteDataBase>(),
       ),
     );
+    gh.lazySingleton<_i339.NotificationPushService>(
+      () => _i339.NotificationPushService(
+        gh<_i361.Dio>(),
+        gh<_i834.NotificationController>(),
+        gh<_i460.SharedPreferencesAsync>(),
+      ),
+    );
+    gh.lazySingleton<_i441.TopicRepository>(
+      () => _i441.TopicRepository(gh<_i90.RemoteDataBase>()),
+    );
     gh.lazySingleton<_i180.UserRepository>(
       () => _i180.UserRepository(gh<_i90.RemoteDataBase>()),
+    );
+    gh.singleton<_i744.AuthCubit>(
+      () => _i744.AuthCubit(
+        gh<_i695.AuthRepository>(),
+        gh<_i339.NotificationPushService>(),
+      ),
+    );
+    gh.lazySingleton<_i549.AuthNotifier>(
+      () => _i549.AuthNotifier(gh<_i744.AuthCubit>()),
     );
     gh.singleton<_i912.AppCubit>(
       () => _i912.AppCubit(gh<_i180.UserRepository>()),
@@ -72,11 +100,8 @@ extension GetItInjectableX on _i174.GetIt {
       () =>
           _i1004.ProfileCubit(gh<_i180.UserRepository>(), gh<_i912.AppCubit>()),
     );
-    gh.singleton<_i744.AuthCubit>(
-      () => _i744.AuthCubit(gh<_i695.AuthRepository>()),
-    );
-    gh.lazySingleton<_i549.AuthNotifier>(
-      () => _i549.AuthNotifier(gh<_i744.AuthCubit>()),
+    gh.factory<_i1049.TopicCubit>(
+      () => _i1049.TopicCubit(gh<_i441.TopicRepository>()),
     );
     return this;
   }

@@ -1,4 +1,5 @@
 import 'package:eflutter/generated/colors.gen.dart';
+import 'package:eflutter/presentation/app/navigation/app_routes.dart';
 import 'package:eflutter/presentation/app/navigation/navigation_item.dart';
 import 'package:eflutter/presentation/app/widgets/main_app_bar.dart';
 import 'package:flutter/material.dart';
@@ -29,7 +30,9 @@ class WebLayout extends StatelessWidget {
         final isMobile = maxWidth < 640;
         final isDesktop = maxWidth >= 960;
         return Scaffold(
-          appBar: MainAppBar(onNotificationPressed: () {}),
+          appBar: MainAppBar(
+            onNotificationPressed: () => context.go(notificationsPath),
+          ),
           drawer: isMobile
               ? _MobileDrawer(
                   itemGroups: itemGroups,

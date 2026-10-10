@@ -60,16 +60,10 @@ class AuthRepository {
         return const Result.cancelled();
       }
       _logger.error('[GoogleSignInError]:', e, e.stackTrace);
-      return const Result.failure(
-        message:
-            'An unexpected error occurred while logging in. Please try again.',
-      );
+      return const Result.failure(message: 'Sign in failed. Please try again.');
     } catch (e, st) {
       _logger.error('[GoogleSignInError]:', e, st);
-      return const Result.failure(
-        message:
-            'An unexpected error occurred while logging in. Please try again.',
-      );
+      return const Result.failure(message: 'Sign in failed. Please try again.');
     }
   }
 }

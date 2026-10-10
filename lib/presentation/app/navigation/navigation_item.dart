@@ -9,6 +9,12 @@ import 'package:eflutter/presentation/exams/exam_history_detail_screen.dart';
 import 'package:eflutter/data/models/exam_attempt.dart';
 import 'package:eflutter/presentation/exams/exam_list_screen.dart';
 import 'package:eflutter/presentation/profile/profile_screen.dart';
+import 'package:eflutter/presentation/classrooms/classroom_list_screen.dart';
+import 'package:eflutter/presentation/classrooms/classroom_detail_screen.dart';
+import 'package:eflutter/presentation/classrooms/classroom_gradebook_screen.dart';
+import 'package:eflutter/presentation/classrooms/class_gradebook_screen.dart';
+import 'package:eflutter/presentation/classrooms/student_progress_screen.dart';
+import 'package:eflutter/presentation/notifications/notification_screen.dart';
 import 'package:eflutter/presentation/topics/cubit/lesson_detail_cubit.dart';
 import 'package:eflutter/presentation/topics/lesson_detail_screen.dart';
 import 'package:eflutter/presentation/topics/topic_screen.dart';
@@ -18,7 +24,7 @@ import 'package:go_router/go_router.dart';
 import 'package:solar_icons/solar_icons.dart';
 
 enum NavigationItemGroup {
-  general('Global');
+  general('General');
 
   final String title;
 
@@ -71,6 +77,7 @@ class NavigationItem {
   static final mobileShellBranches = [
     homeItem,
     topicItem,
+    classroomsItem,
     profileItem,
     otherItem,
   ];
@@ -82,6 +89,7 @@ class NavigationItem {
     NavigationItemGroup.general: [
       homeItem,
       topicItem,
+      classroomsItem,
       examThptItem,
       examToeicItem,
       historiesItem,
@@ -90,13 +98,19 @@ class NavigationItem {
     ],
   };
 
-  static final homeItem = const NavigationItem(
+  static final homeItem = NavigationItem(
     title: 'Home',
     shortTitle: 'Home',
     icon: SolarIconsOutline.home2,
     selectedIcon: SolarIconsBold.home2,
     route: AppRoutes.home,
-    screen: Placeholder(),
+    screen: const Placeholder(),
+    subRoutes: [
+      GoRoute(
+        path: AppRoutes.notifications.path,
+        builder: (context, state) => const NotificationScreen(),
+      ),
+    ],
   );
 
   static final profileItem = const NavigationItem(
@@ -108,9 +122,82 @@ class NavigationItem {
     screen: ProfileScreen(),
   );
 
+  static final classroomsItem = NavigationItem(
+    title: 'Classrooms',
+    icon: Icons.groups_outlined,
+    selectedIcon: Icons.groups,
+    route: AppRoutes.classrooms,
+    screen: const ClassroomListScreen(),
+    subRoutes: [
+      GoRoute(
+        path: AppRoutes.classroomDetail.path,
+        builder: (context, state) {
+          final id = int.tryParse(state.pathParameters['id'] ?? '');
+          return id == null
+              ? const Scaffold(
+                  body: Center(child: Text('Invalid classroom ID')),
+                )
+              : ClassroomDetailScreen(classroomId: id);
+        },
+        routes: [
+          GoRoute(
+            path: AppRoutes.classGradebook.path,
+            builder: (context, state) {
+              final classroomId = int.tryParse(
+                state.pathParameters['id'] ?? '',
+              );
+              return classroomId == null
+                  ? const Scaffold(
+                      body: Center(child: Text('Invalid classroom ID')),
+                    )
+                  : ClassGradebookScreen(classroomId: classroomId);
+            },
+          ),
+          GoRoute(
+            path: AppRoutes.studentProgress.path,
+            builder: (context, state) {
+              final classroomId = int.tryParse(
+                state.pathParameters['id'] ?? '',
+              );
+              final studentId = state.pathParameters['userId'];
+              return classroomId == null || studentId == null
+                  ? const Scaffold(
+                      body: Center(child: Text('Invalid student progress URL')),
+                    )
+                  : StudentProgressScreen(
+                      classroomId: classroomId,
+                      studentId: studentId,
+                    );
+            },
+          ),
+          GoRoute(
+            path: AppRoutes.classroomGradebook.path,
+            builder: (context, state) {
+              final classroomId = int.tryParse(
+                state.pathParameters['id'] ?? '',
+              );
+              final assignmentId = int.tryParse(
+                state.pathParameters['assignmentId'] ?? '',
+              );
+              if (classroomId == null || assignmentId == null) {
+                return const Scaffold(
+                  body: Center(child: Text('Invalid gradebook URL')),
+                );
+              }
+              return ClassroomGradebookScreen(
+                classroomId: classroomId,
+                assignmentId: assignmentId,
+              );
+            },
+          ),
+        ],
+      ),
+    ],
+  );
+
   static final topicItem = NavigationItem(
-    title: 'Topic',
-    shortTitle: 'Topic',
+    title: 'Topics',
+    shortTitle: 'Topics',
     icon: SolarIconsOutline.notebook,
     selectedIcon: SolarIconsBold.notebook,
     route: AppRoutes.topic,
@@ -122,7 +209,7 @@ class NavigationItem {
           final id = int.tryParse(state.pathParameters['id'] ?? '');
           if (id == null) {
             return const Scaffold(
-              body: Center(child: Text('Invalid lesson id')),
+              body: Center(child: Text('Invalid lesson ID')),
             );
           }
           return BlocProvider(
@@ -142,7 +229,7 @@ class NavigationItem {
     selectedIcon: SolarIconsBold.notebook,
     route: AppRoutes.examThpt,
     screen: const ExamListScreen(examType: 'THPT'),
-    parentTitle: 'Exam',
+    parentTitle: 'Exams',
     parentIcon: SolarIconsOutline.documentText,
     isChild: true,
     subRoutes: [_examDetailRoute],
@@ -155,7 +242,7 @@ class NavigationItem {
     selectedIcon: SolarIconsBold.microphoneLarge,
     route: AppRoutes.examToeic,
     screen: const ExamListScreen(examType: 'TOEIC'),
-    parentTitle: 'Exam',
+    parentTitle: 'Exams',
     parentIcon: SolarIconsOutline.documentText,
     isChild: true,
     subRoutes: [_examDetailRoute],
@@ -166,20 +253,20 @@ class NavigationItem {
     builder: (context, state) {
       final id = int.tryParse(state.pathParameters['id'] ?? '');
       if (id == null) {
-        return const Scaffold(body: Center(child: Text('Invalid exam id')));
+        return const Scaffold(body: Center(child: Text('Invalid exam ID')));
       }
       return ExamDetailScreen(examId: id);
     },
   );
 
   static final historiesItem = NavigationItem(
-    title: 'Histories',
-    shortTitle: 'Histories',
+    title: 'History',
+    shortTitle: 'History',
     icon: SolarIconsOutline.documentText,
     selectedIcon: SolarIconsBold.notebook,
     route: AppRoutes.histories,
     screen: const ExamHistoryScreen(),
-    parentTitle: 'Exam',
+    parentTitle: 'Exams',
     parentIcon: SolarIconsOutline.documentText,
     isChild: true,
     subRoutes: [
@@ -189,7 +276,7 @@ class NavigationItem {
           final id = int.tryParse(state.pathParameters['id'] ?? '');
           if (id == null) {
             return const Scaffold(
-              body: Center(child: Text('Invalid attempt id')),
+              body: Center(child: Text('Invalid attempt ID')),
             );
           }
           return AttemptPracticeScreen(
@@ -206,7 +293,7 @@ class NavigationItem {
           final id = int.tryParse(state.pathParameters['id'] ?? '');
           if (id == null) {
             return const Scaffold(
-              body: Center(child: Text('Invalid attempt id')),
+              body: Center(child: Text('Invalid attempt ID')),
             );
           }
           return ExamHistoryDetailScreen(

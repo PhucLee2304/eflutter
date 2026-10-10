@@ -4,6 +4,7 @@ import 'package:eflutter/core/loading/loading_service.dart';
 import 'package:eflutter/data/repositories/auth_repository.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:injectable/injectable.dart';
+import 'package:eflutter/presentation/notifications/notification_push_service.dart';
 
 part 'auth_cubit.freezed.dart';
 
@@ -19,8 +20,10 @@ abstract class AuthState extends AuthStateBase with _$AuthState {
 @singleton
 class AuthCubit extends AuthCubitBase<AuthState> {
   final AuthRepository _authRepository;
+  final NotificationPushService _notificationPushService;
 
-  AuthCubit(this._authRepository) : super(const AuthState());
+  AuthCubit(this._authRepository, this._notificationPushService)
+    : super(const AuthState());
 
   Future<void> init() async {
     final isAuthenticated = await _authRepository.initAuthenticated;
@@ -29,6 +32,7 @@ class AuthCubit extends AuthCubitBase<AuthState> {
 
   @override
   void logout() async {
+    await _notificationPushService.disablePush();
     await _authRepository.logout().withLoading();
     emit(const AuthState(isAuthenticated: false));
   }

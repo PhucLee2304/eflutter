@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:eflutter/core/base/local_data_base.dart';
 import 'package:eflutter/core/base/remote_data_base.dart';
 import 'package:eflutter/core/di/injection.dart';
@@ -9,6 +11,7 @@ import 'package:eflutter/data/repositories/exam_repository.dart';
 import 'package:eflutter/generated/colors.gen.dart';
 import 'package:eflutter/presentation/app/navigation/app_routes.dart';
 import 'package:eflutter/presentation/exams/cubit/attempt_session_cubit.dart';
+import 'package:eflutter/presentation/exams/exam_history_refresh.dart';
 import 'package:eflutter/presentation/exams/widgets/exam_audio_player.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -66,6 +69,23 @@ class _AttemptPracticeScreenState extends State<AttemptPracticeScreen> {
     if (accepted) await _cubit.cancel();
   }
 
+  Future<void> _requestLeave() async {
+    final state = _cubit.state;
+    final isActive =
+        state.attempt?.status.toUpperCase() == 'ACTIVE' &&
+        state.completedAttempt == null;
+    if (isActive) {
+      final accepted = await _confirm(
+        title: 'Leave attempt?',
+        message:
+            'Your saved answers will remain, but the timer continues running.',
+        action: 'Leave',
+      );
+      if (!accepted) return;
+    }
+    if (mounted) context.pop();
+  }
+
   Future<bool> _confirm({
     required String title,
     required String message,
@@ -96,36 +116,47 @@ class _AttemptPracticeScreenState extends State<AttemptPracticeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocConsumer<AttemptSessionCubit, AttemptSessionState>(
-      bloc: _cubit,
-      listener: (context, state) {
-        if (state.failure != null) context.handleFailure(state.failure);
-        if (state.socketMessage != null) {
-          context.showToast(state.socketMessage!, type: ToastType.error);
-        }
-        final completed = state.completedAttempt;
-        if (completed != null) {
-          context.go(attemptHistoryDetailPath(completed.id), extra: completed);
-        }
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) unawaited(_requestLeave());
       },
-      builder: (context, state) {
-        final attempt = state.attempt;
-        return Scaffold(
-          body: SafeArea(
-            child: state.isLoading && attempt == null
-                ? const Center(child: CircularProgressIndicator())
-                : attempt == null
-                ? _MissingAttempt(onBack: context.pop)
-                : _AttemptBody(
-                    attempt: attempt,
-                    state: state,
-                    onSelect: _cubit.selectAnswer,
-                    onSubmit: _confirmSubmit,
-                    onCancel: _confirmCancel,
-                  ),
-          ),
-        );
-      },
+      child: BlocConsumer<AttemptSessionCubit, AttemptSessionState>(
+        bloc: _cubit,
+        listener: (context, state) {
+          if (state.failure != null) context.handleFailure(state.failure);
+          if (state.socketMessage != null) {
+            context.showToast(state.socketMessage!, type: ToastType.error);
+          }
+          final completed = state.completedAttempt;
+          if (completed != null) {
+            notifyExamHistoryChanged();
+            context.go(
+              attemptHistoryDetailPath(completed.id),
+              extra: completed,
+            );
+          }
+        },
+        builder: (context, state) {
+          final attempt = state.attempt;
+          return Scaffold(
+            body: SafeArea(
+              child: state.isLoading && attempt == null
+                  ? const Center(child: CircularProgressIndicator())
+                  : attempt == null
+                  ? _MissingAttempt(onBack: context.pop)
+                  : _AttemptBody(
+                      attempt: attempt,
+                      state: state,
+                      onSelect: _cubit.selectAnswer,
+                      onBack: _requestLeave,
+                      onSubmit: _confirmSubmit,
+                      onCancel: _confirmCancel,
+                    ),
+            ),
+          );
+        },
+      ),
     );
   }
 }
@@ -135,6 +166,7 @@ class _AttemptBody extends StatelessWidget {
     required this.attempt,
     required this.state,
     required this.onSelect,
+    required this.onBack,
     required this.onSubmit,
     required this.onCancel,
   });
@@ -142,6 +174,7 @@ class _AttemptBody extends StatelessWidget {
   final ExamAttempt attempt;
   final AttemptSessionState state;
   final void Function(int, int?) onSelect;
+  final VoidCallback onBack;
   final VoidCallback onSubmit;
   final VoidCallback onCancel;
 
@@ -158,6 +191,7 @@ class _AttemptBody extends StatelessWidget {
           totalQuestions: attempt.totalQuestions,
           onSubmit: onSubmit,
           onCancel: onCancel,
+          onBack: onBack,
         ),
         Expanded(
           child: SelectionArea(
@@ -184,6 +218,7 @@ class _SessionHeader extends StatelessWidget {
     required this.totalQuestions,
     required this.onSubmit,
     required this.onCancel,
+    required this.onBack,
   });
 
   final String title;
@@ -191,6 +226,7 @@ class _SessionHeader extends StatelessWidget {
   final int totalQuestions;
   final VoidCallback onSubmit;
   final VoidCallback onCancel;
+  final VoidCallback onBack;
 
   @override
   Widget build(BuildContext context) {
@@ -207,7 +243,7 @@ class _SessionHeader extends StatelessWidget {
             children: [
               IconButton.outlined(
                 tooltip: 'Back',
-                onPressed: context.pop,
+                onPressed: onBack,
                 icon: const Icon(SolarIconsOutline.altArrowLeft),
               ),
               const SizedBox(width: 12),
