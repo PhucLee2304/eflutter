@@ -38,6 +38,7 @@ class _ClassroomGradebookScreenState extends State<ClassroomGradebookScreen> {
   StreamSubscription<GradebookSocketStatus>? statusSubscription;
   Timer? refreshDebounce;
   ClassroomAssignment? assignment;
+  AssignmentAnalytics? analytics;
   String? error;
   bool loading = true;
   GradebookSocketStatus socketStatus = GradebookSocketStatus.disconnected;
@@ -78,11 +79,18 @@ class _ClassroomGradebookScreenState extends State<ClassroomGradebookScreen> {
       widget.classroomId,
       widget.assignmentId,
     );
+    final analyticsResult = await repository.getAssignmentAnalytics(
+      widget.classroomId,
+      widget.assignmentId,
+    );
     if (!mounted) return;
     switch (result) {
       case Success(data: final value):
         setState(() {
           assignment = value;
+          if (analyticsResult case Success(data: final value)) {
+            analytics = value;
+          }
           loading = false;
         });
       case Failure(message: final message):
@@ -214,6 +222,7 @@ class _ClassroomGradebookScreenState extends State<ClassroomGradebookScreen> {
         ? const Center(child: Text('Assignment not found'))
         : GradebookView(
             assignment: assignment!,
+            analytics: analytics,
             onRefresh: load,
             onResetAttempt: resetAttempt,
           ),
@@ -226,11 +235,13 @@ class GradebookView extends StatefulWidget {
   const GradebookView({
     super.key,
     required this.assignment,
+    this.analytics,
     this.onRefresh,
     this.onResetAttempt,
   });
 
   final ClassroomAssignment assignment;
+  final AssignmentAnalytics? analytics;
   final Future<void> Function()? onRefresh;
   final ValueChanged<AssignmentSubmission>? onResetAttempt;
 
@@ -326,6 +337,51 @@ class _GradebookViewState extends State<GradebookView> {
                           ? '—'
                           : '${average.toStringAsFixed(2)}/10',
                     ),
+                    if (widget.analytics != null) ...[
+                      const SizedBox(height: 16),
+                      Wrap(
+                        spacing: 24,
+                        runSpacing: 8,
+                        children: [
+                          Text(
+                            'Average: ${widget.analytics!.averageScore?.toStringAsFixed(2) ?? '-'}',
+                          ),
+                          Text(
+                            'Minimum: ${widget.analytics!.minimumScore?.toStringAsFixed(2) ?? '-'}',
+                          ),
+                          Text(
+                            'Maximum: ${widget.analytics!.maximumScore?.toStringAsFixed(2) ?? '-'}',
+                          ),
+                          Text(
+                            'Completion: ${widget.analytics!.completionRate.toStringAsFixed(1)}%',
+                          ),
+                        ],
+                      ),
+                      if (widget.analytics!.questions.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        Text(
+                          'Questions with the highest wrong rate',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        ...([...widget.analytics!.questions]..sort(
+                              (a, b) => b.wrongRate.compareTo(a.wrongRate),
+                            ))
+                            .take(5)
+                            .map(
+                              (question) => ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                title: Text(
+                                  '${question.order}. ${question.content}',
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                trailing: Text(
+                                  '${question.wrongRate.toStringAsFixed(1)}%',
+                                ),
+                              ),
+                            ),
+                      ],
+                    ],
                   ],
                 ),
                 const Divider(height: 32),

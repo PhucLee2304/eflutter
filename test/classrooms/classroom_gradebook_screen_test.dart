@@ -107,4 +107,41 @@ void main() {
     expect(find.textContaining('student@example.com'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('shows assignment analytics and question wrong rate', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const analytics = AssignmentAnalytics(
+      totalStudents: 50,
+      notStarted: 10,
+      inProgress: 5,
+      submitted: 30,
+      late: 5,
+      averageScore: 7.5,
+      minimumScore: 3,
+      maximumScore: 10,
+      completionRate: 60,
+      questions: [
+        QuestionAnalytics(
+          questionId: 1,
+          content: 'Difficult question',
+          order: 1,
+          answeredCount: 30,
+          wrongCount: 15,
+          wrongRate: 50,
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: GradebookView(assignment: assignment, analytics: analytics),
+        ),
+      ),
+    );
+    expect(find.text('Questions with the highest wrong rate'), findsOneWidget);
+    expect(find.text('50.0%'), findsOneWidget);
+  });
 }

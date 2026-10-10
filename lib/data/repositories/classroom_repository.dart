@@ -132,6 +132,48 @@ class ClassroomRepository {
       )
       .safeResult();
 
+  Future<Result<ClassGradebook>> getClassGradebook(
+    int classroomId, {
+    DateTime? from,
+    DateTime? to,
+  }) => _dio
+      .get(
+        '$_base/$classroomId/gradebook',
+        queryParameters: {
+          if (from != null) 'from': from.toUtc().toIso8601String(),
+          if (to != null) 'to': to.toUtc().toIso8601String(),
+        },
+      )
+      .then(
+        (response) =>
+            ClassGradebook.fromJson(response.data as Map<String, dynamic>),
+      )
+      .safeResult();
+
+  Future<Result<StudentProgress>> getStudentProgress(
+    int classroomId,
+    String studentId,
+  ) => _dio
+      .get(
+        '$_base/$classroomId/students/${Uri.encodeComponent(studentId)}/progress',
+      )
+      .then(
+        (response) =>
+            StudentProgress.fromJson(response.data as Map<String, dynamic>),
+      )
+      .safeResult();
+
+  Future<Result<AssignmentAnalytics>> getAssignmentAnalytics(
+    int classroomId,
+    int assignmentId,
+  ) => _dio
+      .get('$_base/$classroomId/assignments/$assignmentId/analytics')
+      .then(
+        (response) =>
+            AssignmentAnalytics.fromJson(response.data as Map<String, dynamic>),
+      )
+      .safeResult();
+
   Future<Result<void>> resetAssignmentAttempt({
     required int classroomId,
     required int assignmentId,

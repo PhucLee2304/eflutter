@@ -12,6 +12,8 @@ import 'package:eflutter/presentation/profile/profile_screen.dart';
 import 'package:eflutter/presentation/classrooms/classroom_list_screen.dart';
 import 'package:eflutter/presentation/classrooms/classroom_detail_screen.dart';
 import 'package:eflutter/presentation/classrooms/classroom_gradebook_screen.dart';
+import 'package:eflutter/presentation/classrooms/class_gradebook_screen.dart';
+import 'package:eflutter/presentation/classrooms/student_progress_screen.dart';
 import 'package:eflutter/presentation/topics/cubit/lesson_detail_cubit.dart';
 import 'package:eflutter/presentation/topics/lesson_detail_screen.dart';
 import 'package:eflutter/presentation/topics/topic_screen.dart';
@@ -131,6 +133,36 @@ class NavigationItem {
               : ClassroomDetailScreen(classroomId: id);
         },
         routes: [
+          GoRoute(
+            path: AppRoutes.classGradebook.path,
+            builder: (context, state) {
+              final classroomId = int.tryParse(
+                state.pathParameters['id'] ?? '',
+              );
+              return classroomId == null
+                  ? const Scaffold(
+                      body: Center(child: Text('Invalid classroom ID')),
+                    )
+                  : ClassGradebookScreen(classroomId: classroomId);
+            },
+          ),
+          GoRoute(
+            path: AppRoutes.studentProgress.path,
+            builder: (context, state) {
+              final classroomId = int.tryParse(
+                state.pathParameters['id'] ?? '',
+              );
+              final studentId = state.pathParameters['userId'];
+              return classroomId == null || studentId == null
+                  ? const Scaffold(
+                      body: Center(child: Text('Invalid student progress URL')),
+                    )
+                  : StudentProgressScreen(
+                      classroomId: classroomId,
+                      studentId: studentId,
+                    );
+            },
+          ),
           GoRoute(
             path: AppRoutes.classroomGradebook.path,
             builder: (context, state) {
