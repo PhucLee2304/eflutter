@@ -2,6 +2,7 @@ enum AppRoutes {
   login(path: '/login'),
   log(path: '/log'),
   home(path: '/'),
+  notifications(path: 'notifications'),
   topic(path: '/topic'),
   topicLesson(path: 'lessons/:id'),
   examThpt(path: '/exams/thpt'),
@@ -25,6 +26,8 @@ enum AppRoutes {
 }
 
 final publicPaths = [AppRoutes.login.path];
+
+String get notificationsPath => '/notifications';
 
 String topicLessonPath(int lessonId) =>
     '${AppRoutes.topic.path}/lessons/$lessonId';
