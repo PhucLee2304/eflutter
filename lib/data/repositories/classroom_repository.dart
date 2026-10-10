@@ -150,6 +150,18 @@ class ClassroomRepository {
       )
       .safeResult();
 
+  Future<Result<List<ExamAudit>>> getAssignmentAudits({
+    required int classroomId,
+    required int assignmentId,
+  }) => _dio
+      .get('$_base/$classroomId/assignments/$assignmentId/audits')
+      .then(
+        (response) => (response.data as List<dynamic>)
+            .map((item) => ExamAudit.fromJson(item as Map<String, dynamic>))
+            .toList(),
+      )
+      .safeResult();
+
   Future<Result<ClassroomAssignment>> setAssignmentActive(
     int classroomId,
     int assignmentId,

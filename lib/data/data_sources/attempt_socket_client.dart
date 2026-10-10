@@ -113,7 +113,7 @@ class AttemptSocketClient implements AttemptSocketGateway {
     try {
       final data = jsonDecode(raw as String) as Map<String, dynamic>;
       final type = data['type'] as String?;
-      if (type == 'ATTEMPT_SUBMITTED') {
+      if (type == 'ATTEMPT_SUBMITTING' || type == 'ATTEMPT_SUBMITTED') {
         final payload = data['payload'] as Map<String, dynamic>?;
         _events.add(
           AttemptSocketEvent(

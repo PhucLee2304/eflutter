@@ -2,6 +2,86 @@ import 'package:eflutter/data/models/classroom.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+Future<void> showAssignmentAuditSheet(
+  BuildContext context,
+  List<ExamAudit> audits,
+) => showModalBottomSheet<void>(
+  context: context,
+  isScrollControlled: true,
+  showDragHandle: true,
+  builder: (context) => SafeArea(
+    child: SizedBox(
+      height: MediaQuery.sizeOf(context).height * .78,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 4, 24, 16),
+            child: Text(
+              'Assignment change history',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: audits.isEmpty
+                ? const Center(child: Text('No changes recorded yet'))
+                : ListView.separated(
+                    padding: const EdgeInsets.all(20),
+                    itemCount: audits.length,
+                    separatorBuilder: (_, _) => const Divider(height: 28),
+                    itemBuilder: (context, index) {
+                      final audit = audits[index];
+                      final time = audit.regradedAt ?? audit.createdAt;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            audit.reason.isEmpty
+                                ? 'Assignment updated'
+                                : audit.reason,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${DateFormat('MMM d, yyyy HH:mm').format(time)} · '
+                            '${audit.actor?.name ?? audit.actorId}',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                          if (audit.scoreChanges.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            ...audit.scoreChanges.map(
+                              (change) => Padding(
+                                padding: const EdgeInsets.only(bottom: 6),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        'Student ${change.studentId} · '
+                                        'Attempt ${change.attemptId}',
+                                      ),
+                                    ),
+                                    Text(
+                                      '${change.beforeScore?.toStringAsFixed(2) ?? '-'}'
+                                      ' → '
+                                      '${change.afterScore?.toStringAsFixed(2) ?? '-'}',
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    ),
+  ),
+);
+
 class CreateAssignmentInput {
   const CreateAssignmentInput({
     required this.schedules,
@@ -32,6 +112,7 @@ class ClassroomAssignmentsView extends StatelessWidget {
     this.onAssignToClasses,
     this.onEditSchedule,
     this.onEditContent,
+    this.onViewAudits,
     required this.onSetActive,
     this.error,
     this.loadMoreError,
@@ -54,6 +135,7 @@ class ClassroomAssignmentsView extends StatelessWidget {
   final ValueChanged<ClassroomAssignment>? onAssignToClasses;
   final ValueChanged<ClassroomAssignment>? onEditSchedule;
   final ValueChanged<ClassroomAssignment>? onEditContent;
+  final ValueChanged<ClassroomAssignment>? onViewAudits;
   final void Function(ClassroomAssignment assignment, bool active) onSetActive;
 
   @override
@@ -113,6 +195,9 @@ class ClassroomAssignmentsView extends StatelessWidget {
                 onEditContent: onEditContent == null
                     ? null
                     : () => onEditContent!(assignment),
+                onViewAudits: onViewAudits == null
+                    ? null
+                    : () => onViewAudits!(assignment),
                 onSetActive: (active) => onSetActive(assignment, active),
               ),
             ),
@@ -150,6 +235,7 @@ class _AssignmentTile extends StatelessWidget {
     this.onAssignToClasses,
     this.onEditSchedule,
     this.onEditContent,
+    this.onViewAudits,
     required this.onSetActive,
   });
 
@@ -161,6 +247,7 @@ class _AssignmentTile extends StatelessWidget {
   final VoidCallback? onAssignToClasses;
   final VoidCallback? onEditSchedule;
   final VoidCallback? onEditContent;
+  final VoidCallback? onViewAudits;
   final ValueChanged<bool> onSetActive;
 
   @override
@@ -241,6 +328,11 @@ class _AssignmentTile extends StatelessWidget {
                 onPressed: onEditContent,
                 tooltip: 'Edit assignment',
                 icon: const Icon(Icons.edit_outlined),
+              ),
+              IconButton(
+                onPressed: onViewAudits,
+                tooltip: 'View change history',
+                icon: const Icon(Icons.history_outlined),
               ),
               IconButton(
                 onPressed: onEditSchedule,
