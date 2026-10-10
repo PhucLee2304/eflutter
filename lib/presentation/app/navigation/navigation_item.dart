@@ -73,7 +73,7 @@ class NavigationItem {
   );
 
   static final allItems = itemGroups.values.expand((e) => e).toList();
-  static final webShellBranches = allItems;
+  static final webShellBranches = [...allItems, notificationItem];
   static final mobileShellBranches = [
     homeItem,
     topicItem,
@@ -81,9 +81,10 @@ class NavigationItem {
     profileItem,
     otherItem,
   ];
-  static final mobileOtherItems = allItems
-      .where((e) => !mobileShellBranches.contains(e))
-      .toList();
+  static final mobileOtherItems = [
+    ...allItems.where((e) => !mobileShellBranches.contains(e)),
+    notificationItem,
+  ];
 
   static final Map<NavigationItemGroup, List<NavigationItem>> itemGroups = {
     NavigationItemGroup.general: [
@@ -105,12 +106,14 @@ class NavigationItem {
     selectedIcon: SolarIconsBold.home2,
     route: AppRoutes.home,
     screen: const Placeholder(),
-    subRoutes: [
-      GoRoute(
-        path: AppRoutes.notifications.path,
-        builder: (context, state) => const NotificationScreen(),
-      ),
-    ],
+  );
+
+  static final notificationItem = const NavigationItem(
+    title: 'Notifications',
+    icon: Icons.notifications_outlined,
+    selectedIcon: Icons.notifications,
+    route: AppRoutes.notifications,
+    screen: NotificationScreen(),
   );
 
   static final profileItem = const NavigationItem(

@@ -1,12 +1,10 @@
-import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/core/utils/extensions/date_time_extension.dart';
+import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/data/models/app_notification.dart';
 import 'package:eflutter/presentation/app/navigation/app_routes.dart';
 import 'package:eflutter/presentation/notifications/notification_controller.dart';
-import 'package:eflutter/presentation/notifications/notification_push_service.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:visibility_detector/visibility_detector.dart';
 
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
@@ -45,7 +43,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
     }
   }
 
-  void _open(AppNotification item) {
+  Future<void> _open(AppNotification item) async {
+    await _controller.markRead(item);
+    if (!mounted) return;
     final id = int.tryParse(item.data['id'] ?? '');
     switch (item.data['type']) {
       case 'CLASSROOM':
@@ -79,25 +79,12 @@ class _NotificationScreenState extends State<NotificationScreen> {
                             ),
                           ),
                         ),
-                        IconButton(
-                          tooltip: 'Enable push notifications',
-                          onPressed: () async {
-                            final enabled =
-                                await getIt<NotificationPushService>()
-                                    .enablePush();
-                            if (!context.mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  enabled
-                                      ? 'Push notifications enabled.'
-                                      : 'Push notifications are unavailable.',
-                                ),
-                              ),
-                            );
-                          },
-                          icon: const Icon(Icons.notifications_active_outlined),
-                        ),
+                        if (_controller.unreadCount > 0)
+                          IconButton(
+                            tooltip: 'Mark all as read',
+                            onPressed: _controller.markAllRead,
+                            icon: const Icon(Icons.done_all),
+                          ),
                         if (_selectedIDs.isNotEmpty)
                           IconButton(
                             tooltip: 'Delete selected',
@@ -162,49 +149,41 @@ class _NotificationScreenState extends State<NotificationScreen> {
             );
           }
           final item = _controller.items[index];
-          return VisibilityDetector(
-            key: ValueKey('notification-${item.id}'),
-            onVisibilityChanged: (info) {
-              if (info.visibleFraction >= 0.75) {
-                _controller.notificationVisible(item);
-              }
-            },
-            child: ListTile(
-              minTileHeight: 82,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 8,
-                vertical: 8,
-              ),
-              leading: Checkbox(
-                value: _selectedIDs.contains(item.id),
-                onChanged: (selected) => setState(() {
-                  if (selected ?? false) {
-                    _selectedIDs.add(item.id);
-                  } else {
-                    _selectedIDs.remove(item.id);
-                  }
-                }),
-              ),
-              title: Text(
-                item.title,
-                style: TextStyle(
-                  fontWeight: item.isRead ? FontWeight.w500 : FontWeight.w700,
-                ),
-              ),
-              subtitle: Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                  item.body,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              trailing: Text(
-                item.createdAt.toFormatString(pattern: 'dd/MM HH:mm'),
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              onTap: () => _open(item),
+          return ListTile(
+            minTileHeight: 82,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 8,
+              vertical: 8,
             ),
+            leading: Checkbox(
+              value: _selectedIDs.contains(item.id),
+              onChanged: (selected) => setState(() {
+                if (selected ?? false) {
+                  _selectedIDs.add(item.id);
+                } else {
+                  _selectedIDs.remove(item.id);
+                }
+              }),
+            ),
+            title: Text(
+              item.title,
+              style: TextStyle(
+                fontWeight: item.isRead ? FontWeight.w500 : FontWeight.w700,
+              ),
+            ),
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                item.body,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            trailing: Text(
+              item.createdAt.toFormatString(pattern: 'dd/MM HH:mm'),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            onTap: () => _open(item),
           );
         },
       ),

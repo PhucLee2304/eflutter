@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:dio/dio.dart';
 import 'package:eflutter/data/models/app_notification.dart';
 import 'package:eflutter/data/repositories/notification_repository.dart';
@@ -14,8 +12,6 @@ class NotificationController extends ChangeNotifier {
 
   final NotificationRepository _repository;
   final List<AppNotification> _items = [];
-  final Set<int> _pendingReadIDs = {};
-  Timer? _readTimer;
   int _page = 0;
   int _pageCount = 1;
   bool _loading = false;
@@ -73,34 +69,43 @@ class NotificationController extends ChangeNotifier {
     }
   }
 
-  void notificationVisible(AppNotification notification) {
+  Future<void> markRead(AppNotification notification) async {
     if (notification.isRead) return;
-    _pendingReadIDs.add(notification.id);
-    _readTimer?.cancel();
-    _readTimer = Timer(const Duration(milliseconds: 600), _flushReadIDs);
-  }
-
-  Future<void> _flushReadIDs() async {
-    if (_pendingReadIDs.isEmpty) return;
-    final ids = _pendingReadIDs.toList();
-    _pendingReadIDs.clear();
     try {
-      await _repository.markRead(ids);
+      await _repository.markRead([notification.id]);
       final now = DateTime.now();
       for (var i = 0; i < _items.length; i++) {
-        if (ids.contains(_items[i].id) && !_items[i].isRead) {
+        if (_items[i].id == notification.id && !_items[i].isRead) {
           _items[i] = _items[i].markRead(now);
           if (_unreadCount > 0) _unreadCount--;
+          break;
         }
       }
       if (_filter == NotificationFilter.unread) {
-        await refresh();
-        return;
+        _items.removeWhere((item) => item.id == notification.id);
       }
       notifyListeners();
-    } catch (_) {
-      _pendingReadIDs.addAll(ids);
-    }
+    } catch (_) {}
+  }
+
+  Future<void> markAllRead() async {
+    if (_unreadCount == 0) return;
+    try {
+      await _repository.markRead(const []);
+      final now = DateTime.now();
+      for (var i = 0; i < _items.length; i++) {
+        if (!_items[i].isRead) {
+          _items[i] = _items[i].markRead(now);
+        }
+      }
+      _unreadCount = 0;
+      if (_filter == NotificationFilter.unread) {
+        _items.clear();
+        _page = 0;
+        _pageCount = 1;
+      }
+      notifyListeners();
+    } catch (_) {}
   }
 
   Future<bool> deleteMany(Set<int> ids) async {
@@ -119,11 +124,5 @@ class NotificationController extends ChangeNotifier {
       notifyListeners();
       return false;
     }
-  }
-
-  @override
-  void dispose() {
-    _readTimer?.cancel();
-    super.dispose();
   }
 }

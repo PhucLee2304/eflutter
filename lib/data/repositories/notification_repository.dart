@@ -25,9 +25,13 @@ class NotificationRepository {
   Future<void> deleteMany(List<int> ids) =>
       _dio.delete(_base, data: {'ids': ids});
 
-  Future<void> registerDeviceToken(String token, String platform) => _dio.post(
+  Future<void> registerDeviceToken(
+    String token,
+    String deviceId,
+    String platform,
+  ) => _dio.post(
     '$_base/device-tokens',
-    data: {'token': token, 'platform': platform},
+    data: {'token': token, 'deviceId': deviceId, 'platform': platform},
   );
 
   Future<void> deleteDeviceToken(String token) =>
