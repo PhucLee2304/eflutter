@@ -8,18 +8,22 @@ class ClassroomRepository {
   final Dio _dio;
   static const _base = '/classrooms/api/v1/classrooms';
 
-  Future<Result<ClassroomPage>> getMine({int page = 1, String query = ''}) =>
-      _dio
-          .get(
-            '$_base/me',
-            queryParameters: {
-              'page': page,
-              'pageSize': 12,
-              if (query.isNotEmpty) 'query': query,
-            },
-          )
-          .then((r) => ClassroomPage.fromJson(r.data as Map<String, dynamic>))
-          .safeResult();
+  Future<Result<ClassroomPage>> getMine({
+    int page = 1,
+    String query = '',
+    bool? active,
+  }) => _dio
+      .get(
+        '$_base/me',
+        queryParameters: {
+          'page': page,
+          'pageSize': 12,
+          if (query.isNotEmpty) 'query': query,
+          'active': ?active,
+        },
+      )
+      .then((r) => ClassroomPage.fromJson(r.data as Map<String, dynamic>))
+      .safeResult();
 
   Future<Result<Classroom>> get(int id) => _dio
       .get('$_base/$id')

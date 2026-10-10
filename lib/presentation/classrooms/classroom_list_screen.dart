@@ -16,42 +16,68 @@ class ClassroomListScreen extends StatefulWidget {
 class _ClassroomListScreenState extends State<ClassroomListScreen> {
   late final ClassroomRepository repository = ClassroomRepository(getIt<Dio>());
   final search = TextEditingController();
+  final scrollController = ScrollController();
   List<Classroom> classrooms = [];
   int page = 1;
   int pageCounts = 1;
   bool loading = false;
+  bool loadingMore = false;
   String? error;
+  String activeFilter = 'all';
 
   @override
   void initState() {
     super.initState();
+    scrollController.addListener(loadMoreWhenNeeded);
     load();
   }
 
   @override
   void dispose() {
     search.dispose();
+    scrollController
+      ..removeListener(loadMoreWhenNeeded)
+      ..dispose();
     super.dispose();
   }
 
-  Future<void> load() async {
+  void loadMoreWhenNeeded() {
+    if (scrollController.position.extentAfter < 320 && page < pageCounts) {
+      load(reset: false);
+    }
+  }
+
+  Future<void> load({bool reset = true}) async {
+    if (loading || loadingMore || (!reset && page >= pageCounts)) return;
+    final requestedPage = reset ? 1 : page + 1;
     setState(() {
-      loading = true;
-      error = null;
+      if (reset) {
+        loading = true;
+        error = null;
+      } else {
+        loadingMore = true;
+      }
     });
     final result = await repository.getMine(
-      page: page,
+      page: requestedPage,
       query: search.text.trim(),
+      active: switch (activeFilter) {
+        'active' => true,
+        'archived' => false,
+        _ => null,
+      },
     );
     if (!mounted) return;
     setState(() {
       loading = false;
+      loadingMore = false;
       switch (result) {
         case Success(data: final data):
-          classrooms = data.items;
+          classrooms = reset ? data.items : [...classrooms, ...data.items];
+          page = requestedPage;
           pageCounts = data.pageCounts;
         case Failure(message: final message):
-          error = message;
+          if (reset) error = message;
         case Cancelled():
           break;
       }
@@ -199,6 +225,7 @@ class _ClassroomListScreenState extends State<ClassroomListScreen> {
     body: RefreshIndicator(
       onRefresh: load,
       child: CustomScrollView(
+        controller: scrollController,
         slivers: [
           SliverToBoxAdapter(
             child: Center(
@@ -236,21 +263,47 @@ class _ClassroomListScreenState extends State<ClassroomListScreen> {
                       TextField(
                         controller: search,
                         onSubmitted: (_) {
-                          page = 1;
                           load();
                         },
                         decoration: InputDecoration(
                           prefixIcon: const Icon(Icons.search),
-                          hintText: 'Search by name or class code',
+                          hintText: 'Search by name, description, or teacher',
                           suffixIcon: IconButton(
                             tooltip: 'Search',
                             icon: const Icon(Icons.arrow_forward),
                             onPressed: () {
-                              page = 1;
                               load();
                             },
                           ),
                         ),
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          SegmentedButton<String>(
+                            segments: const [
+                              ButtonSegment(value: 'all', label: Text('All')),
+                              ButtonSegment(
+                                value: 'active',
+                                label: Text('Active'),
+                              ),
+                              ButtonSegment(
+                                value: 'archived',
+                                label: Text('Archived'),
+                              ),
+                            ],
+                            selected: {activeFilter},
+                            onSelectionChanged: (selection) {
+                              setState(() {
+                                activeFilter = selection.single;
+                              });
+                              load();
+                            },
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -305,32 +358,11 @@ class _ClassroomListScreenState extends State<ClassroomListScreen> {
                           ),
                         ),
                       ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          IconButton(
-                            tooltip: 'Previous page',
-                            onPressed: page > 1
-                                ? () {
-                                    page--;
-                                    load();
-                                  }
-                                : null,
-                            icon: const Icon(Icons.chevron_left),
-                          ),
-                          Text('$page / $pageCounts'),
-                          IconButton(
-                            tooltip: 'Next page',
-                            onPressed: page < pageCounts
-                                ? () {
-                                    page++;
-                                    load();
-                                  }
-                                : null,
-                            icon: const Icon(Icons.chevron_right),
-                          ),
-                        ],
-                      ),
+                      if (loadingMore)
+                        const Padding(
+                          padding: EdgeInsets.all(24),
+                          child: CircularProgressIndicator(),
+                        ),
                     ],
                   ),
                 ),

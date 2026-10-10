@@ -48,6 +48,78 @@ void main() {
     expect(find.byTooltip('Join classroom'), findsOneWidget);
   });
 
+  testWidgets('sends the active filter to the classrooms API', (tester) async {
+    RequestOptions? lastRequest;
+    final dio = Dio()
+      ..interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            lastRequest = options;
+            handler.resolve(
+              Response(
+                requestOptions: options,
+                data: {'data': <dynamic>[], 'page': 1, 'pageCounts': 1},
+              ),
+            );
+          },
+        ),
+      );
+    getIt.registerSingleton<Dio>(dio);
+    addTearDown(() => getIt.unregister<Dio>());
+
+    await tester.pumpWidget(const MaterialApp(home: ClassroomListScreen()));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Active'));
+    await tester.pumpAndSettle();
+
+    expect(lastRequest?.queryParameters['active'], isTrue);
+    expect(lastRequest?.queryParameters.containsKey('role'), isFalse);
+    expect(lastRequest?.queryParameters.containsKey('sortBy'), isFalse);
+  });
+
+  testWidgets('loads the next classroom page while scrolling', (tester) async {
+    final requestedPages = <int>[];
+    final dio = Dio()
+      ..interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            final page = options.queryParameters['page'] as int;
+            requestedPages.add(page);
+            final start = page == 1 ? 1 : 13;
+            final count = page == 1 ? 12 : 1;
+            handler.resolve(
+              Response(
+                requestOptions: options,
+                data: {
+                  'data': List.generate(count, (index) {
+                    final id = start + index;
+                    return {
+                      'id': id,
+                      'code': 'CLASS$id',
+                      'name': 'Classroom $id',
+                      'active': true,
+                    };
+                  }),
+                  'page': page,
+                  'pageCounts': 2,
+                },
+              ),
+            );
+          },
+        ),
+      );
+    getIt.registerSingleton<Dio>(dio);
+    addTearDown(() => getIt.unregister<Dio>());
+
+    await tester.pumpWidget(const MaterialApp(home: ClassroomListScreen()));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -1200));
+    await tester.pumpAndSettle();
+
+    expect(requestedPages, containsAllInOrder([1, 2]));
+    expect(find.text('Classroom 13'), findsOneWidget);
+  });
+
   testWidgets(
     'creates a classroom and closes the dialog without disposed controllers',
     (tester) async {
@@ -171,7 +243,7 @@ void main() {
 
     final search = find.widgetWithText(
       TextField,
-      'Search by name or class code',
+      'Search by name, description, or teacher',
     );
     expect(tester.getCenter(search).dx, closeTo(840, 1));
     expect(tester.takeException(), isNull);
