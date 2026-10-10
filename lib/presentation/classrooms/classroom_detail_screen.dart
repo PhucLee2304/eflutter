@@ -1,11 +1,16 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
+import 'package:eflutter/core/base/remote_data_base.dart';
 import 'package:eflutter/core/base/result.dart';
 import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/data/models/classroom.dart';
+import 'package:eflutter/data/models/exam_attempt.dart';
 import 'package:eflutter/data/repositories/classroom_repository.dart';
+import 'package:eflutter/data/repositories/exam_repository.dart';
+import 'package:eflutter/presentation/app/navigation/app_routes.dart';
 import 'package:eflutter/presentation/app/cubit/app_cubit.dart';
+import 'package:eflutter/presentation/classrooms/classroom_assignments.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
@@ -20,8 +25,18 @@ class ClassroomDetailScreen extends StatefulWidget {
 
 class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
   late final ClassroomRepository repository = ClassroomRepository(getIt<Dio>());
+  late final ExamRepository examRepository = ExamRepository(
+    getIt<RemoteDataBase>(),
+  );
   Classroom? classroom;
   List<ClassroomMember> requests = [];
+  List<ClassroomAssignment> assignments = [];
+  bool assignmentsLoading = true;
+  bool assignmentsLoadingMore = false;
+  String? assignmentsError;
+  String? assignmentsLoadMoreError;
+  int assignmentsPage = 0;
+  int assignmentPageCounts = 1;
   bool loading = true;
   bool busy = false;
   String? error;
@@ -63,6 +78,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
           classroom = item;
           loading = false;
         });
+        await loadAssignments();
         if (isTeacher && item.active) await loadRequests();
       case Failure(message: final message):
         setState(() {
@@ -73,6 +89,483 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
         setState(() => loading = false);
     }
   }
+
+  Future<void> loadAssignments() async {
+    setState(() {
+      assignmentsLoading = true;
+      assignmentsError = null;
+      assignmentsLoadMoreError = null;
+    });
+    final result = await repository.getAssignments(widget.classroomId, page: 1);
+    if (!mounted) return;
+    switch (result) {
+      case Success(data: final value):
+        setState(() {
+          assignments = value.items;
+          assignmentsPage = 1;
+          assignmentPageCounts = value.pageCounts;
+          assignmentsLoading = false;
+        });
+      case Failure(message: final message):
+        setState(() {
+          assignmentsError = message ?? 'Could not load assignments';
+          assignmentsLoading = false;
+        });
+      case Cancelled():
+        setState(() => assignmentsLoading = false);
+    }
+  }
+
+  Future<void> loadMoreAssignments() async {
+    if (assignmentsLoading ||
+        assignmentsLoadingMore ||
+        assignmentsPage >= assignmentPageCounts) {
+      return;
+    }
+    setState(() {
+      assignmentsLoadingMore = true;
+      assignmentsLoadMoreError = null;
+    });
+    final nextPage = assignmentsPage + 1;
+    final result = await repository.getAssignments(
+      widget.classroomId,
+      page: nextPage,
+    );
+    if (!mounted) return;
+    switch (result) {
+      case Success(data: final value):
+        setState(() {
+          assignments = [...assignments, ...value.items];
+          assignmentsPage = nextPage;
+          assignmentPageCounts = value.pageCounts;
+          assignmentsLoadingMore = false;
+        });
+      case Failure(message: final message):
+        setState(() {
+          assignmentsLoadMoreError =
+              message ?? 'Could not load more assignments';
+          assignmentsLoadingMore = false;
+        });
+      case Cancelled():
+        setState(() => assignmentsLoadingMore = false);
+    }
+  }
+
+  bool onPageScroll(ScrollNotification notification) {
+    if (tab == 1 &&
+        notification.metrics.extentAfter < 320 &&
+        !assignmentsLoadingMore) {
+      unawaited(loadMoreAssignments());
+    }
+    return false;
+  }
+
+  Future<void> createAssignment() async {
+    final teacherClassrooms = <Classroom>[];
+    var page = 1;
+    var pageCounts = 1;
+    do {
+      final result = await repository.getMine(page: page);
+      if (!mounted) return;
+      switch (result) {
+        case Success(data: final value):
+          pageCounts = value.pageCounts;
+          final userID = context.read<AppCubit>().state.user?.id.toString();
+          teacherClassrooms.addAll(
+            value.items.where(
+              (item) => item.active && item.teacher?.id == userID,
+            ),
+          );
+        case Failure(message: final message):
+          showMessage(message ?? 'Could not load your classrooms');
+          return;
+        case Cancelled():
+          return;
+      }
+      page++;
+    } while (page <= pageCounts);
+
+    final input = await showCreateAssignmentDialog(
+      context,
+      classrooms: teacherClassrooms,
+      currentClassroomId: widget.classroomId,
+    );
+    if (input == null || !mounted) return;
+    setState(() => busy = true);
+    final result = await repository.createAssignments(
+      schedules: input.schedules,
+      title: input.title,
+      description: input.description,
+      questions: input.questions,
+    );
+    if (!mounted) return;
+    setState(() => busy = false);
+    switch (result) {
+      case Success():
+        await loadAssignments();
+      case Failure(message: final message):
+        showMessage(message ?? 'Could not create the assignment');
+      case Cancelled():
+        break;
+    }
+  }
+
+  Future<void> openAssignment(ClassroomAssignment assignment) async {
+    final submission = assignment.submission;
+    if (submission?.attemptId != 0 && submission?.attemptId != null) {
+      final path = submission!.status == 'IN_PROGRESS'
+          ? attemptPracticePath(submission.attemptId)
+          : attemptHistoryDetailPath(submission.attemptId);
+      context.go(path);
+      return;
+    }
+
+    setState(() => busy = true);
+    final result = await examRepository.createExamAttempt(
+      assignment.examId,
+      CreateExamAttemptRequest(
+        contextType: 'CLASSROOM_ASSIGNMENT',
+        contextId: assignment.id,
+      ),
+    );
+    if (!mounted) return;
+    setState(() => busy = false);
+    switch (result) {
+      case Success(data: final attempt):
+        context.go(attemptPracticePath(attempt.id), extra: attempt);
+      case Failure(code: 409, message: final message):
+        final activeResult = await examRepository.getAttempts(
+          status: 'ACTIVE',
+          page: 1,
+          pageSize: 20,
+        );
+        if (!mounted) return;
+        switch (activeResult) {
+          case Success(data: final page):
+            final matching = page.attempts
+                .where((attempt) => attempt.examId == assignment.examId)
+                .firstOrNull;
+            final activeAttempt = matching ?? page.attempts.firstOrNull;
+            if (activeAttempt != null) {
+              context.go(
+                attemptPracticePath(activeAttempt.id),
+                extra: activeAttempt,
+              );
+              return;
+            }
+          case Failure():
+          case Cancelled():
+            break;
+        }
+        showMessage(message ?? 'Could not resume the active attempt');
+      case Failure(message: final message):
+        showMessage(message ?? 'Could not start the assignment');
+      case Cancelled():
+        break;
+    }
+  }
+
+  Future<void> setAssignmentActive(
+    ClassroomAssignment assignment,
+    bool active,
+  ) async {
+    if (!active) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Pause assignment?'),
+          content: const Text(
+            'Students will not be able to start. Attempts currently in progress '
+            'will be submitted and graded using their saved answers.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Pause and submit'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+    }
+    setState(() => busy = true);
+    final result = await repository.setAssignmentActive(
+      widget.classroomId,
+      assignment.id,
+      active,
+    );
+    if (!mounted) return;
+    setState(() => busy = false);
+    switch (result) {
+      case Success():
+        await loadAssignments();
+      case Failure(message: final message):
+        showMessage(message ?? 'Could not update the assignment');
+      case Cancelled():
+        break;
+    }
+  }
+
+  Future<void> editAssignmentContent(ClassroomAssignment assignment) async {
+    setState(() => busy = true);
+    final editableResult = await repository.getEditableAssignment(
+      widget.classroomId,
+      assignment.id,
+    );
+    if (!mounted) return;
+    setState(() => busy = false);
+    final editable = editableResult.dataOrNull;
+    if (editable == null) {
+      if (editableResult case Failure(message: final message)) {
+        showMessage(message ?? 'Could not load the assignment');
+      }
+      return;
+    }
+    final input = await showEditAssignmentDialog(context, editable);
+    if (input == null || !mounted) return;
+
+    Future<Result<EditableAssignment>> save(bool confirm) =>
+        repository.updateAssignmentContent(
+          classroomId: widget.classroomId,
+          assignmentId: assignment.id,
+          title: input.title,
+          description: input.description,
+          questions: input.questions,
+          confirm: confirm,
+          reason: '',
+        );
+
+    setState(() => busy = true);
+    var result = await save(false);
+    if (!mounted) return;
+    setState(() => busy = false);
+    if (result case Failure(code: 409, message: final conflictMessage)) {
+      final reasonController = TextEditingController();
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Assignment already has attempts'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '${conflictMessage ?? 'This assignment already has attempts.'}\n\n'
+                '${editable.activeAttempts} active, '
+                '${editable.submittedAttempts} submitted across '
+                '${editable.affectedAssignments.length} classrooms.\n\n'
+                'Saving will pause every classroom using this exam and submit '
+                'all attempts currently in progress.',
+              ),
+              if (editable.affectedAssignments.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    editable.affectedAssignments
+                        .map((item) => '• ${item.classroomName}')
+                        .join('\n'),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+              TextField(
+                controller: reasonController,
+                decoration: const InputDecoration(
+                  labelText: 'Reason for correction',
+                ),
+                maxLines: 2,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Pause and save'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) {
+        reasonController.dispose();
+        return;
+      }
+      if (reasonController.text.trim().isEmpty) {
+        reasonController.dispose();
+        showMessage('Enter a reason for this correction');
+        return;
+      }
+      setState(() => busy = true);
+      result = await repository.updateAssignmentContent(
+        classroomId: widget.classroomId,
+        assignmentId: assignment.id,
+        title: input.title,
+        description: input.description,
+        questions: input.questions,
+        confirm: true,
+        reason: reasonController.text,
+      );
+      reasonController.dispose();
+      if (!mounted) return;
+      setState(() => busy = false);
+    }
+    switch (result) {
+      case Success():
+        await loadAssignments();
+      case Failure(message: final message):
+        showMessage(message ?? 'Could not update the assignment');
+      case Cancelled():
+        break;
+    }
+  }
+
+  Future<void> editAssignmentSchedule(ClassroomAssignment assignment) async {
+    final schedule = await showAssignmentScheduleDialog(
+      context,
+      classroomId: widget.classroomId,
+      duration: assignment.duration,
+      opensAt: assignment.opensAt,
+      dueAt: assignment.dueAt,
+    );
+    if (schedule == null || !mounted) return;
+    setState(() => busy = true);
+    var result = await repository.updateAssignmentSchedule(
+      classroomId: widget.classroomId,
+      assignmentId: assignment.id,
+      duration: schedule.duration,
+      opensAt: schedule.opensAt,
+      dueAt: schedule.dueAt,
+    );
+    if (result case Failure(code: 409) when mounted) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Apply shorter schedule?'),
+          content: const Text(
+            'Students have already started this assignment. The shorter '
+            'schedule may end active attempts sooner.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Apply'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed == true) {
+        result = await repository.updateAssignmentSchedule(
+          classroomId: widget.classroomId,
+          assignmentId: assignment.id,
+          duration: schedule.duration,
+          opensAt: schedule.opensAt,
+          dueAt: schedule.dueAt,
+          confirm: true,
+        );
+      }
+    }
+    if (!mounted) return;
+    setState(() => busy = false);
+    switch (result) {
+      case Success():
+        await loadAssignments();
+      case Failure(message: final message):
+        showMessage(message ?? 'Could not update the schedule');
+      case Cancelled():
+        break;
+    }
+  }
+
+  Future<void> assignToMoreClasses(ClassroomAssignment assignment) async {
+    final classes = <Classroom>[];
+    final userID = context.read<AppCubit>().state.user?.id.toString();
+    var page = 1;
+    var pageCounts = 1;
+    do {
+      final result = await repository.getMine(page: page);
+      switch (result) {
+        case Success(data: final value):
+          pageCounts = value.pageCounts;
+          classes.addAll(
+            value.items.where(
+              (item) =>
+                  item.active &&
+                  item.id != widget.classroomId &&
+                  item.teacher?.id == userID,
+            ),
+          );
+        case Failure(message: final message):
+          showMessage(message ?? 'Could not load your classrooms');
+          return;
+        case Cancelled():
+          return;
+      }
+      page++;
+    } while (page <= pageCounts);
+    if (!mounted) return;
+    if (classes.isEmpty) {
+      showMessage('No other active classrooms are available');
+      return;
+    }
+
+    final selected = await showDialog<Classroom>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Assign to another class'),
+        children: classes
+            .map(
+              (item) => SimpleDialogOption(
+                onPressed: () => Navigator.pop(context, item),
+                child: ListTile(
+                  title: Text(item.name),
+                  subtitle: Text(item.code),
+                ),
+              ),
+            )
+            .toList(),
+      ),
+    );
+    if (selected == null || !mounted) return;
+    final schedule = await showAssignmentScheduleDialog(
+      context,
+      classroomId: selected.id,
+      duration: assignment.duration,
+      opensAt: assignment.opensAt,
+      dueAt: assignment.dueAt,
+      title: 'Schedule for ${selected.name}',
+    );
+    if (schedule == null || !mounted) return;
+    setState(() => busy = true);
+    final result = await repository.assignExistingExam(
+      classroomId: widget.classroomId,
+      assignmentId: assignment.id,
+      schedules: [schedule],
+    );
+    if (!mounted) return;
+    setState(() => busy = false);
+    switch (result) {
+      case Success():
+        showMessage('Assignment added to ${selected.name}');
+      case Failure(message: final message):
+        showMessage(message ?? 'Could not assign to the classroom');
+      case Cancelled():
+        break;
+    }
+  }
+
+  void openGradebook(ClassroomAssignment assignment) =>
+      context.go(classroomGradebookPath(widget.classroomId, assignment.id));
 
   Future<void> loadRequests() async {
     final result = await repository.joinRequests(widget.classroomId);
@@ -297,142 +790,173 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
                 Expanded(
                   child: RefreshIndicator(
                     onRefresh: load,
-                    child: ListView(
-                      children: [
-                        ClassroomOverviewHeader(classroom: item),
-                        Center(
-                          child: TabsBar(
-                            selected: tab,
-                            onSelected: (value) => setState(() => tab = value),
+                    child: NotificationListener<ScrollNotification>(
+                      onNotification: onPageScroll,
+                      child: ListView(
+                        children: [
+                          ClassroomOverviewHeader(classroom: item),
+                          Center(
+                            child: TabsBar(
+                              selected: tab,
+                              onSelected: (value) =>
+                                  setState(() => tab = value),
+                            ),
                           ),
-                        ),
-                        Center(
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 940),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 20,
-                              ),
-                              child: switch (tab) {
-                                0 => Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Teacher',
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.titleMedium,
-                                    ),
-                                    ListTile(
-                                      leading: const Icon(Icons.person_outline),
-                                      title: Text(
-                                        item.teacher?.name ??
-                                            'Information unavailable',
-                                      ),
-                                      subtitle: Text(item.teacher?.email ?? ''),
-                                    ),
-                                  ],
+                          Center(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 940),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 20,
                                 ),
-                                1 => const Padding(
-                                  padding: EdgeInsets.all(24),
-                                  child: Center(
-                                    child: Text('No assignments yet'),
-                                  ),
-                                ),
-                                _ => Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Teacher',
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.titleMedium,
-                                    ),
-                                    ListTile(
-                                      title: Text(
-                                        item.teacher?.name ??
-                                            'Information unavailable',
-                                      ),
-                                      subtitle: Text(item.teacher?.email ?? ''),
-                                    ),
-                                    const Divider(),
-                                    Text(
-                                      'Students (${item.members.length})',
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.titleMedium,
-                                    ),
-                                    ...item.members.map(
-                                      (member) => ListTile(
-                                        title: Text(
-                                          member.user?.name ??
-                                              'User no longer available',
-                                        ),
-                                        subtitle: Text(
-                                          member.user?.email ?? '',
-                                        ),
-                                        trailing: isTeacher && item.active
-                                            ? IconButton(
-                                                tooltip:
-                                                    'Remove from classroom',
-                                                onPressed: busy
-                                                    ? null
-                                                    : () => remove(member),
-                                                icon: const Icon(
-                                                  Icons.person_remove_outlined,
-                                                ),
-                                              )
-                                            : null,
-                                      ),
-                                    ),
-                                    if (isTeacher && item.active) ...[
-                                      const Divider(),
+                                child: switch (tab) {
+                                  0 => Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
                                       Text(
-                                        'Pending requests (${requests.length})',
+                                        'Teacher',
                                         style: Theme.of(
                                           context,
                                         ).textTheme.titleMedium,
                                       ),
-                                      ...requests.map(
+                                      ListTile(
+                                        leading: const Icon(
+                                          Icons.person_outline,
+                                        ),
+                                        title: Text(
+                                          item.teacher?.name ??
+                                              'Information unavailable',
+                                        ),
+                                        subtitle: Text(
+                                          item.teacher?.email ?? '',
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  1 => ClassroomAssignmentsView(
+                                    assignments: assignments,
+                                    loading: assignmentsLoading,
+                                    loadingMore: assignmentsLoadingMore,
+                                    error: assignmentsError,
+                                    loadMoreError: assignmentsLoadMoreError,
+                                    hasMore:
+                                        assignmentsPage < assignmentPageCounts,
+                                    isTeacher: isTeacher,
+                                    classroomActive: item.active,
+                                    onReload: loadAssignments,
+                                    onLoadMore: loadMoreAssignments,
+                                    onCreate: createAssignment,
+                                    onOpen: openAssignment,
+                                    onGradebook: openGradebook,
+                                    onAssignToClasses: assignToMoreClasses,
+                                    onEditSchedule: editAssignmentSchedule,
+                                    onEditContent: editAssignmentContent,
+                                    onSetActive: setAssignmentActive,
+                                  ),
+                                  _ => Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Teacher',
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.titleMedium,
+                                      ),
+                                      ListTile(
+                                        title: Text(
+                                          item.teacher?.name ??
+                                              'Information unavailable',
+                                        ),
+                                        subtitle: Text(
+                                          item.teacher?.email ?? '',
+                                        ),
+                                      ),
+                                      const Divider(),
+                                      Text(
+                                        'Students (${item.members.length})',
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.titleMedium,
+                                      ),
+                                      ...item.members.map(
                                         (member) => ListTile(
                                           title: Text(
-                                            member.user?.name ?? 'Student',
+                                            member.user?.name ??
+                                                'User no longer available',
                                           ),
                                           subtitle: Text(
                                             member.user?.email ?? '',
                                           ),
-                                          trailing: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              IconButton(
-                                                tooltip: 'Reject',
-                                                onPressed: busy
-                                                    ? null
-                                                    : () =>
-                                                          review(member, false),
-                                                icon: const Icon(Icons.close),
-                                              ),
-                                              IconButton(
-                                                tooltip: 'Approve',
-                                                onPressed: busy
-                                                    ? null
-                                                    : () =>
-                                                          review(member, true),
-                                                icon: const Icon(Icons.check),
-                                              ),
-                                            ],
-                                          ),
+                                          trailing: isTeacher && item.active
+                                              ? IconButton(
+                                                  tooltip:
+                                                      'Remove from classroom',
+                                                  onPressed: busy
+                                                      ? null
+                                                      : () => remove(member),
+                                                  icon: const Icon(
+                                                    Icons
+                                                        .person_remove_outlined,
+                                                  ),
+                                                )
+                                              : null,
                                         ),
                                       ),
+                                      if (isTeacher && item.active) ...[
+                                        const Divider(),
+                                        Text(
+                                          'Pending requests (${requests.length})',
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.titleMedium,
+                                        ),
+                                        ...requests.map(
+                                          (member) => ListTile(
+                                            title: Text(
+                                              member.user?.name ?? 'Student',
+                                            ),
+                                            subtitle: Text(
+                                              member.user?.email ?? '',
+                                            ),
+                                            trailing: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                IconButton(
+                                                  tooltip: 'Reject',
+                                                  onPressed: busy
+                                                      ? null
+                                                      : () => review(
+                                                          member,
+                                                          false,
+                                                        ),
+                                                  icon: const Icon(Icons.close),
+                                                ),
+                                                IconButton(
+                                                  tooltip: 'Approve',
+                                                  onPressed: busy
+                                                      ? null
+                                                      : () => review(
+                                                          member,
+                                                          true,
+                                                        ),
+                                                  icon: const Icon(Icons.check),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ],
-                                  ],
-                                ),
-                              },
+                                  ),
+                                },
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),

@@ -9,6 +9,7 @@ import 'package:eflutter/data/repositories/exam_repository.dart';
 import 'package:eflutter/generated/colors.gen.dart';
 import 'package:eflutter/presentation/app/navigation/app_routes.dart';
 import 'package:eflutter/presentation/exams/cubit/exam_history_cubit.dart';
+import 'package:eflutter/presentation/exams/exam_history_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -28,6 +29,7 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen> {
   void initState() {
     super.initState();
     _cubit = ExamHistoryCubit(ExamRepository(getIt<RemoteDataBase>()));
+    examHistoryRevision.addListener(_reloadAfterAttemptChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _cubit.load(status: ExamHistoryStatus.submitted);
@@ -36,8 +38,15 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen> {
 
   @override
   void dispose() {
+    examHistoryRevision.removeListener(_reloadAfterAttemptChanged);
     _cubit.close();
     super.dispose();
+  }
+
+  void _reloadAfterAttemptChanged() {
+    if (!_cubit.isClosed) {
+      _cubit.load(page: 1, status: ExamHistoryStatus.submitted);
+    }
   }
 
   @override

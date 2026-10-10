@@ -150,9 +150,7 @@ class _CustomVideoControlsState extends State<CustomVideoControls> {
                           color: Colors.white,
                         ),
                         onPressed: _toggleMute,
-                        tooltip: _latestValue.volume == 0
-                            ? 'Unmute'
-                            : 'Mute',
+                        tooltip: _latestValue.volume == 0 ? 'Unmute' : 'Mute',
                       ),
                       AnimatedContainer(
                         duration: const Duration(milliseconds: 250),

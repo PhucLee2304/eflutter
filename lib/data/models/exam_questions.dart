@@ -85,6 +85,7 @@ class ExamQuestion {
   final String? part;
   final String explanation;
   final int order;
+  final bool excludedFromScore;
   final int? selectedOptionId;
   final int? correctOptionId;
   final bool? isCorrect;
@@ -96,6 +97,7 @@ class ExamQuestion {
     required this.part,
     required this.explanation,
     required this.order,
+    required this.excludedFromScore,
     required this.selectedOptionId,
     required this.correctOptionId,
     required this.isCorrect,
@@ -110,6 +112,9 @@ class ExamQuestion {
       part: json['part'] as String?,
       explanation: json['explanation'] as String? ?? '',
       order: (json['order'] as num?)?.toInt() ?? 0,
+      excludedFromScore:
+          json['excludedFromScore'] as bool? ??
+          (json['isScored'] is bool ? !(json['isScored'] as bool) : false),
       selectedOptionId: (json['selectedOptionId'] as num?)?.toInt(),
       correctOptionId: (json['correctOptionId'] as num?)?.toInt(),
       isCorrect: json['isCorrect'] as bool?,

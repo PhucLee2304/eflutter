@@ -14,12 +14,16 @@ class AttemptSocketEvent {
   final bool success;
   final String? code;
   final String? message;
+  final String? type;
+  final int? attemptId;
 
   const AttemptSocketEvent({
     required this.requestId,
     required this.success,
     this.code,
     this.message,
+    this.type,
+    this.attemptId,
   });
 }
 
@@ -109,6 +113,18 @@ class AttemptSocketClient implements AttemptSocketGateway {
     try {
       final data = jsonDecode(raw as String) as Map<String, dynamic>;
       final type = data['type'] as String?;
+      if (type == 'ATTEMPT_SUBMITTED') {
+        final payload = data['payload'] as Map<String, dynamic>?;
+        _events.add(
+          AttemptSocketEvent(
+            requestId: '',
+            success: true,
+            type: type,
+            attemptId: (payload?['attemptId'] as num?)?.toInt(),
+          ),
+        );
+        return;
+      }
       if (type != 'ACK' && type != 'ERROR') return;
       _events.add(
         AttemptSocketEvent(
@@ -116,6 +132,7 @@ class AttemptSocketClient implements AttemptSocketGateway {
           success: type == 'ACK',
           code: data['code'] as String?,
           message: data['message'] as String?,
+          type: type,
         ),
       );
     } catch (_) {
@@ -125,6 +142,8 @@ class AttemptSocketClient implements AttemptSocketGateway {
 
   void _handleDisconnect() {
     _channel = null;
+    // AttemptSessionCubit owns reconnect timing and resends every answer whose
+    // latest request has not been acknowledged.
     if (!_closed) _statuses.add(AttemptSocketStatus.disconnected);
   }
 

@@ -377,9 +377,7 @@ class _LessonSummaryCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      lesson.title.isEmpty
-                          ? 'Untitled lesson'
-                          : lesson.title,
+                      lesson.title.isEmpty ? 'Untitled lesson' : lesson.title,
                       style: const TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w700,
