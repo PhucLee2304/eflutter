@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
+import 'package:eflutter/core/base/local_data_base.dart';
 import 'package:eflutter/core/base/result.dart';
 import 'package:eflutter/core/di/injection.dart';
+import 'package:eflutter/data/data_sources/gradebook_socket_client.dart';
 import 'package:eflutter/data/models/classroom.dart';
 import 'package:eflutter/data/repositories/classroom_repository.dart';
 import 'package:eflutter/presentation/app/navigation/app_routes.dart';
@@ -13,10 +17,14 @@ class ClassroomGradebookScreen extends StatefulWidget {
     super.key,
     required this.classroomId,
     required this.assignmentId,
+    this.repository,
+    this.socket,
   });
 
   final int classroomId;
   final int assignmentId;
+  final ClassroomRepository? repository;
+  final GradebookSocketGateway? socket;
 
   @override
   State<ClassroomGradebookScreen> createState() =>
@@ -24,22 +32,48 @@ class ClassroomGradebookScreen extends StatefulWidget {
 }
 
 class _ClassroomGradebookScreenState extends State<ClassroomGradebookScreen> {
-  late final ClassroomRepository repository = ClassroomRepository(getIt<Dio>());
+  late final ClassroomRepository repository;
+  late final GradebookSocketGateway socket;
+  StreamSubscription<GradebookSocketEvent>? eventSubscription;
+  StreamSubscription<GradebookSocketStatus>? statusSubscription;
+  Timer? refreshDebounce;
   ClassroomAssignment? assignment;
   String? error;
   bool loading = true;
+  GradebookSocketStatus socketStatus = GradebookSocketStatus.disconnected;
 
   @override
   void initState() {
     super.initState();
+    repository = widget.repository ?? ClassroomRepository(getIt<Dio>());
+    socket = widget.socket ?? GradebookSocketClient(getIt<LocalDataBase>());
+    eventSubscription = socket.events.listen(handleSocketEvent);
+    statusSubscription = socket.statuses.listen((status) {
+      if (mounted) setState(() => socketStatus = status);
+    });
     load();
+    socket.connect().catchError((_) {});
   }
 
-  Future<void> load() async {
-    setState(() {
-      loading = true;
-      error = null;
-    });
+  void handleSocketEvent(GradebookSocketEvent event) {
+    if (event.classroomId != widget.classroomId ||
+        event.assignmentId != widget.assignmentId) {
+      return;
+    }
+    refreshDebounce?.cancel();
+    refreshDebounce = Timer(
+      const Duration(milliseconds: 250),
+      () => load(showLoading: false),
+    );
+  }
+
+  Future<void> load({bool showLoading = true}) async {
+    if (showLoading) {
+      setState(() {
+        loading = true;
+        error = null;
+      });
+    }
     final result = await repository.getGradebook(
       widget.classroomId,
       widget.assignmentId,
@@ -59,6 +93,15 @@ class _ClassroomGradebookScreenState extends State<ClassroomGradebookScreen> {
       case Cancelled():
         setState(() => loading = false);
     }
+  }
+
+  @override
+  void dispose() {
+    refreshDebounce?.cancel();
+    eventSubscription?.cancel();
+    statusSubscription?.cancel();
+    socket.close();
+    super.dispose();
   }
 
   Future<void> resetAttempt(AssignmentSubmission submission) async {
@@ -130,6 +173,19 @@ class _ClassroomGradebookScreenState extends State<ClassroomGradebookScreen> {
     appBar: AppBar(
       title: const Text('Gradebook'),
       actions: [
+        IconButton(
+          tooltip: switch (socketStatus) {
+            GradebookSocketStatus.connected => 'Live updates connected',
+            GradebookSocketStatus.connecting => 'Connecting live updates',
+            GradebookSocketStatus.disconnected => 'Live updates disconnected',
+          },
+          onPressed: null,
+          icon: Icon(
+            socketStatus == GradebookSocketStatus.connected
+                ? Icons.cloud_done_outlined
+                : Icons.cloud_off_outlined,
+          ),
+        ),
         IconButton(
           tooltip: 'Retry grade sync',
           onPressed: reconcile,
