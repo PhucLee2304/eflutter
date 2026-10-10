@@ -1,17 +1,35 @@
 import 'package:eflutter/core/utils/helpers/platform/platform_helper.dart';
+import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/generated/colors.gen.dart';
 import 'package:eflutter/presentation/app/cubit/app_cubit.dart';
 import 'package:eflutter/presentation/app/navigation/app_routes.dart';
 import 'package:eflutter/presentation/app/widgets/app_logo.dart';
+import 'package:eflutter/presentation/notifications/notification_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:solar_icons/solar_icons.dart';
 
-class MainAppBar extends StatelessWidget implements PreferredSizeWidget {
+class MainAppBar extends StatefulWidget implements PreferredSizeWidget {
   final VoidCallback onNotificationPressed;
 
   const MainAppBar({super.key, required this.onNotificationPressed});
+
+  @override
+  State<MainAppBar> createState() => _MainAppBarState();
+
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+}
+
+class _MainAppBarState extends State<MainAppBar> {
+  final _notificationController = getIt<NotificationController>();
+
+  @override
+  void initState() {
+    super.initState();
+    _notificationController.refresh();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -46,6 +64,22 @@ class MainAppBar extends StatelessWidget implements PreferredSizeWidget {
           titleSpacing: 4,
           centerTitle: false,
           actions: [
+            AnimatedBuilder(
+              animation: _notificationController,
+              builder: (context, _) => IconButton(
+                tooltip: 'Notifications',
+                onPressed: widget.onNotificationPressed,
+                icon: Badge(
+                  isLabelVisible: _notificationController.unreadCount > 0,
+                  label: Text(
+                    _notificationController.unreadCount > 99
+                        ? '99+'
+                        : '${_notificationController.unreadCount}',
+                  ),
+                  child: const Icon(Icons.notifications_outlined),
+                ),
+              ),
+            ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Row(
@@ -102,7 +136,4 @@ class MainAppBar extends StatelessWidget implements PreferredSizeWidget {
       },
     );
   }
-
-  @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
 }

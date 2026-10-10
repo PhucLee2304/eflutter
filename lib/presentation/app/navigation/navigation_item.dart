@@ -14,6 +14,7 @@ import 'package:eflutter/presentation/classrooms/classroom_detail_screen.dart';
 import 'package:eflutter/presentation/classrooms/classroom_gradebook_screen.dart';
 import 'package:eflutter/presentation/classrooms/class_gradebook_screen.dart';
 import 'package:eflutter/presentation/classrooms/student_progress_screen.dart';
+import 'package:eflutter/presentation/notifications/notification_screen.dart';
 import 'package:eflutter/presentation/topics/cubit/lesson_detail_cubit.dart';
 import 'package:eflutter/presentation/topics/lesson_detail_screen.dart';
 import 'package:eflutter/presentation/topics/topic_screen.dart';
@@ -97,13 +98,19 @@ class NavigationItem {
     ],
   };
 
-  static final homeItem = const NavigationItem(
+  static final homeItem = NavigationItem(
     title: 'Home',
     shortTitle: 'Home',
     icon: SolarIconsOutline.home2,
     selectedIcon: SolarIconsBold.home2,
     route: AppRoutes.home,
-    screen: Placeholder(),
+    screen: const Placeholder(),
+    subRoutes: [
+      GoRoute(
+        path: AppRoutes.notifications.path,
+        builder: (context, state) => const NotificationScreen(),
+      ),
+    ],
   );
 
   static final profileItem = const NavigationItem(
