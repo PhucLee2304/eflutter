@@ -50,6 +50,11 @@ class _NotificationScreenState extends State<NotificationScreen> {
     switch (item.data['type']) {
       case 'CLASSROOM':
         if (id != null) context.go(classroomPath(id));
+      case 'ASSIGNMENT':
+        final classroomId = int.tryParse(item.data['classroomId'] ?? '');
+        if (classroomId != null) context.go(classroomPath(classroomId));
+      case 'ATTEMPT':
+        if (id != null) context.go(attemptHistoryDetailPath(id));
       default:
         break;
     }
