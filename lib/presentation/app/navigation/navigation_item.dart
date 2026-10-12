@@ -15,6 +15,7 @@ import 'package:eflutter/presentation/classrooms/classroom_gradebook_screen.dart
 import 'package:eflutter/presentation/classrooms/class_gradebook_screen.dart';
 import 'package:eflutter/presentation/classrooms/student_progress_screen.dart';
 import 'package:eflutter/presentation/notifications/notification_screen.dart';
+import 'package:eflutter/presentation/classrooms/classroom_room_screen.dart';
 import 'package:eflutter/presentation/topics/cubit/lesson_detail_cubit.dart';
 import 'package:eflutter/presentation/topics/lesson_detail_screen.dart';
 import 'package:eflutter/presentation/topics/topic_screen.dart';
@@ -143,6 +144,44 @@ class NavigationItem {
               : ClassroomDetailScreen(classroomId: id);
         },
         routes: [
+          GoRoute(
+            path: AppRoutes.classroomRoom.path,
+            builder: (context, state) {
+              final classroomId = int.tryParse(
+                state.pathParameters['id'] ?? '',
+              );
+              final roomId = int.tryParse(state.pathParameters['roomId'] ?? '');
+              return classroomId == null || roomId == null
+                  ? const Scaffold(
+                      body: Center(child: Text('Invalid room URL')),
+                    )
+                  : ClassroomRoomScreen(
+                      classroomId: classroomId,
+                      roomId: roomId,
+                    );
+            },
+            routes: [
+              GoRoute(
+                path: 'attendance',
+                builder: (context, state) {
+                  final classroomId = int.tryParse(
+                    state.pathParameters['id'] ?? '',
+                  );
+                  final roomId = int.tryParse(
+                    state.pathParameters['roomId'] ?? '',
+                  );
+                  return classroomId == null || roomId == null
+                      ? const Scaffold(
+                          body: Center(child: Text('Invalid attendance URL')),
+                        )
+                      : RoomAttendanceScreen(
+                          classroomId: classroomId,
+                          roomId: roomId,
+                        );
+                },
+              ),
+            ],
+          ),
           GoRoute(
             path: AppRoutes.classGradebook.path,
             builder: (context, state) {

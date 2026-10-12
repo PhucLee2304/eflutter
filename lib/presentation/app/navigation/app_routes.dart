@@ -17,6 +17,8 @@ enum AppRoutes {
   classroomGradebook(path: 'assignments/:assignmentId/gradebook'),
   classGradebook(path: 'gradebook'),
   studentProgress(path: 'students/:userId/progress'),
+  classroomRoom(path: 'rooms/:roomId'),
+  roomAttendance(path: 'rooms/:roomId/attendance'),
 
   other(path: '/other'),
   subOther(path: 'other-sub-route');
@@ -56,3 +58,9 @@ String classGradebookPath(int classroomId) =>
 
 String studentProgressPath(int classroomId, String userId) =>
     '${classroomPath(classroomId)}/students/${Uri.encodeComponent(userId)}/progress';
+
+String classroomRoomPath(int classroomId, int roomId) =>
+    '${classroomPath(classroomId)}/rooms/$roomId';
+
+String roomAttendancePath(int classroomId, int roomId) =>
+    '${classroomRoomPath(classroomId, roomId)}/attendance';
