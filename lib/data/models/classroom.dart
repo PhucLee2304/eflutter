@@ -474,6 +474,11 @@ class ClassroomRoom {
   final DateTime? endedAt;
   final bool isHost;
 
+  bool canStartAt(DateTime now) =>
+      status == 'SCHEDULED' &&
+      !now.isBefore(startsAt.subtract(const Duration(minutes: 30))) &&
+      now.isBefore(endsAt);
+
   factory ClassroomRoom.fromJson(Map<String, dynamic> json) => ClassroomRoom(
     id: (json['id'] as num).toInt(),
     classroomId: (json['classroomId'] as num).toInt(),

@@ -36,6 +36,7 @@ class _ClassroomCalendarViewState extends State<ClassroomCalendarView> {
     getIt<LocalDataBase>(),
   );
   StreamSubscription<ClassroomRoom>? roomSubscription;
+  Timer? clockTimer;
   DateTime month = DateTime(DateTime.now().year, DateTime.now().month);
   List<CalendarEntry> entries = const [];
   bool loading = true;
@@ -49,6 +50,9 @@ class _ClassroomCalendarViewState extends State<ClassroomCalendarView> {
       if (room.classroomId == widget.classroomId) unawaited(load());
     });
     roomSocket.connect();
+    clockTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) setState(() {});
+    });
     load();
   }
 
@@ -56,6 +60,7 @@ class _ClassroomCalendarViewState extends State<ClassroomCalendarView> {
   void dispose() {
     roomSubscription?.cancel();
     roomSocket.close();
+    clockTimer?.cancel();
     super.dispose();
   }
 
@@ -313,6 +318,25 @@ class _ClassroomCalendarViewState extends State<ClassroomCalendarView> {
       return [const Padding(padding: EdgeInsets.all(12), child: Text('Ended'))];
     }
     if (widget.isTeacher && widget.classroomActive) {
+      final now = DateTime.now();
+      if (now.isBefore(room.startsAt.subtract(const Duration(minutes: 30)))) {
+        return [
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Text(
+              'Starts ${DateFormat('MMM d, HH:mm').format(room.startsAt)}',
+            ),
+          ),
+        ];
+      }
+      if (!room.canStartAt(now)) {
+        return [
+          const Padding(
+            padding: EdgeInsets.all(12),
+            child: Text('Start window ended'),
+          ),
+        ];
+      }
       return [
         FilledButton.icon(
           onPressed: busy ? null : () => startRoom(entry),
