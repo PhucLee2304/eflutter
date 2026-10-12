@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:eflutter/core/base/result.dart';
 import 'package:eflutter/core/di/injection.dart';
@@ -23,6 +25,9 @@ class ClassroomRoomScreen extends StatefulWidget {
 }
 
 class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
+  static const _reconnectTimeout = Duration(seconds: 45);
+  static const _roomStatusRetryDelay = Duration(seconds: 5);
+
   late final ClassroomRepository repository = ClassroomRepository(getIt<Dio>());
   ClassroomRoom? roomInfo;
   Room? liveRoom;
@@ -37,6 +42,9 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
   bool connecting = false;
   String? error;
   String? deviceWarning;
+  Timer? reconnectTimer;
+  bool recoveringConnection = false;
+  bool leavingRoom = false;
 
   @override
   void initState() {
@@ -105,6 +113,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
   }
 
   Future<void> _connect() async {
+    reconnectTimer?.cancel();
     setState(() {
       connecting = true;
       error = null;
@@ -161,11 +170,84 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
 
   void _roomChanged() {
     if (!mounted) return;
-    if (liveRoom?.connectionState == ConnectionState.disconnected) {
-      context.pop();
-      return;
+    switch (liveRoom?.connectionState) {
+      case ConnectionState.connected:
+        reconnectTimer?.cancel();
+        recoveringConnection = false;
+      case ConnectionState.reconnecting:
+        _scheduleConnectionRecovery(_reconnectTimeout);
+      case ConnectionState.disconnected:
+        _scheduleConnectionRecovery(Duration.zero);
+      default:
+        break;
     }
     setState(() {});
+  }
+
+  void _scheduleConnectionRecovery(Duration delay) {
+    if (leavingRoom ||
+        recoveringConnection ||
+        reconnectTimer?.isActive == true) {
+      return;
+    }
+    reconnectTimer = Timer(delay, _recoverConnection);
+  }
+
+  Future<void> _recoverConnection() async {
+    if (!mounted || leavingRoom || recoveringConnection) return;
+    recoveringConnection = true;
+
+    final result = await repository.getRoom(widget.classroomId, widget.roomId);
+    if (!mounted || leavingRoom) return;
+
+    // LiveKit có thể đã tự reconnect trong lúc request kiểm tra trạng thái
+    // phòng đang chạy. Khi đó giữ nguyên kết nối hiện tại, không xin token mới.
+    if (liveRoom?.connectionState == ConnectionState.connected) {
+      recoveringConnection = false;
+      reconnectTimer?.cancel();
+      setState(() {});
+      return;
+    }
+
+    switch (result) {
+      case Success(data: final room):
+        roomInfo = room;
+        if (room.status != 'LIVE') {
+          await _exitClosedRoom();
+          return;
+        }
+
+        final previousRoom = liveRoom;
+        liveRoom = null;
+        previousRoom?.removeListener(_roomChanged);
+        await previousRoom?.dispose();
+        recoveringConnection = false;
+        if (mounted) {
+          setState(() {});
+          await _connect();
+          if (mounted && liveRoom == null && !leavingRoom) {
+            _scheduleConnectionRecovery(_roomStatusRetryDelay);
+          }
+        }
+      case Failure():
+      case Cancelled():
+        // Khi mạng vẫn mất, giữ màn hình và thử lại cho đến khi có thể xác
+        // nhận trạng thái phòng từ backend.
+        recoveringConnection = false;
+        _scheduleConnectionRecovery(_roomStatusRetryDelay);
+        setState(() {});
+    }
+  }
+
+  Future<void> _exitClosedRoom() async {
+    if (leavingRoom) return;
+    leavingRoom = true;
+    reconnectTimer?.cancel();
+    final previousRoom = liveRoom;
+    liveRoom = null;
+    previousRoom?.removeListener(_roomChanged);
+    await previousRoom?.dispose();
+    if (mounted) context.pop();
   }
 
   Future<void> _leave({bool end = false}) async {
@@ -181,12 +263,16 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
         return;
       }
     }
+    leavingRoom = true;
+    reconnectTimer?.cancel();
     await liveRoom?.disconnect();
     if (mounted) context.pop();
   }
 
   @override
   void dispose() {
+    leavingRoom = true;
+    reconnectTimer?.cancel();
     previewTrack?.stop();
     liveRoom?.removeListener(_roomChanged);
     liveRoom?.dispose();
