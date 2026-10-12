@@ -303,6 +303,7 @@ class _ClassroomCalendarViewState extends State<ClassroomCalendarView> {
   List<Widget> _roomActions(CalendarEntry entry, ClassroomRoom room) {
     if (room.status == 'LIVE') {
       return [
+        _attendanceAction(room),
         FilledButton.icon(
           onPressed: busy
               ? null
@@ -315,7 +316,10 @@ class _ClassroomCalendarViewState extends State<ClassroomCalendarView> {
       ];
     }
     if (room.status == 'ENDED') {
-      return [const Padding(padding: EdgeInsets.all(12), child: Text('Ended'))];
+      return [
+        const Padding(padding: EdgeInsets.all(12), child: Text('Ended')),
+        _attendanceAction(room),
+      ];
     }
     if (widget.isTeacher && widget.classroomActive) {
       final now = DateTime.now();
@@ -352,6 +356,13 @@ class _ClassroomCalendarViewState extends State<ClassroomCalendarView> {
       ),
     ];
   }
+
+  Widget _attendanceAction(ClassroomRoom room) => IconButton(
+    tooltip: widget.isTeacher ? 'Attendance' : 'My attendance',
+    onPressed: () =>
+        context.push(roomAttendancePath(widget.classroomId, room.id)),
+    icon: const Icon(Icons.fact_check_outlined),
+  );
 }
 
 IconData _calendarIcon(String type) => switch (type) {
