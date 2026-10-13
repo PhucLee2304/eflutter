@@ -87,7 +87,7 @@ Future<List<LocalPickedFile>> pickPostAttachments() async {
     ..type = 'file'
     ..multiple = true
     ..accept =
-        'image/jpeg,image/png,image/webp,.pdf,.txt,.doc,.docx,.xls,.xlsx,.ppt,.pptx'
+        'image/jpeg,image/png,image/webp,video/mp4,video/quicktime,.pdf,.txt,.doc,.docx,.xls,.xlsx,.ppt,.pptx'
     ..style.display = 'none';
   web.document.body?.append(input);
   final completer = Completer<List<LocalPickedFile>>();

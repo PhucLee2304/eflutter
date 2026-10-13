@@ -5,6 +5,7 @@ import 'package:eflutter/data/models/post.dart';
 import 'package:eflutter/data/repositories/post_repository.dart';
 import 'package:eflutter/presentation/app/cubit/app_cubit.dart';
 import 'package:eflutter/presentation/posts/post_composer_dialog.dart';
+import 'package:eflutter/presentation/shared/app_video_player.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -511,6 +512,27 @@ class _PostCardState extends State<_PostCard> {
               if (post.attachments.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 ...post.attachments.map((attachment) {
+                  if (attachment.mediaType == 'VIDEO') {
+                    if (attachment.processingStatus == 'PROCESSING') {
+                      return const ListTile(
+                        leading: CircularProgressIndicator(),
+                        title: Text('Video is being processed'),
+                      );
+                    }
+                    if (attachment.processingStatus == 'FAILED') {
+                      return const ListTile(
+                        leading: Icon(Icons.error_outline),
+                        title: Text('Video processing failed'),
+                      );
+                    }
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: AppVideoPlayer(
+                        url: attachment.url,
+                        thumbnailUrl: attachment.thumbnailUrl,
+                      ),
+                    );
+                  }
                   if (attachment.mediaType == 'IMAGE') {
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 8),

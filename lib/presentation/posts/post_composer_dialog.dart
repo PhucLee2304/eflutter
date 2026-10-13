@@ -72,10 +72,18 @@ class _PostComposerDialogState extends State<PostComposerDialog> {
       return;
     }
     var total = 0;
+    var videoCount = 0;
     for (final file in combined) {
       final image = config.imageTypes.contains(file.contentType);
-      final accepted = image || config.fileTypes.contains(file.contentType);
-      final maximum = image ? config.imageMaxBytes : config.fileMaxBytes;
+      final video = config.videoTypes.contains(file.contentType);
+      if (video) videoCount++;
+      final accepted =
+          image || video || config.fileTypes.contains(file.contentType);
+      final maximum = image
+          ? config.imageMaxBytes
+          : video
+          ? config.videoMaxBytes
+          : config.fileMaxBytes;
       if (!accepted || file.bytes.length > maximum) {
         setState(
           () => error =
@@ -84,6 +92,10 @@ class _PostComposerDialogState extends State<PostComposerDialog> {
         return;
       }
       total += file.bytes.length;
+    }
+    if (videoCount > 1) {
+      setState(() => error = 'A post supports one video.');
+      return;
     }
     if (total > config.postMaxBytes) {
       setState(
@@ -197,6 +209,8 @@ class _PostComposerDialogState extends State<PostComposerDialog> {
                 leading: Icon(
                   entry.value.contentType.startsWith('image/')
                       ? Icons.image_outlined
+                      : entry.value.contentType.startsWith('video/')
+                      ? Icons.videocam_outlined
                       : Icons.description_outlined,
                 ),
                 title: Text(

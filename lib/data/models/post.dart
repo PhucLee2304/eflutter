@@ -87,9 +87,18 @@ class PostAttachment {
     required this.originalName,
     required this.contentType,
     required this.size,
+    required this.processingStatus,
+    this.thumbnailUrl,
+    this.width,
+    this.height,
+    this.durationSeconds,
   });
   final int id, size;
   final String url, mediaType, originalName, contentType;
+  final String processingStatus;
+  final String? thumbnailUrl;
+  final int? width, height;
+  final double? durationSeconds;
   factory PostAttachment.fromJson(Map<String, dynamic> json) => PostAttachment(
     id: (json['id'] as num).toInt(),
     url: json['url'] as String,
@@ -97,6 +106,11 @@ class PostAttachment {
     originalName: json['originalName'] as String,
     contentType: json['contentType'] as String,
     size: (json['size'] as num).toInt(),
+    processingStatus: json['processingStatus'] as String? ?? 'READY',
+    thumbnailUrl: json['thumbnailUrl'] as String?,
+    width: (json['width'] as num?)?.toInt(),
+    height: (json['height'] as num?)?.toInt(),
+    durationSeconds: (json['durationSeconds'] as num?)?.toDouble(),
   );
 }
 
@@ -104,20 +118,28 @@ class PostUploadLimits {
   const PostUploadLimits({
     required this.imageMaxBytes,
     required this.fileMaxBytes,
+    required this.videoMaxBytes,
     required this.postMaxBytes,
     required this.maxAttachments,
     required this.imageTypes,
     required this.fileTypes,
+    required this.videoTypes,
   });
-  final int imageMaxBytes, fileMaxBytes, postMaxBytes, maxAttachments;
-  final List<String> imageTypes, fileTypes;
+  final int imageMaxBytes,
+      fileMaxBytes,
+      videoMaxBytes,
+      postMaxBytes,
+      maxAttachments;
+  final List<String> imageTypes, fileTypes, videoTypes;
   factory PostUploadLimits.fromJson(Map<String, dynamic> j) => PostUploadLimits(
     imageMaxBytes: (j['imageMaxBytes'] as num).toInt(),
     fileMaxBytes: (j['fileMaxBytes'] as num).toInt(),
+    videoMaxBytes: (j['videoMaxBytes'] as num).toInt(),
     postMaxBytes: (j['postMaxBytes'] as num).toInt(),
     maxAttachments: (j['maxAttachments'] as num).toInt(),
     imageTypes: List<String>.from(j['imageTypes'] as List),
     fileTypes: List<String>.from(j['fileTypes'] as List),
+    videoTypes: List<String>.from(j['videoTypes'] as List),
   );
 }
 
