@@ -55,6 +55,18 @@ class _NotificationScreenState extends State<NotificationScreen> {
         if (classroomId != null) context.go(classroomPath(classroomId));
       case 'ATTEMPT':
         if (id != null) context.go(attemptHistoryDetailPath(id));
+      case 'CLASSROOM_POST':
+      case 'CLASSROOM_POST_PINNED':
+      case 'POST_LIKED':
+      case 'POST_COMMENTED':
+      case 'COMMENT_REPLIED':
+      case 'COMMENT_LIKED':
+        final classroomId = int.tryParse(item.data['classroomId'] ?? '');
+        context.go(
+          classroomId == null
+              ? AppRoutes.home.path
+              : classroomPath(classroomId),
+        );
       default:
         break;
     }

@@ -7,6 +7,7 @@ import 'package:eflutter/generated/colors.gen.dart';
 import 'package:eflutter/presentation/app/cubit/app_cubit.dart';
 import 'package:eflutter/presentation/auth/cubit/auth_cubit.dart';
 import 'package:eflutter/presentation/profile/cubit/profile_cubit.dart';
+import 'package:eflutter/presentation/posts/post_list.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:solar_icons/solar_icons.dart';
@@ -231,6 +232,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     ),
                                   ),
                                 ],
+                              ),
+                              Text(
+                                'My posts',
+                                style: Theme.of(context).textTheme.titleLarge,
+                              ),
+                              const SizedBox(
+                                height: 600,
+                                child: PostList(mine: true, canCreate: false),
                               ),
                             ],
                           ),

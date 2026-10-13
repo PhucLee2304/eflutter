@@ -12,6 +12,7 @@ import 'package:eflutter/presentation/app/navigation/app_routes.dart';
 import 'package:eflutter/presentation/app/cubit/app_cubit.dart';
 import 'package:eflutter/presentation/classrooms/classroom_assignments.dart';
 import 'package:eflutter/presentation/classrooms/classroom_calendar.dart';
+import 'package:eflutter/presentation/posts/post_list.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
@@ -860,29 +861,10 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
                                   vertical: 20,
                                 ),
                                 child: switch (tab) {
-                                  0 => Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Teacher',
-                                        style: Theme.of(
-                                          context,
-                                        ).textTheme.titleMedium,
-                                      ),
-                                      ListTile(
-                                        leading: const Icon(
-                                          Icons.person_outline,
-                                        ),
-                                        title: Text(
-                                          item.teacher?.name ??
-                                              'Information unavailable',
-                                        ),
-                                        subtitle: Text(
-                                          item.teacher?.email ?? '',
-                                        ),
-                                      ),
-                                    ],
+                                  0 => ClassroomPostsView(
+                                    classroomId: widget.classroomId,
+                                    isTeacher: isTeacher,
+                                    active: item.active,
                                   ),
                                   1 => ClassroomAssignmentsView(
                                     assignments: assignments,
@@ -1175,7 +1157,7 @@ class TabsBar extends StatelessWidget {
     scrollDirection: Axis.horizontal,
     child: SegmentedButton<int>(
       segments: const [
-        ButtonSegment(value: 0, label: Text('Stream')),
+        ButtonSegment(value: 0, label: Text('Posts')),
         ButtonSegment(value: 1, label: Text('Classwork')),
         ButtonSegment(value: 2, label: Text('Calendar')),
         ButtonSegment(value: 3, label: Text('People')),
