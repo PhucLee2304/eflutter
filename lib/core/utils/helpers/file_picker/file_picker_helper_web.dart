@@ -81,3 +81,70 @@ Future<LocalPickedFile?> pickImageFile() async {
     input.remove();
   });
 }
+
+Future<List<LocalPickedFile>> pickPostAttachments() async {
+  final input = web.HTMLInputElement()
+    ..type = 'file'
+    ..multiple = true
+    ..accept =
+        'image/jpeg,image/png,image/webp,.pdf,.txt,.doc,.docx,.xls,.xlsx,.ppt,.pptx'
+    ..style.display = 'none';
+  web.document.body?.append(input);
+  final completer = Completer<List<LocalPickedFile>>();
+  late final web.EventListener listener;
+  listener = ((web.Event event) async {
+    final files = input.files;
+    if (files == null) {
+      completer.complete(const []);
+      return;
+    }
+    final result = <LocalPickedFile>[];
+    for (var i = 0; i < files.length; i++) {
+      final file = files.item(i);
+      if (file == null) continue;
+      final reader = web.FileReader();
+      final done = Completer<LocalPickedFile?>();
+      reader.addEventListener(
+        'load',
+        ((web.Event _) {
+          final value = reader.result;
+          if (value == null) {
+            done.complete(null);
+            return;
+          }
+          final dataUrl = (value as JSString).toDart;
+          final comma = dataUrl.indexOf(',');
+          if (comma < 0) {
+            done.complete(null);
+            return;
+          }
+          done.complete(
+            LocalPickedFile(
+              name: file.name,
+              contentType: file.type.isEmpty
+                  ? 'application/octet-stream'
+                  : file.type,
+              bytes: base64Decode(dataUrl.substring(comma + 1)),
+            ),
+          );
+        }).toJS,
+      );
+      reader.addEventListener(
+        'error',
+        ((web.Event _) => done.completeError(
+          Exception('Unable to read ${file.name}.'),
+        )).toJS,
+      );
+      reader.readAsDataURL(file);
+      final picked = await done.future;
+      if (picked != null) result.add(picked);
+    }
+    completer.complete(result);
+  }).toJS;
+  input.addEventListener('change', listener);
+  input.click();
+  return completer.future.whenComplete(() {
+    input.removeEventListener('change', listener);
+    input.remove();
+  });
+}

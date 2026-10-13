@@ -4,8 +4,10 @@ import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/data/models/post.dart';
 import 'package:eflutter/data/repositories/post_repository.dart';
 import 'package:eflutter/presentation/app/cubit/app_cubit.dart';
+import 'package:eflutter/presentation/posts/post_composer_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class CommunityPostsScreen extends StatelessWidget {
   const CommunityPostsScreen({super.key});
@@ -180,61 +182,30 @@ class _PostListState extends State<PostList> {
   }
 
   Future<void> compose([PostItem? post]) async {
-    final text = TextEditingController(text: post?.content);
-    bool allow = post?.allowComments ?? true;
-    final value = await showDialog<(String, bool)>(
+    final value = await showDialog<PostComposeResult>(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setLocal) => AlertDialog(
-          title: Text(post == null ? 'Create post' : 'Edit post'),
-          content: SizedBox(
-            width: 520,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: text,
-                  minLines: 4,
-                  maxLines: 10,
-                  autofocus: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Content',
-                    alignLabelWithHint: true,
-                  ),
-                ),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Allow comments'),
-                  value: allow,
-                  onChanged: (v) => setLocal(() => allow = v),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () =>
-                  Navigator.pop(context, (text.text.trim(), allow)),
-              child: const Text('Save'),
-            ),
-          ],
-        ),
+      builder: (_) => PostComposerDialog(
+        repository: repo,
+        content: post?.content ?? '',
+        allowComments: post?.allowComments ?? true,
+        editing: post != null,
       ),
     );
-    if (value == null || value.$1.isEmpty) return;
+    if (value == null) return;
     try {
       if (post == null) {
         await repo.create(
-          value.$1,
+          value.content,
           classroomId: widget.classroomId,
-          allowComments: value.$2,
+          allowComments: value.allowComments,
+          attachmentIds: value.attachmentIds,
         );
       } else {
-        await repo.update(post.id, value.$1, allowComments: value.$2);
+        await repo.update(
+          post.id,
+          value.content,
+          allowComments: value.allowComments,
+        );
       }
       await load();
     } catch (e) {
@@ -537,6 +508,51 @@ class _PostCardState extends State<_PostCard> {
               ),
               const SizedBox(height: 14),
               Text(post.content),
+              if (post.attachments.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                ...post.attachments.map((attachment) {
+                  if (attachment.mediaType == 'IMAGE') {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxHeight: 480),
+                          child: Image.network(
+                            attachment.url,
+                            width: double.infinity,
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, _, _) => const SizedBox(
+                              height: 120,
+                              child: Center(
+                                child: Icon(Icons.broken_image_outlined),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.description_outlined),
+                    title: Text(
+                      attachment.originalName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Text(_attachmentSize(attachment.size)),
+                    trailing: IconButton(
+                      tooltip: 'Open',
+                      icon: const Icon(Icons.open_in_new),
+                      onPressed: () => launchUrl(
+                        Uri.parse(attachment.url),
+                        mode: LaunchMode.externalApplication,
+                      ),
+                    ),
+                  );
+                }),
+              ],
               const SizedBox(height: 12),
               Row(
                 children: [
@@ -670,3 +686,7 @@ String _date(DateTime value) {
   final v = value.toLocal();
   return '${v.day.toString().padLeft(2, '0')}/${v.month.toString().padLeft(2, '0')}/${v.year} ${v.hour.toString().padLeft(2, '0')}:${v.minute.toString().padLeft(2, '0')}';
 }
+
+String _attachmentSize(int bytes) => bytes >= 1024 * 1024
+    ? '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MiB'
+    : '${(bytes / 1024).toStringAsFixed(1)} KiB';

@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:eflutter/data/models/post.dart';
+import 'package:eflutter/core/utils/helpers/file_picker/local_picked_file.dart';
 
 class PostRepository {
   PostRepository(this._dio);
@@ -30,15 +31,61 @@ class PostRepository {
     String content, {
     int? classroomId,
     bool allowComments = true,
+    List<int> attachmentIds = const [],
   }) async {
     final path = classroomId == null
         ? '$_base/posts'
         : '$_base/classrooms/$classroomId/posts';
     final r = await _dio.post(
       path,
-      data: {'content': content, 'allowComments': allowComments},
+      data: {
+        'content': content,
+        'allowComments': allowComments,
+        'attachmentIds': attachmentIds,
+      },
     );
     return PostItem.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  Future<PostUploadLimits> getUploadLimits() async {
+    final r = await _dio.get('$_base/post-uploads/config');
+    return PostUploadLimits.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  Future<int> uploadAttachment(
+    LocalPickedFile file, {
+    required CancelToken cancelToken,
+    required void Function(double) onProgress,
+  }) async {
+    final intent = await _dio.post(
+      '$_base/post-uploads',
+      data: {
+        'originalName': file.name,
+        'contentType': file.contentType,
+        'size': file.bytes.length,
+      },
+    );
+    final data = intent.data as Map<String, dynamic>;
+    final id = (data['id'] as num).toInt();
+    try {
+      await _dio.putUri(
+        Uri.parse(data['uploadUrl'] as String),
+        data: file.bytes,
+        options: Options(headers: {'Content-Type': data['contentType']}),
+        cancelToken: cancelToken,
+        onSendProgress: (sent, total) =>
+            onProgress(total <= 0 ? 0 : sent / total),
+      );
+      final complete = await _dio.post('$_base/post-uploads/$id/complete');
+      return ((complete.data as Map<String, dynamic>)['id'] as num).toInt();
+    } catch (_) {
+      if (!cancelToken.isCancelled) {
+        try {
+          await _dio.delete('$_base/post-uploads/$id');
+        } catch (_) {}
+      }
+      rethrow;
+    }
   }
 
   Future<PostItem> update(

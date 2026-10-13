@@ -19,6 +19,16 @@ void main() {
       'canEdit': true,
       'canDelete': true,
       'canPin': true,
+      'attachments': [
+        {
+          'id': 9,
+          'url': 'https://cdn.example.com/photo.jpg',
+          'mediaType': 'IMAGE',
+          'originalName': 'photo.jpg',
+          'contentType': 'image/jpeg',
+          'size': 1024,
+        },
+      ],
       'createdAt': '2026-10-12T08:00:00Z',
     });
 
@@ -28,6 +38,7 @@ void main() {
     expect(post.liked, isTrue);
     expect(post.likeCount, 3);
     expect(post.canPin, isTrue);
+    expect(post.attachments.single.originalName, 'photo.jpg');
   });
 
   test('parses flat reply target', () {

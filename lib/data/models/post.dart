@@ -35,6 +35,7 @@ class PostItem {
     required this.createdAt,
     this.classroomId,
     this.author,
+    this.attachments = const [],
   });
   final int id;
   final String authorId;
@@ -52,6 +53,7 @@ class PostItem {
   final bool canPin;
   final DateTime createdAt;
   final PostUser? author;
+  final List<PostAttachment> attachments;
   factory PostItem.fromJson(Map<String, dynamic> json) => PostItem(
     id: (json['id'] as num).toInt(),
     authorId: json['authorId'].toString(),
@@ -71,6 +73,51 @@ class PostItem {
     author: json['author'] is Map<String, dynamic>
         ? PostUser.fromJson(json['author'] as Map<String, dynamic>)
         : null,
+    attachments: (json['attachments'] as List<dynamic>? ?? const [])
+        .map((e) => PostAttachment.fromJson(e as Map<String, dynamic>))
+        .toList(),
+  );
+}
+
+class PostAttachment {
+  const PostAttachment({
+    required this.id,
+    required this.url,
+    required this.mediaType,
+    required this.originalName,
+    required this.contentType,
+    required this.size,
+  });
+  final int id, size;
+  final String url, mediaType, originalName, contentType;
+  factory PostAttachment.fromJson(Map<String, dynamic> json) => PostAttachment(
+    id: (json['id'] as num).toInt(),
+    url: json['url'] as String,
+    mediaType: json['mediaType'] as String,
+    originalName: json['originalName'] as String,
+    contentType: json['contentType'] as String,
+    size: (json['size'] as num).toInt(),
+  );
+}
+
+class PostUploadLimits {
+  const PostUploadLimits({
+    required this.imageMaxBytes,
+    required this.fileMaxBytes,
+    required this.postMaxBytes,
+    required this.maxAttachments,
+    required this.imageTypes,
+    required this.fileTypes,
+  });
+  final int imageMaxBytes, fileMaxBytes, postMaxBytes, maxAttachments;
+  final List<String> imageTypes, fileTypes;
+  factory PostUploadLimits.fromJson(Map<String, dynamic> j) => PostUploadLimits(
+    imageMaxBytes: (j['imageMaxBytes'] as num).toInt(),
+    fileMaxBytes: (j['fileMaxBytes'] as num).toInt(),
+    postMaxBytes: (j['postMaxBytes'] as num).toInt(),
+    maxAttachments: (j['maxAttachments'] as num).toInt(),
+    imageTypes: List<String>.from(j['imageTypes'] as List),
+    fileTypes: List<String>.from(j['fileTypes'] as List),
   );
 }
 
