@@ -258,6 +258,53 @@ class ClassroomRepository {
       .then((_) {})
       .safeResult();
 
+  Future<Result<ClassroomRoom>> getRoom(int classroomId, int roomId) => _dio
+      .get('$_base/$classroomId/rooms/$roomId')
+      .then(
+        (response) =>
+            ClassroomRoom.fromJson(response.data as Map<String, dynamic>),
+      )
+      .safeResult();
+
+  Future<Result<ClassroomRoom>> startRoom(int classroomId, int roomId) => _dio
+      .post('$_base/$classroomId/rooms/$roomId/start')
+      .then(
+        (response) =>
+            ClassroomRoom.fromJson(response.data as Map<String, dynamic>),
+      )
+      .safeResult();
+
+  Future<Result<RoomConnection>> joinRoom(int classroomId, int roomId) => _dio
+      .post('$_base/$classroomId/rooms/$roomId/join')
+      .then(
+        (response) =>
+            RoomConnection.fromJson(response.data as Map<String, dynamic>),
+      )
+      .safeResult();
+
+  Future<Result<ClassroomRoom>> endRoom(int classroomId, int roomId) => _dio
+      .post('$_base/$classroomId/rooms/$roomId/end')
+      .then(
+        (response) =>
+            ClassroomRoom.fromJson(response.data as Map<String, dynamic>),
+      )
+      .safeResult();
+
+  Future<Result<List<RoomAttendanceSession>>> getRoomAttendance(
+    int classroomId,
+    int roomId,
+  ) => _dio
+      .get('$_base/$classroomId/rooms/$roomId/attendance')
+      .then(
+        (response) => (response.data as List<dynamic>)
+            .map(
+              (item) =>
+                  RoomAttendanceSession.fromJson(item as Map<String, dynamic>),
+            )
+            .toList(),
+      )
+      .safeResult();
+
   Future<Result<ClassroomAssignment>> setAssignmentActive(
     int classroomId,
     int assignmentId,

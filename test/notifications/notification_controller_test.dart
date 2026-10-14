@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test(
-    'loads pages, marks visible items read, and deletes selected items',
+    'loads pages, marks clicked items or all items read, and deletes items',
     () async {
       final requests = <RequestOptions>[];
       final dio = Dio();
@@ -47,9 +47,9 @@ void main() {
       expect(controller.items.map((item) => item.id), [1, 2]);
       expect(controller.canLoadMore, isFalse);
       expect(controller.unreadCount, 2);
+      expect(requests.where((request) => request.method == 'PATCH'), isEmpty);
 
-      controller.notificationVisible(controller.items.first);
-      await Future<void>.delayed(const Duration(milliseconds: 700));
+      await controller.markRead(controller.items.first);
       expect(controller.items.first.isRead, isTrue);
       expect(controller.unreadCount, 1);
       expect(
@@ -57,6 +57,18 @@ void main() {
           (request) =>
               request.method == 'PATCH' &&
               (request.data as Map<String, dynamic>)['ids'].first == 1,
+        ),
+        isTrue,
+      );
+
+      await controller.markAllRead();
+      expect(controller.items.every((item) => item.isRead), isTrue);
+      expect(controller.unreadCount, 0);
+      expect(
+        requests.any(
+          (request) =>
+              request.method == 'PATCH' &&
+              (request.data as Map<String, dynamic>)['ids'].isEmpty,
         ),
         isTrue,
       );

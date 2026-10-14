@@ -419,6 +419,7 @@ class CalendarEntry {
     this.description,
     this.endsAt,
     this.relatedAssignmentId,
+    this.room,
   });
 
   final int id;
@@ -430,6 +431,7 @@ class CalendarEntry {
   final DateTime? endsAt;
   final int? relatedAssignmentId;
   final bool editable;
+  final ClassroomRoom? room;
 
   factory CalendarEntry.fromJson(Map<String, dynamic> json) => CalendarEntry(
     id: (json['id'] as num?)?.toInt() ?? 0,
@@ -443,7 +445,100 @@ class CalendarEntry {
         : DateTime.parse(json['endsAt'] as String).toLocal(),
     relatedAssignmentId: (json['relatedAssignmentId'] as num?)?.toInt(),
     editable: json['editable'] as bool? ?? false,
+    room: json['room'] is Map<String, dynamic>
+        ? ClassroomRoom.fromJson(json['room'] as Map<String, dynamic>)
+        : null,
   );
+}
+
+class ClassroomRoom {
+  const ClassroomRoom({
+    required this.id,
+    required this.classroomId,
+    required this.scheduleId,
+    required this.status,
+    required this.startsAt,
+    required this.endsAt,
+    required this.isHost,
+    this.startedAt,
+    this.endedAt,
+  });
+
+  final int id;
+  final int classroomId;
+  final int scheduleId;
+  final String status;
+  final DateTime startsAt;
+  final DateTime endsAt;
+  final DateTime? startedAt;
+  final DateTime? endedAt;
+  final bool isHost;
+
+  bool canStartAt(DateTime now) =>
+      status == 'SCHEDULED' &&
+      !now.isBefore(startsAt.subtract(const Duration(minutes: 30))) &&
+      now.isBefore(endsAt);
+
+  factory ClassroomRoom.fromJson(Map<String, dynamic> json) => ClassroomRoom(
+    id: (json['id'] as num).toInt(),
+    classroomId: (json['classroomId'] as num).toInt(),
+    scheduleId: (json['scheduleId'] as num).toInt(),
+    status: json['status'] as String? ?? 'SCHEDULED',
+    startsAt: DateTime.parse(json['startsAt'] as String).toLocal(),
+    endsAt: DateTime.parse(json['endsAt'] as String).toLocal(),
+    startedAt: json['startedAt'] == null
+        ? null
+        : DateTime.parse(json['startedAt'] as String).toLocal(),
+    endedAt: json['endedAt'] == null
+        ? null
+        : DateTime.parse(json['endedAt'] as String).toLocal(),
+    isHost: json['isHost'] as bool? ?? false,
+  );
+}
+
+class RoomConnection {
+  const RoomConnection({
+    required this.room,
+    required this.url,
+    required this.token,
+  });
+  final ClassroomRoom room;
+  final String url;
+  final String token;
+
+  factory RoomConnection.fromJson(Map<String, dynamic> json) => RoomConnection(
+    room: ClassroomRoom.fromJson(json['room'] as Map<String, dynamic>),
+    url: json['url'] as String,
+    token: json['token'] as String,
+  );
+}
+
+class RoomAttendanceSession {
+  const RoomAttendanceSession({
+    required this.id,
+    required this.role,
+    required this.joinedAt,
+    this.user,
+    this.leftAt,
+  });
+  final int id;
+  final ClassroomUser? user;
+  final String role;
+  final DateTime joinedAt;
+  final DateTime? leftAt;
+
+  factory RoomAttendanceSession.fromJson(Map<String, dynamic> json) =>
+      RoomAttendanceSession(
+        id: (json['id'] as num).toInt(),
+        user: json['user'] is Map<String, dynamic>
+            ? ClassroomUser.fromJson(json['user'] as Map<String, dynamic>)
+            : null,
+        role: json['role'] as String? ?? 'STUDENT',
+        joinedAt: DateTime.parse(json['joinedAt'] as String).toLocal(),
+        leftAt: json['leftAt'] == null
+            ? null
+            : DateTime.parse(json['leftAt'] as String).toLocal(),
+      );
 }
 
 class ClassroomScheduleInput {

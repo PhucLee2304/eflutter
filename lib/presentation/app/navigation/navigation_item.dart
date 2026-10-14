@@ -15,6 +15,8 @@ import 'package:eflutter/presentation/classrooms/classroom_gradebook_screen.dart
 import 'package:eflutter/presentation/classrooms/class_gradebook_screen.dart';
 import 'package:eflutter/presentation/classrooms/student_progress_screen.dart';
 import 'package:eflutter/presentation/notifications/notification_screen.dart';
+import 'package:eflutter/presentation/classrooms/classroom_room_screen.dart';
+import 'package:eflutter/presentation/posts/post_list.dart';
 import 'package:eflutter/presentation/topics/cubit/lesson_detail_cubit.dart';
 import 'package:eflutter/presentation/topics/lesson_detail_screen.dart';
 import 'package:eflutter/presentation/topics/topic_screen.dart';
@@ -73,7 +75,7 @@ class NavigationItem {
   );
 
   static final allItems = itemGroups.values.expand((e) => e).toList();
-  static final webShellBranches = allItems;
+  static final webShellBranches = [...allItems, notificationItem];
   static final mobileShellBranches = [
     homeItem,
     topicItem,
@@ -81,9 +83,10 @@ class NavigationItem {
     profileItem,
     otherItem,
   ];
-  static final mobileOtherItems = allItems
-      .where((e) => !mobileShellBranches.contains(e))
-      .toList();
+  static final mobileOtherItems = [
+    ...allItems.where((e) => !mobileShellBranches.contains(e)),
+    notificationItem,
+  ];
 
   static final Map<NavigationItemGroup, List<NavigationItem>> itemGroups = {
     NavigationItemGroup.general: [
@@ -104,13 +107,15 @@ class NavigationItem {
     icon: SolarIconsOutline.home2,
     selectedIcon: SolarIconsBold.home2,
     route: AppRoutes.home,
-    screen: const Placeholder(),
-    subRoutes: [
-      GoRoute(
-        path: AppRoutes.notifications.path,
-        builder: (context, state) => const NotificationScreen(),
-      ),
-    ],
+    screen: CommunityPostsScreen(),
+  );
+
+  static final notificationItem = const NavigationItem(
+    title: 'Notifications',
+    icon: Icons.notifications_outlined,
+    selectedIcon: Icons.notifications,
+    route: AppRoutes.notifications,
+    screen: NotificationScreen(),
   );
 
   static final profileItem = const NavigationItem(
@@ -140,6 +145,44 @@ class NavigationItem {
               : ClassroomDetailScreen(classroomId: id);
         },
         routes: [
+          GoRoute(
+            path: AppRoutes.classroomRoom.path,
+            builder: (context, state) {
+              final classroomId = int.tryParse(
+                state.pathParameters['id'] ?? '',
+              );
+              final roomId = int.tryParse(state.pathParameters['roomId'] ?? '');
+              return classroomId == null || roomId == null
+                  ? const Scaffold(
+                      body: Center(child: Text('Invalid room URL')),
+                    )
+                  : ClassroomRoomScreen(
+                      classroomId: classroomId,
+                      roomId: roomId,
+                    );
+            },
+            routes: [
+              GoRoute(
+                path: 'attendance',
+                builder: (context, state) {
+                  final classroomId = int.tryParse(
+                    state.pathParameters['id'] ?? '',
+                  );
+                  final roomId = int.tryParse(
+                    state.pathParameters['roomId'] ?? '',
+                  );
+                  return classroomId == null || roomId == null
+                      ? const Scaffold(
+                          body: Center(child: Text('Invalid attendance URL')),
+                        )
+                      : RoomAttendanceScreen(
+                          classroomId: classroomId,
+                          roomId: roomId,
+                        );
+                },
+              ),
+            ],
+          ),
           GoRoute(
             path: AppRoutes.classGradebook.path,
             builder: (context, state) {

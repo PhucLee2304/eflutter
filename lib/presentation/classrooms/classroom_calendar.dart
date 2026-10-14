@@ -1,8 +1,15 @@
+import 'dart:async';
+
+import 'package:eflutter/core/base/local_data_base.dart';
 import 'package:eflutter/core/base/result.dart';
+import 'package:eflutter/core/di/injection.dart';
+import 'package:eflutter/data/data_sources/room_socket_client.dart';
 import 'package:eflutter/data/models/classroom.dart';
 import 'package:eflutter/data/repositories/classroom_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
+import 'package:eflutter/presentation/app/navigation/app_routes.dart';
 
 class ClassroomCalendarView extends StatefulWidget {
   const ClassroomCalendarView({
@@ -25,6 +32,11 @@ class ClassroomCalendarView extends StatefulWidget {
 }
 
 class _ClassroomCalendarViewState extends State<ClassroomCalendarView> {
+  late final RoomSocketClient roomSocket = RoomSocketClient(
+    getIt<LocalDataBase>(),
+  );
+  StreamSubscription<ClassroomRoom>? roomSubscription;
+  Timer? clockTimer;
   DateTime month = DateTime(DateTime.now().year, DateTime.now().month);
   List<CalendarEntry> entries = const [];
   bool loading = true;
@@ -34,7 +46,22 @@ class _ClassroomCalendarViewState extends State<ClassroomCalendarView> {
   @override
   void initState() {
     super.initState();
+    roomSubscription = roomSocket.events.listen((room) {
+      if (room.classroomId == widget.classroomId) unawaited(load());
+    });
+    roomSocket.connect();
+    clockTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) setState(() {});
+    });
     load();
+  }
+
+  @override
+  void dispose() {
+    roomSubscription?.cancel();
+    roomSocket.close();
+    clockTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> load() async {
@@ -126,6 +153,29 @@ class _ClassroomCalendarViewState extends State<ClassroomCalendarView> {
         await load();
       case Failure(message: final message):
         _message(message ?? 'Could not delete the class schedule');
+      case Cancelled():
+        break;
+    }
+  }
+
+  Future<void> startRoom(CalendarEntry entry) async {
+    final room = entry.room;
+    if (room == null) return;
+    setState(() => busy = true);
+    final result = await widget.repository.startRoom(
+      widget.classroomId,
+      room.id,
+    );
+    if (!mounted) return;
+    setState(() => busy = false);
+    switch (result) {
+      case Success():
+        await load();
+        if (mounted) {
+          context.push(classroomRoomPath(widget.classroomId, room.id));
+        }
+      case Failure(message: final message):
+        _message(message ?? 'Could not start the room');
       case Cancelled():
         break;
     }
@@ -236,6 +286,8 @@ class _ClassroomCalendarViewState extends State<ClassroomCalendarView> {
                               icon: const Icon(Icons.delete_outline),
                             ),
                           ],
+                          if (entry.room case final room?)
+                            ..._roomActions(entry, room),
                         ],
                       ),
                     ),
@@ -247,6 +299,70 @@ class _ClassroomCalendarViewState extends State<ClassroomCalendarView> {
       ],
     );
   }
+
+  List<Widget> _roomActions(CalendarEntry entry, ClassroomRoom room) {
+    if (room.status == 'LIVE') {
+      return [
+        _attendanceAction(room),
+        FilledButton.icon(
+          onPressed: busy
+              ? null
+              : () => context.push(
+                  classroomRoomPath(widget.classroomId, room.id),
+                ),
+          icon: const Icon(Icons.video_call_outlined),
+          label: const Text('Join'),
+        ),
+      ];
+    }
+    if (room.status == 'ENDED') {
+      return [
+        const Padding(padding: EdgeInsets.all(12), child: Text('Ended')),
+        _attendanceAction(room),
+      ];
+    }
+    if (widget.isTeacher && widget.classroomActive) {
+      final now = DateTime.now();
+      if (now.isBefore(room.startsAt.subtract(const Duration(minutes: 30)))) {
+        return [
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Text(
+              'Starts ${DateFormat('MMM d, HH:mm').format(room.startsAt)}',
+            ),
+          ),
+        ];
+      }
+      if (!room.canStartAt(now)) {
+        return [
+          const Padding(
+            padding: EdgeInsets.all(12),
+            child: Text('Start window ended'),
+          ),
+        ];
+      }
+      return [
+        FilledButton.icon(
+          onPressed: busy ? null : () => startRoom(entry),
+          icon: const Icon(Icons.play_arrow),
+          label: const Text('Start'),
+        ),
+      ];
+    }
+    return [
+      const Padding(
+        padding: EdgeInsets.all(12),
+        child: Text('Waiting for the teacher to start'),
+      ),
+    ];
+  }
+
+  Widget _attendanceAction(ClassroomRoom room) => IconButton(
+    tooltip: widget.isTeacher ? 'Attendance' : 'My attendance',
+    onPressed: () =>
+        context.push(roomAttendancePath(widget.classroomId, room.id)),
+    icon: const Icon(Icons.fact_check_outlined),
+  );
 }
 
 IconData _calendarIcon(String type) => switch (type) {
