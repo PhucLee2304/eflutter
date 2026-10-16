@@ -10,6 +10,8 @@ import 'package:go_router/go_router.dart';
 import 'package:livekit_client/livekit_client.dart';
 import 'package:intl/intl.dart';
 import 'package:eflutter/presentation/app/navigation/app_routes.dart';
+import 'package:eflutter/presentation/classrooms/room_connection_recovery.dart';
+import 'package:eflutter/presentation/classrooms/room_join_control.dart';
 
 class ClassroomRoomScreen extends StatefulWidget {
   const ClassroomRoomScreen({
@@ -202,21 +204,38 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
 
     // LiveKit có thể đã tự reconnect trong lúc request kiểm tra trạng thái
     // phòng đang chạy. Khi đó giữ nguyên kết nối hiện tại, không xin token mới.
-    if (liveRoom?.connectionState == ConnectionState.connected) {
-      recoveringConnection = false;
-      reconnectTimer?.cancel();
-      setState(() {});
-      return;
-    }
-
     switch (result) {
       case Success(data: final room):
         roomInfo = room;
-        if (room.status != 'LIVE') {
-          await _exitClosedRoom();
-          return;
-        }
+        await _applyRecoveryAction(
+          decideRoomConnectionRecovery(
+            mediaConnected:
+                liveRoom?.connectionState == ConnectionState.connected,
+            roomRequestSucceeded: true,
+            roomStatus: room.status,
+          ),
+        );
+      case Failure():
+      case Cancelled():
+        await _applyRecoveryAction(
+          decideRoomConnectionRecovery(
+            mediaConnected:
+                liveRoom?.connectionState == ConnectionState.connected,
+            roomRequestSucceeded: false,
+          ),
+        );
+    }
+  }
 
+  Future<void> _applyRecoveryAction(RoomConnectionRecoveryAction action) async {
+    switch (action) {
+      case RoomConnectionRecoveryAction.keepConnection:
+        recoveringConnection = false;
+        reconnectTimer?.cancel();
+        setState(() {});
+      case RoomConnectionRecoveryAction.exitRoom:
+        await _exitClosedRoom();
+      case RoomConnectionRecoveryAction.reconnect:
         final previousRoom = liveRoom;
         liveRoom = null;
         previousRoom?.removeListener(_roomChanged);
@@ -229,8 +248,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
             _scheduleConnectionRecovery(_roomStatusRetryDelay);
           }
         }
-      case Failure():
-      case Cancelled():
+      case RoomConnectionRecoveryAction.retry:
         // Khi mạng vẫn mất, giữ màn hình và thử lại cho đến khi có thể xác
         // nhận trạng thái phòng từ backend.
         recoveringConnection = false;
@@ -385,32 +403,12 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
                     labelText: 'Microphone device',
                   ),
                 ),
-              if (error != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 16),
-                  child: Text(
-                    error!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                  ),
-                ),
               const SizedBox(height: 24),
-              FilledButton.icon(
-                onPressed: connecting || roomInfo?.status != 'LIVE'
-                    ? null
-                    : _connect,
-                icon: connecting
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.login),
-                label: Text(
-                  roomInfo?.status == 'LIVE'
-                      ? 'Join classroom'
-                      : 'Waiting for the teacher to start',
-                ),
+              RoomJoinControl(
+                status: roomInfo?.status,
+                connecting: connecting,
+                error: error,
+                onJoin: _connect,
               ),
             ],
           ),
@@ -449,13 +447,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
       ),
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final columns = constraints.maxWidth >= 1100
-              ? 4
-              : constraints.maxWidth >= 700
-              ? 3
-              : constraints.maxWidth >= 440
-              ? 2
-              : 1;
+          final columns = roomGridColumnCount(constraints.maxWidth);
           return Stack(
             children: [
               GridView.builder(
