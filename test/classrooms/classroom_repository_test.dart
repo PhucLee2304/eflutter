@@ -113,6 +113,37 @@ void main() {
     expect(result.dataOrNull?.id, 5);
   });
 
+  test('gets the room activity snapshot from the room route', () async {
+    late RequestOptions captured;
+    final now = DateTime.utc(2026, 10, 16, 8).toIso8601String();
+    final dio = Dio()
+      ..interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            captured = options;
+            handler.resolve(
+              Response(
+                requestOptions: options,
+                data: {
+                  'roomId': 7,
+                  'classroomId': 5,
+                  'status': 'LIVE',
+                  'isHost': false,
+                  'updatedAt': now,
+                  'participants': <dynamic>[],
+                },
+              ),
+            );
+          },
+        ),
+      );
+
+    final result = await ClassroomRepository(dio).getRoomActivity(5, 7);
+
+    expect(captured.path, '/classrooms/api/v1/classrooms/5/rooms/7/activity');
+    expect(result.dataOrNull?.roomId, 7);
+  });
+
   test(
     'sends the full description and an empty value when clearing it',
     () async {

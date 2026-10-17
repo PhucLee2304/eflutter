@@ -4,6 +4,8 @@ import 'package:dio/dio.dart';
 import 'package:eflutter/core/base/result.dart';
 import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/data/models/classroom.dart';
+import 'package:eflutter/data/data_sources/room_socket_client.dart';
+import 'package:eflutter/core/base/local_data_base.dart';
 import 'package:eflutter/data/repositories/classroom_repository.dart';
 import 'package:flutter/material.dart' hide ConnectionState;
 import 'package:go_router/go_router.dart';
@@ -31,7 +33,12 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
   static const _roomStatusRetryDelay = Duration(seconds: 5);
 
   late final ClassroomRepository repository = ClassroomRepository(getIt<Dio>());
+  late final RoomSocketClient roomSocket = RoomSocketClient(
+    getIt<LocalDataBase>(),
+  );
+  StreamSubscription<RoomActivitySocketEvent>? roomActivitySubscription;
   ClassroomRoom? roomInfo;
+  RoomActivity? roomActivity;
   Room? liveRoom;
   List<MediaDevice> cameras = const [];
   List<MediaDevice> microphones = const [];
@@ -51,11 +58,20 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
   @override
   void initState() {
     super.initState();
+    roomActivitySubscription = roomSocket.activityEvents.listen((event) {
+      if (event.roomId == widget.roomId) unawaited(_refreshActivity());
+    });
+    unawaited(roomSocket.connect());
     _prepare();
   }
 
   Future<void> _prepare() async {
-    final result = await repository.getRoom(widget.classroomId, widget.roomId);
+    final results = await Future.wait([
+      repository.getRoom(widget.classroomId, widget.roomId),
+      repository.getRoomActivity(widget.classroomId, widget.roomId),
+    ]);
+    final result = results[0] as Result<ClassroomRoom>;
+    final activityResult = results[1] as Result<RoomActivity>;
     try {
       await _startPreview();
       cameras = await Hardware.instance.videoInputs();
@@ -77,6 +93,9 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
           : 'Camera and microphone permissions were denied. You can still join in listen-only mode.';
     }
     if (!mounted) return;
+    if (activityResult case Success(data: final activity)) {
+      roomActivity = activity;
+    }
     switch (result) {
       case Success(data: final value):
         setState(() {
@@ -151,6 +170,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
             roomInfo = connection.room;
             connecting = false;
           });
+          await _refreshActivity();
         } catch (exception) {
           await mediaRoom.dispose();
           if (mounted) {
@@ -207,6 +227,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
     switch (result) {
       case Success(data: final room):
         roomInfo = room;
+        await _refreshActivity();
         await _applyRecoveryAction(
           decideRoomConnectionRecovery(
             mediaConnected:
@@ -224,6 +245,17 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
             roomRequestSucceeded: false,
           ),
         );
+    }
+  }
+
+  Future<void> _refreshActivity() async {
+    final result = await repository.getRoomActivity(
+      widget.classroomId,
+      widget.roomId,
+    );
+    if (!mounted) return;
+    if (result case Success(data: final activity)) {
+      setState(() => roomActivity = activity);
     }
   }
 
@@ -289,6 +321,8 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
 
   @override
   void dispose() {
+    roomActivitySubscription?.cancel();
+    roomSocket.close();
     leavingRoom = true;
     reconnectTimer?.cancel();
     previewTrack?.stop();

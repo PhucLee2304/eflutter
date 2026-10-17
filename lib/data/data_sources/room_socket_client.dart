@@ -11,12 +11,21 @@ class RoomSocketClient {
   RoomSocketClient(this._localData);
   final LocalDataBase _localData;
   final _events = StreamController<ClassroomRoom>.broadcast();
+  final _activityEvents = StreamController<RoomActivitySocketEvent>.broadcast();
+  final _reconnected = StreamController<void>.broadcast();
+  final _seenEventIds = <String>{};
   WebSocketChannel? _channel;
   StreamSubscription<dynamic>? _subscription;
   Timer? _reconnectTimer;
   bool _closed = false;
+  bool _hasConnected = false;
 
   Stream<ClassroomRoom> get events => _events.stream;
+  Stream<RoomActivitySocketEvent> get activityEvents => _activityEvents.stream;
+
+  /// Phát mỗi khi socket nối lại sau khi đã từng kết nối; event phát ra trong
+  /// lúc mất kết nối không được replay nên client cần tải lại activity.
+  Stream<void> get reconnected => _reconnected.stream;
 
   Future<void> connect() async {
     if (_channel != null || _closed) return;
@@ -39,6 +48,9 @@ class RoomSocketClient {
         cancelOnError: true,
       );
       await channel.ready;
+      if (_closed || _channel != channel) return;
+      if (_hasConnected) _reconnected.add(null);
+      _hasConnected = true;
     } catch (_) {
       _disconnected();
     }
@@ -47,12 +59,32 @@ class RoomSocketClient {
   void _handleMessage(dynamic raw) {
     try {
       final data = jsonDecode(raw as String) as Map<String, dynamic>;
-      if (data['type'] != 'ROOM_STARTED' && data['type'] != 'ROOM_ENDED') {
-        return;
+      final eventId = data['eventId'] as String?;
+      if (eventId != null && eventId.isNotEmpty) {
+        if (!_seenEventIds.add(eventId)) return;
+        if (_seenEventIds.length > 256) {
+          _seenEventIds.remove(_seenEventIds.first);
+        }
       }
-      _events.add(
-        ClassroomRoom.fromJson(data['payload'] as Map<String, dynamic>),
-      );
+      final type = data['type'] as String? ?? '';
+      if (type == 'ROOM_STARTED' || type == 'ROOM_ENDED') {
+        _events.add(
+          ClassroomRoom.fromJson(data['payload'] as Map<String, dynamic>),
+        );
+      }
+      final roomId = (data['roomId'] as num?)?.toInt();
+      if (eventId != null &&
+          roomId != null &&
+          _roomActivityTypes.contains(type)) {
+        _activityEvents.add(
+          RoomActivitySocketEvent(
+            eventId: eventId,
+            type: type,
+            roomId: roomId,
+            createdAt: DateTime.parse(data['createdAt'] as String).toLocal(),
+          ),
+        );
+      }
     } catch (_) {
       // Other classroom events use the same socket and are ignored here.
     }
@@ -70,5 +102,33 @@ class RoomSocketClient {
     await _subscription?.cancel();
     await _channel?.sink.close();
     await _events.close();
+    await _activityEvents.close();
+    await _reconnected.close();
   }
+}
+
+const _roomActivityTypes = {
+  'PARTICIPANT_PERMISSIONS_UPDATED',
+  'HAND_RAISED',
+  'HAND_LOWERED',
+  'SCREEN_SHARE_REQUESTED',
+  'SCREEN_SHARE_APPROVED',
+  'SCREEN_SHARE_REJECTED',
+  'SCREEN_SHARE_STOPPED',
+  'PARTICIPANT_REMOVED',
+  'PARTICIPANT_MICROPHONE_ALLOWED',
+};
+
+class RoomActivitySocketEvent {
+  const RoomActivitySocketEvent({
+    required this.eventId,
+    required this.type,
+    required this.roomId,
+    required this.createdAt,
+  });
+
+  final String eventId;
+  final String type;
+  final int roomId;
+  final DateTime createdAt;
 }

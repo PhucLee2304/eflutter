@@ -266,6 +266,15 @@ class ClassroomRepository {
       )
       .safeResult();
 
+  Future<Result<RoomActivity>> getRoomActivity(int classroomId, int roomId) =>
+      _dio
+          .get('$_base/$classroomId/rooms/$roomId/activity')
+          .then(
+            (response) =>
+                RoomActivity.fromJson(response.data as Map<String, dynamic>),
+          )
+          .safeResult();
+
   Future<Result<ClassroomRoom>> startRoom(int classroomId, int roomId) => _dio
       .post('$_base/$classroomId/rooms/$roomId/start')
       .then(
