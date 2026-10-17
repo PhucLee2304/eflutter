@@ -13,15 +13,18 @@ import 'package:flutter/material.dart' hide ConnectionState;
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:livekit_client/livekit_client.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:eflutter/presentation/app/navigation/app_routes.dart';
 import 'package:eflutter/presentation/classrooms/room_connection_recovery.dart';
+import 'package:eflutter/presentation/classrooms/room_device_preferences.dart';
 import 'package:eflutter/presentation/classrooms/room_device_settings.dart';
 import 'package:eflutter/presentation/classrooms/room_join_control.dart';
 import 'package:eflutter/presentation/classrooms/room_participant_widgets.dart';
 import 'package:eflutter/presentation/classrooms/room_participants.dart';
 import 'package:eflutter/presentation/classrooms/room_reactions.dart';
 import 'package:eflutter/presentation/classrooms/room_screen_share.dart';
+import 'package:eflutter/presentation/classrooms/room_shortcuts.dart';
 
 class ClassroomRoomScreen extends StatefulWidget {
   const ClassroomRoomScreen({
@@ -61,6 +64,9 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
   late final ClassroomRepository repository = ClassroomRepository(getIt<Dio>());
   late final RoomSocketClient roomSocket = RoomSocketClient(
     getIt<LocalDataBase>(),
+  );
+  late final RoomDevicePreferences devicePreferences = RoomDevicePreferences(
+    getIt<SharedPreferencesAsync>(),
   );
   StreamSubscription<RoomActivitySocketEvent>? roomActivitySubscription;
   StreamSubscription<void>? roomSocketReconnectSubscription;
@@ -103,6 +109,15 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
   List<RoomReactionBubble> reactionBubbles = const [];
   int nextReactionId = 0;
   final reactionTimers = <Timer>{};
+  bool confirmDialogOpen = false;
+
+  /// Khác null khi học sinh bị giáo viên xóa khỏi phòng; màn hình chỉ hiện
+  /// thông báo và không thử kết nối lại.
+  String? removedNotice;
+
+  /// LiveKit báo bị xóa khỏi phòng; tạm dừng tự kết nối lại cho đến khi biết
+  /// lý do từ backend.
+  bool mediaRemovalPending = false;
   final controlsFocus = FocusScopeNode(debugLabel: 'Room controls');
 
   @override
@@ -130,13 +145,22 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
     final results = await Future.wait([
       repository.getRoom(widget.classroomId, widget.roomId),
       repository.getRoomActivity(widget.classroomId, widget.roomId),
+      devicePreferences.load(),
     ]);
     final result = results[0] as Result<ClassroomRoom>;
     final activityResult = results[1] as Result<RoomActivity>;
+    final savedDevices = results[2] as RoomDeviceChoice;
     try {
       await _startPreview();
       cameras = await Hardware.instance.videoInputs();
-      camera = cameras.firstOrNull;
+      camera = preferredRoomDevice(savedDevices.cameraId, cameras);
+      // Danh sách camera chỉ có sau khi được cấp quyền nên preview đầu tiên
+      // dùng camera mặc định; mở lại nếu camera đã lưu là thiết bị khác.
+      if (previewTrack != null &&
+          camera != null &&
+          _previewDeviceId() != camera!.deviceId) {
+        await _startPreview();
+      }
     } catch (_) {
       cameraEnabled = false;
       deviceWarning =
@@ -146,7 +170,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
       final audioTrack = await LocalAudioTrack.create();
       await audioTrack.stop();
       microphones = await Hardware.instance.audioInputs();
-      microphone = microphones.firstOrNull;
+      microphone = preferredRoomDevice(savedDevices.microphoneId, microphones);
     } catch (_) {
       microphoneEnabled = false;
       deviceWarning = cameraEnabled
@@ -155,9 +179,10 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
     }
     try {
       speakers = await Hardware.instance.audioOutputs();
-      speaker = resolveRoomDevice(
-        Hardware.instance.selectedAudioOutput,
+      speaker = preferredRoomDevice(
+        savedDevices.speakerId,
         speakers,
+        fallback: Hardware.instance.selectedAudioOutput,
       );
     } catch (_) {
       speakers = const [];
@@ -166,7 +191,17 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
     if (!mounted) return;
     if (activityResult case Success(data: final activity)) {
       roomActivity = activity;
+      final own = _ownActivityState;
+      if (own?.removedAt != null) removedNotice = _removedMessage;
+      // Quyền do giáo viên đặt áp dụng ngay từ màn hình chuẩn bị.
+      if (own?.microphoneAllowed == false) microphoneEnabled = false;
+      if (own?.cameraAllowed == false && cameraEnabled) {
+        cameraEnabled = false;
+        await previewTrack?.stop();
+        previewTrack = null;
+      }
     }
+    if (!mounted) return;
     switch (result) {
       case Success(data: final value):
         setState(() {
@@ -192,6 +227,15 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
       camera: camera,
       speaker: speaker,
     );
+  }
+
+  String? _previewDeviceId() {
+    try {
+      return previewTrack?.mediaStreamTrack.getSettings()['deviceId']
+          as String?;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> _startPreview() async {
@@ -255,6 +299,12 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
           // Backend server-mute track khi giáo viên dừng hoặc có lượt chia sẻ
           // mới; gỡ hẳn track thay vì giữ track bị mute.
           ..on<DataReceivedEvent>(_receiveReaction)
+          ..on<RoomDisconnectedEvent>((event) {
+            if (event.reason == DisconnectReason.participantRemoved) {
+              mediaRemovalPending = true;
+              unawaited(_handleMediaRemoval());
+            }
+          })
           ..on<TrackMutedEvent>((event) {
             if (event.participant is LocalParticipant &&
                 event.publication.source == TrackSource.screenShareVideo) {
@@ -381,6 +431,8 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
 
   void _scheduleConnectionRecovery(Duration delay) {
     if (leavingRoom ||
+        mediaRemovalPending ||
+        removedNotice != null ||
         recoveringConnection ||
         reconnectTimer?.isActive == true) {
       return;
@@ -428,8 +480,193 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
     );
     if (!mounted) return;
     if (result case Success(data: final activity)) {
+      final before = _ownActivityState;
       setState(() => roomActivity = activity);
+      _applyOwnPermissions(before, _ownActivityState);
     }
+  }
+
+  static const _removedMessage =
+      'You were removed from this session by the teacher. You can join again when the next session starts.';
+
+  /// Áp dụng quyền giáo viên đặt cho chính mình: thiết bị bị tắt thì tắt ở
+  /// client (LiveKit đã chặn ở server), được cho phép lại thì chỉ báo để học
+  /// sinh tự bật.
+  void _applyOwnPermissions(
+    RoomParticipantState? before,
+    RoomParticipantState? after,
+  ) {
+    if (after == null || roomInfo?.isHost == true) return;
+    if (after.removedAt != null) {
+      unawaited(_exitRemoved());
+      return;
+    }
+    final local = liveRoom?.localParticipant;
+    if (local == null || before == null) return;
+    final messages = <String>[];
+    if (!after.microphoneAllowed) {
+      microphoneEnabled = false;
+      if (local.isMicrophoneEnabled()) {
+        unawaited(_disableLocalSource(TrackSource.microphone));
+      }
+      if (before.microphoneAllowed) {
+        messages.add('The teacher turned off your microphone.');
+      }
+    } else if (!before.microphoneAllowed) {
+      messages.add(
+        'The teacher allowed you to use your microphone. Turn it on when you are ready.',
+      );
+    }
+    if (!after.cameraAllowed) {
+      cameraEnabled = false;
+      if (local.isCameraEnabled()) {
+        unawaited(_disableLocalSource(TrackSource.camera));
+      }
+      if (before.cameraAllowed) {
+        messages.add('The teacher turned off your camera.');
+      }
+    } else if (!before.cameraAllowed) {
+      messages.add('The teacher allowed you to use your camera again.');
+    }
+    if (messages.isNotEmpty) _showRoomMessage(messages.join(' '));
+  }
+
+  Future<void> _disableLocalSource(TrackSource source) async {
+    final local = liveRoom?.localParticipant;
+    try {
+      if (source == TrackSource.microphone) {
+        await local?.setMicrophoneEnabled(false);
+      } else {
+        await local?.setCameraEnabled(false);
+      }
+    } catch (_) {}
+    if (mounted) setState(() {});
+  }
+
+  /// LiveKit ngắt kết nối với lý do bị xóa: hỏi backend xem là bị xóa khỏi
+  /// phòng (không được vào lại) hay đã không còn là thành viên của lớp.
+  Future<void> _handleMediaRemoval() async {
+    final result = await repository.getRoomActivity(
+      widget.classroomId,
+      widget.roomId,
+    );
+    if (!mounted) return;
+    switch (result) {
+      case Success(data: final activity):
+        setState(() => roomActivity = activity);
+        if (_ownActivityState?.removedAt != null) {
+          await _exitRemoved();
+          return;
+        }
+        mediaRemovalPending = false;
+        _scheduleConnectionRecovery(Duration.zero);
+      case Failure():
+        await _exitRemoved(
+          notice:
+              'You can no longer join this session. You may have been removed from the class.',
+        );
+      case Cancelled():
+        mediaRemovalPending = false;
+    }
+  }
+
+  Future<void> _exitRemoved({String notice = _removedMessage}) async {
+    if (removedNotice != null && liveRoom == null) return;
+    leavingRoom = true;
+    reconnectTimer?.cancel();
+    await _disposeLiveRoom();
+    if (mounted) setState(() => removedNotice = notice);
+  }
+
+  Future<void> _moderate(String userId, RoomParticipantAction action) async {
+    final name = _participantName(userId);
+    final Result<RoomParticipantState> result;
+    switch (action) {
+      case RoomParticipantAction.remove:
+        confirmDialogOpen = true;
+        final reason = await showDialog<String>(
+          context: context,
+          builder: (_) => _RemoveParticipantDialog(name: name),
+        );
+        confirmDialogOpen = false;
+        _showControls();
+        if (reason == null || !mounted) return;
+        result = await repository.removeParticipant(
+          widget.classroomId,
+          widget.roomId,
+          userId,
+          reason: reason,
+        );
+      case RoomParticipantAction.mute:
+        result = await repository.moderateParticipantDevice(
+          widget.classroomId,
+          widget.roomId,
+          userId,
+          RoomDeviceModeration.mute,
+        );
+      case RoomParticipantAction.allowMicrophone:
+        result = await repository.moderateParticipantDevice(
+          widget.classroomId,
+          widget.roomId,
+          userId,
+          RoomDeviceModeration.allowMicrophone,
+        );
+      case RoomParticipantAction.disableCamera:
+        result = await repository.moderateParticipantDevice(
+          widget.classroomId,
+          widget.roomId,
+          userId,
+          RoomDeviceModeration.disableCamera,
+        );
+      case RoomParticipantAction.allowCamera:
+        result = await repository.moderateParticipantDevice(
+          widget.classroomId,
+          widget.roomId,
+          userId,
+          RoomDeviceModeration.allowCamera,
+        );
+    }
+    if (!mounted) return;
+    switch (result) {
+      case Success():
+        _showRoomMessage(switch (action) {
+          RoomParticipantAction.mute => '$name was muted.',
+          RoomParticipantAction.allowMicrophone =>
+            '$name can turn on their microphone again.',
+          RoomParticipantAction.disableCamera =>
+            "$name's camera was turned off.",
+          RoomParticipantAction.allowCamera =>
+            '$name can turn on their camera again.',
+          RoomParticipantAction.remove =>
+            '$name was removed from this session.',
+        });
+      case Failure(message: final message):
+        _showRoomMessage(message ?? 'Could not update $name.');
+      case Cancelled():
+        break;
+    }
+    await _refreshActivity();
+  }
+
+  Future<void> _muteAll() async {
+    final result = await repository.muteAllParticipants(
+      widget.classroomId,
+      widget.roomId,
+    );
+    if (!mounted) return;
+    switch (result) {
+      case Success(data: final userIds):
+        _showRoomMessage(
+          userIds.isEmpty
+              ? 'Every student is already muted.'
+              : 'Muted ${userIds.length} student${userIds.length == 1 ? '' : 's'}.',
+        );
+      case Failure(message: final message):
+        _showRoomMessage(message ?? 'Could not mute everyone.');
+      case Cancelled():
+        break;
+    }
+    await _refreshActivity();
   }
 
   Future<void> _applyRecoveryAction(RoomConnectionRecoveryAction action) async {
@@ -492,6 +729,10 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
     final local = liveRoom?.localParticipant;
     if (local == null) return;
     final enable = !local.isMicrophoneEnabled();
+    if (enable && _ownActivityState?.microphoneAllowed == false) {
+      _showRoomMessage('The teacher turned off your microphone.');
+      return;
+    }
     try {
       await local.setMicrophoneEnabled(
         enable,
@@ -514,6 +755,10 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
     final local = liveRoom?.localParticipant;
     if (local == null) return;
     final enable = !local.isCameraEnabled();
+    if (enable && _ownActivityState?.cameraAllowed == false) {
+      _showRoomMessage('The teacher turned off your camera.');
+      return;
+    }
     try {
       await local.setCameraEnabled(
         enable,
@@ -531,9 +776,17 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
 
   // LiveKit đổi thiết bị trên track đang có (setDeviceId/switchCamera) nên
   // không tạo track mới; khi thiết bị đang tắt chỉ cập nhật roomOptions.
-  Future<void> _selectMicrophone(MediaDevice device) async {
+  // Chỉ lựa chọn của người dùng được ghi nhớ; chuyển tự động khi rút thiết bị
+  // thì không, để lần sau cắm lại vẫn chọn thiết bị cũ.
+  Future<void> _selectMicrophone(
+    MediaDevice device, {
+    bool remember = true,
+  }) async {
     microphone = device;
     _syncDeviceOptions();
+    if (remember) {
+      unawaited(devicePreferences.save(RoomDeviceKind.microphone, device));
+    }
     try {
       await liveRoom?.setAudioInputDevice(device);
     } catch (_) {
@@ -542,9 +795,12 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
     if (mounted) setState(() {});
   }
 
-  Future<void> _selectCamera(MediaDevice device) async {
+  Future<void> _selectCamera(MediaDevice device, {bool remember = true}) async {
     camera = device;
     _syncDeviceOptions();
+    if (remember) {
+      unawaited(devicePreferences.save(RoomDeviceKind.camera, device));
+    }
     final room = liveRoom;
     if (room == null) {
       await _startPreview();
@@ -558,9 +814,15 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
     if (mounted) setState(() {});
   }
 
-  Future<void> _selectSpeaker(MediaDevice device) async {
+  Future<void> _selectSpeaker(
+    MediaDevice device, {
+    bool remember = true,
+  }) async {
     speaker = device;
     _syncDeviceOptions();
+    if (remember) {
+      unawaited(devicePreferences.save(RoomDeviceKind.speaker, device));
+    }
     try {
       await liveRoom?.setAudioOutputDevice(device);
     } catch (_) {
@@ -599,7 +861,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
       messages.add(
         'Microphone disconnected. Switched to ${_deviceName(nextMicrophone)}.',
       );
-      await _selectMicrophone(nextMicrophone);
+      await _selectMicrophone(nextMicrophone, remember: false);
     } else {
       microphone = nextMicrophone;
       if (microphoneLost) {
@@ -615,7 +877,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
       messages.add(
         'Camera disconnected. Switched to ${_deviceName(nextCamera)}.',
       );
-      await _selectCamera(nextCamera);
+      await _selectCamera(nextCamera, remember: false);
     } else {
       camera = nextCamera;
       if (cameraLost) {
@@ -632,7 +894,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
       messages.add(
         'Speaker disconnected. Switched to ${_deviceName(nextSpeaker)}.',
       );
-      await _selectSpeaker(nextSpeaker);
+      await _selectSpeaker(nextSpeaker, remember: false);
     } else {
       speaker = nextSpeaker;
     }
@@ -690,6 +952,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
       liveRoom?.connectionState == ConnectionState.connected &&
       !participantsOpen &&
       !deviceDialogOpen &&
+      !confirmDialogOpen &&
       !reactionMenuOpen &&
       !controlsFocus.hasFocus;
 
@@ -708,11 +971,66 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
     });
   }
 
+  bool get _appleKeyboard => const {
+    TargetPlatform.macOS,
+    TargetPlatform.iOS,
+  }.contains(defaultTargetPlatform);
+
+  String _withShortcut(String label, RoomShortcut shortcut) =>
+      '$label (${roomShortcutLabel(shortcut, apple: _appleKeyboard)})';
+
   bool _handleKeyEvent(KeyEvent event) {
-    // Chỉ hiện lại thanh điều khiển, không chặn phím để ô nhập và phím Tab
-    // vẫn hoạt động bình thường.
-    if (event is KeyDownEvent) _showControls();
-    return false;
+    // Phím thường chỉ hiện lại thanh điều khiển, không bị chặn để ô nhập và
+    // phím Tab vẫn hoạt động bình thường. Bỏ qua phím giữ lặp lại để không
+    // bật/tắt liên tục.
+    if (event is! KeyDownEvent) return false;
+    _showControls();
+    final keyboard = HardwareKeyboard.instance;
+    final shortcut = roomShortcutFor(
+      logicalKey: event.logicalKey,
+      physicalKey: event.physicalKey,
+      control: keyboard.isControlPressed,
+      meta: keyboard.isMetaPressed,
+      alt: keyboard.isAltPressed,
+      shift: keyboard.isShiftPressed,
+      apple: _appleKeyboard,
+    );
+    final local = liveRoom?.localParticipant;
+    if (shortcut == null || local == null || !mounted) return false;
+    final ownState = _ownActivityState;
+    final decision = roomShortcutDecision(
+      shortcut,
+      // Dialog hoặc menu đang mở thì route phòng không còn ở trên cùng.
+      roomActive:
+          liveRoom?.connectionState == ConnectionState.connected &&
+          removedNotice == null &&
+          (ModalRoute.of(context)?.isCurrent ?? true),
+      editingText: roomTextInputFocused(),
+      isHost: roomInfo?.isHost == true,
+      microphoneOn: local.isMicrophoneEnabled(),
+      microphoneAllowed: ownState?.microphoneAllowed ?? true,
+      cameraOn: local.isCameraEnabled(),
+      cameraAllowed: ownState?.cameraAllowed ?? true,
+    );
+    switch (decision) {
+      case RoomShortcutDecision.ignore:
+        return false;
+      case RoomShortcutDecision.locked:
+        _showRoomMessage(
+          shortcut == RoomShortcut.toggleMicrophone
+              ? 'The teacher turned off your microphone.'
+              : 'The teacher turned off your camera.',
+        );
+      case RoomShortcutDecision.run:
+        unawaited(switch (shortcut) {
+          RoomShortcut.toggleMicrophone => _toggleMicrophone(),
+          RoomShortcut.toggleCamera => _toggleCamera(),
+          RoomShortcut.toggleHand => _toggleHand(),
+        });
+    }
+    // Đã xử lý: chặn hành vi mặc định của trình duyệt (Ctrl+D đánh dấu trang,
+    // Ctrl+E ô tìm kiếm).
+    return true;
   }
 
   void _toggleParticipants() {
@@ -730,9 +1048,15 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
   }.contains(defaultTargetPlatform);
 
   RoomParticipantState? get _ownActivityState {
+    final activity = roomActivity;
+    if (activity == null) return null;
     final identity = liveRoom?.localParticipant?.identity;
-    for (final state
-        in roomActivity?.participants ?? const <RoomParticipantState>[]) {
+    // Trước khi vào phòng chưa có identity; snapshot của học sinh chỉ chứa
+    // state của chính mình.
+    if (identity == null) {
+      return activity.isHost ? null : activity.participants.firstOrNull;
+    }
+    for (final state in activity.participants) {
       if (state.userId == identity) return state;
     }
     return null;
@@ -1043,9 +1367,43 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
     if (loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
+    if (removedNotice != null) return _removedView(context);
     if (liveRoom == null) return _prejoin(context);
     return _conference(context);
   }
+
+  Widget _removedView(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Online classroom')),
+    body: Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 480),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.block,
+                size: 56,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                removedNotice!,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 24),
+              FilledButton(
+                onPressed: () => context.pop(),
+                child: const Text('Back to class'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
 
   Widget _prejoin(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Online classroom')),
@@ -1096,11 +1454,16 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
                 const SizedBox(height: 12),
                 SwitchListTile(
                   value: cameraEnabled,
-                  onChanged: (value) async {
-                    setState(() => cameraEnabled = value);
-                    await _startPreview();
-                  },
+                  onChanged: _ownActivityState?.cameraAllowed == false
+                      ? null
+                      : (value) async {
+                          setState(() => cameraEnabled = value);
+                          await _startPreview();
+                        },
                   title: const Text('Camera'),
+                  subtitle: _ownActivityState?.cameraAllowed == false
+                      ? const Text('Turned off by the teacher')
+                      : null,
                   secondary: const Icon(Icons.videocam_outlined),
                 ),
                 if (cameraEnabled && cameras.isNotEmpty)
@@ -1128,9 +1491,13 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
                   ),
                 SwitchListTile(
                   value: microphoneEnabled,
-                  onChanged: (value) =>
-                      setState(() => microphoneEnabled = value),
+                  onChanged: _ownActivityState?.microphoneAllowed == false
+                      ? null
+                      : (value) => setState(() => microphoneEnabled = value),
                   title: const Text('Microphone'),
+                  subtitle: _ownActivityState?.microphoneAllowed == false
+                      ? const Text('Turned off by the teacher')
+                      : null,
                   secondary: const Icon(Icons.mic_outlined),
                 ),
                 if (microphoneEnabled && microphones.isNotEmpty)
@@ -1198,6 +1565,9 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
             screenShareRequested:
                 states[participant.identity]?.screenShareRequestedAt != null &&
                 states[participant.identity]?.screenShareApprovedAt == null,
+            microphoneAllowed:
+                states[participant.identity]?.microphoneAllowed ?? true,
+            cameraAllowed: states[participant.identity]?.cameraAllowed ?? true,
           ),
           _cameraTrack(participant),
         ),
@@ -1301,6 +1671,8 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
                           ? (userId) => _lowerHands(userId: userId)
                           : null,
                       onLowerAllHands: isHost ? _lowerHands : null,
+                      onModerate: isHost ? _moderate : null,
+                      onMuteAll: isHost ? _muteAll : null,
                     )
                   : null;
               return Stack(
@@ -1501,7 +1873,14 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
     final offStyle = IconButton.styleFrom(
       backgroundColor: Colors.red.shade400,
       foregroundColor: Colors.white,
+      disabledBackgroundColor: Colors.red.shade900,
+      disabledForegroundColor: Colors.white60,
     );
+    // Thiết bị bị giáo viên tắt: khóa nút bật, nhưng vẫn cho tắt nếu đang bật.
+    final ownState = _ownActivityState;
+    final microphoneLocked =
+        ownState?.microphoneAllowed == false && !microphoneOn;
+    final cameraLocked = ownState?.cameraAllowed == false && !cameraOn;
     final onStyle = IconButton.styleFrom(
       backgroundColor: const Color(0xff3c4043),
       foregroundColor: Colors.white,
@@ -1559,22 +1938,34 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
                           children: [
                             IconButton.filled(
                               isSelected: microphoneOn,
-                              tooltip: microphoneOn
-                                  ? 'Turn off microphone'
-                                  : 'Turn on microphone',
+                              tooltip: microphoneLocked
+                                  ? 'The teacher turned off your microphone'
+                                  : _withShortcut(
+                                      microphoneOn
+                                          ? 'Turn off microphone'
+                                          : 'Turn on microphone',
+                                      RoomShortcut.toggleMicrophone,
+                                    ),
                               style: microphoneOn ? onStyle : offStyle,
-                              onPressed: _toggleMicrophone,
+                              onPressed: microphoneLocked
+                                  ? null
+                                  : _toggleMicrophone,
                               icon: const Icon(Icons.mic_off),
                               selectedIcon: const Icon(Icons.mic),
                             ),
                             gapBox,
                             IconButton.filled(
                               isSelected: cameraOn,
-                              tooltip: cameraOn
-                                  ? 'Turn off camera'
-                                  : 'Turn on camera',
+                              tooltip: cameraLocked
+                                  ? 'The teacher turned off your camera'
+                                  : _withShortcut(
+                                      cameraOn
+                                          ? 'Turn off camera'
+                                          : 'Turn on camera',
+                                      RoomShortcut.toggleCamera,
+                                    ),
                               style: cameraOn ? onStyle : offStyle,
-                              onPressed: _toggleCamera,
+                              onPressed: cameraLocked ? null : _toggleCamera,
                               icon: const Icon(Icons.videocam_off),
                               selectedIcon: const Icon(Icons.videocam),
                             ),
@@ -1587,9 +1978,10 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
                             if (!isHost) ...[
                               IconButton.filled(
                                 isSelected: handRaised,
-                                tooltip: handRaised
-                                    ? 'Lower hand'
-                                    : 'Raise hand',
+                                tooltip: _withShortcut(
+                                  handRaised ? 'Lower hand' : 'Raise hand',
+                                  RoomShortcut.toggleHand,
+                                ),
                                 style: handRaised
                                     ? IconButton.styleFrom(
                                         backgroundColor: const Color(
@@ -1709,6 +2101,66 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
       RoomScreenShareControl.unavailable => const SizedBox.shrink(),
     };
   }
+}
+
+class _RemoveParticipantDialog extends StatefulWidget {
+  const _RemoveParticipantDialog({required this.name});
+  final String name;
+
+  @override
+  State<_RemoveParticipantDialog> createState() =>
+      _RemoveParticipantDialogState();
+}
+
+/// Trả về lý do (có thể rỗng) khi xác nhận, null khi hủy.
+class _RemoveParticipantDialogState extends State<_RemoveParticipantDialog> {
+  final reason = TextEditingController();
+
+  @override
+  void dispose() {
+    reason.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: Text('Remove ${widget.name}?'),
+    content: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 420),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            '${widget.name} will leave this session and cannot rejoin until it ends. They stay in the class.',
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: reason,
+            maxLength: 500,
+            decoration: const InputDecoration(
+              labelText: 'Reason (optional)',
+              border: OutlineInputBorder(),
+            ),
+          ),
+        ],
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.of(context).pop(),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(
+        style: FilledButton.styleFrom(
+          backgroundColor: Theme.of(context).colorScheme.error,
+          foregroundColor: Theme.of(context).colorScheme.onError,
+        ),
+        onPressed: () => Navigator.of(context).pop(reason.text),
+        child: const Text('Remove'),
+      ),
+    ],
+  );
 }
 
 class RoomAttendanceScreen extends StatefulWidget {

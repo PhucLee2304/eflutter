@@ -139,6 +139,8 @@ class RoomParticipantPanel extends StatefulWidget {
     required this.onClose,
     this.onLowerHand,
     this.onLowerAllHands,
+    this.onModerate,
+    this.onMuteAll,
   });
 
   final List<RoomParticipantView> participants;
@@ -147,6 +149,11 @@ class RoomParticipantPanel extends StatefulWidget {
   /// Chỉ giáo viên có các thao tác hạ tay; null thì chỉ hiển thị trạng thái.
   final ValueChanged<String>? onLowerHand;
   final VoidCallback? onLowerAllHands;
+
+  /// Thao tác quản trị chỉ có ở giáo viên.
+  final void Function(String identity, RoomParticipantAction action)?
+  onModerate;
+  final VoidCallback? onMuteAll;
 
   @override
   State<RoomParticipantPanel> createState() => _RoomParticipantPanelState();
@@ -190,16 +197,6 @@ class _RoomParticipantPanelState extends State<RoomParticipantPanel> {
                       ),
                     ),
                   ),
-                  if (widget.onLowerAllHands != null &&
-                      widget.participants.any((p) => p.handRaisedAt != null))
-                    TextButton.icon(
-                      onPressed: widget.onLowerAllHands,
-                      style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xfffdd663),
-                      ),
-                      icon: const Icon(Icons.back_hand_outlined, size: 18),
-                      label: const Text('Lower all'),
-                    ),
                   IconButton(
                     tooltip: 'Close participants',
                     onPressed: widget.onClose,
@@ -208,6 +205,12 @@ class _RoomParticipantPanelState extends State<RoomParticipantPanel> {
                 ],
               ),
             ),
+            // Thao tác cho cả lớp nằm ở hàng riêng để vừa panel trên màn hình hẹp.
+            if (_bulkActions case final actions when actions.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Wrap(spacing: 4, children: actions),
+              ),
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
               child: TextField(
@@ -248,6 +251,7 @@ class _RoomParticipantPanelState extends State<RoomParticipantPanel> {
                             _ParticipantRow(
                               participant: p,
                               onLowerHand: widget.onLowerHand,
+                              onModerate: widget.onModerate,
                             ),
                         ],
                         if (students.isNotEmpty) ...[
@@ -256,6 +260,7 @@ class _RoomParticipantPanelState extends State<RoomParticipantPanel> {
                             _ParticipantRow(
                               participant: p,
                               onLowerHand: widget.onLowerHand,
+                              onModerate: widget.onModerate,
                             ),
                         ],
                       ],
@@ -266,6 +271,29 @@ class _RoomParticipantPanelState extends State<RoomParticipantPanel> {
       ),
     );
   }
+}
+
+extension on _RoomParticipantPanelState {
+  List<Widget> get _bulkActions => [
+    if (widget.onLowerAllHands != null &&
+        widget.participants.any((p) => p.handRaisedAt != null))
+      TextButton.icon(
+        onPressed: widget.onLowerAllHands,
+        style: TextButton.styleFrom(foregroundColor: const Color(0xfffdd663)),
+        icon: const Icon(Icons.back_hand_outlined, size: 18),
+        label: const Text('Lower all'),
+      ),
+    if (widget.onMuteAll != null &&
+        widget.participants.any(
+          (p) => !p.isHost && !p.isLocal && p.microphoneAllowed,
+        ))
+      TextButton.icon(
+        onPressed: widget.onMuteAll,
+        style: TextButton.styleFrom(foregroundColor: Colors.white),
+        icon: const Icon(Icons.mic_off_outlined, size: 18),
+        label: const Text('Mute all'),
+      ),
+  ];
 }
 
 class _SectionHeader extends StatelessWidget {
@@ -288,9 +316,15 @@ class _SectionHeader extends StatelessWidget {
 }
 
 class _ParticipantRow extends StatelessWidget {
-  const _ParticipantRow({required this.participant, this.onLowerHand});
+  const _ParticipantRow({
+    required this.participant,
+    this.onLowerHand,
+    this.onModerate,
+  });
   final RoomParticipantView participant;
   final ValueChanged<String>? onLowerHand;
+  final void Function(String identity, RoomParticipantAction action)?
+  onModerate;
 
   @override
   Widget build(BuildContext context) {
@@ -301,8 +335,13 @@ class _ParticipantRow extends StatelessWidget {
         'Presenting'
       else if (participant.screenShareRequested)
         'Wants to present',
+      if (!participant.microphoneAllowed) 'Muted by teacher',
+      if (!participant.cameraAllowed) 'Camera off by teacher',
       ?connectionLabel,
     ].join(' · ');
+    final moderate = onModerate;
+    final canModerate =
+        moderate != null && !participant.isHost && !participant.isLocal;
     return ListTile(
       dense: true,
       leading: _Avatar(participant: participant, radius: 18),
@@ -312,7 +351,12 @@ class _ParticipantRow extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
         style: const TextStyle(color: Colors.white),
       ),
-      subtitle: Text(subtitle, style: const TextStyle(color: Colors.white70)),
+      subtitle: Text(
+        subtitle,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(color: Colors.white70),
+      ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -349,6 +393,40 @@ class _ParticipantRow extends StatelessWidget {
             icon: participant.cameraOn ? Icons.videocam : Icons.videocam_off,
             label: participant.cameraOn ? 'Camera on' : 'Camera off',
           ),
+          if (canModerate)
+            PopupMenuButton<RoomParticipantAction>(
+              tooltip: 'More actions for ${participant.displayName}',
+              icon: const Icon(Icons.more_vert, color: Colors.white70),
+              onSelected: (action) => moderate(participant.identity, action),
+              itemBuilder: (context) => [
+                participant.microphoneAllowed
+                    ? const PopupMenuItem(
+                        value: RoomParticipantAction.mute,
+                        child: Text('Mute microphone'),
+                      )
+                    : const PopupMenuItem(
+                        value: RoomParticipantAction.allowMicrophone,
+                        child: Text('Allow microphone'),
+                      ),
+                participant.cameraAllowed
+                    ? const PopupMenuItem(
+                        value: RoomParticipantAction.disableCamera,
+                        child: Text('Turn off camera'),
+                      )
+                    : const PopupMenuItem(
+                        value: RoomParticipantAction.allowCamera,
+                        child: Text('Allow camera'),
+                      ),
+                const PopupMenuDivider(),
+                const PopupMenuItem(
+                  value: RoomParticipantAction.remove,
+                  child: Text(
+                    'Remove from session',
+                    style: TextStyle(color: Colors.redAccent),
+                  ),
+                ),
+              ],
+            ),
         ],
       ),
     );

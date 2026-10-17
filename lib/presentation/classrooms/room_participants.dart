@@ -3,6 +3,15 @@ import 'package:livekit_client/livekit_client.dart';
 /// Metadata do backend gắn vào LiveKit token của giáo viên.
 const roomHostMetadata = 'HOST';
 
+/// Thao tác giáo viên làm trên một học sinh trong phòng.
+enum RoomParticipantAction {
+  mute,
+  allowMicrophone,
+  disableCamera,
+  allowCamera,
+  remove,
+}
+
 enum RoomParticipantConnection { good, weak, reconnecting }
 
 /// Dữ liệu hiển thị của một participant, tách khỏi LiveKit để grid, panel và
@@ -20,6 +29,8 @@ class RoomParticipantView {
     this.handRaisedAt,
     this.presenting = false,
     this.screenShareRequested = false,
+    this.microphoneAllowed = true,
+    this.cameraAllowed = true,
   });
 
   final String identity;
@@ -35,6 +46,10 @@ class RoomParticipantView {
 
   /// Chỉ giáo viên (và chính học sinh đó) thấy yêu cầu đang chờ duyệt.
   final bool screenShareRequested;
+
+  /// Quyền do giáo viên cấp; khác với việc thiết bị đang bật hay tắt.
+  final bool microphoneAllowed;
+  final bool cameraAllowed;
 
   String get displayName => name.trim().isEmpty ? identity : name.trim();
 }
@@ -57,6 +72,8 @@ RoomParticipantView roomParticipantViewFrom(
   required bool roomReconnecting,
   DateTime? handRaisedAt,
   bool screenShareRequested = false,
+  bool microphoneAllowed = true,
+  bool cameraAllowed = true,
 }) => RoomParticipantView(
   identity: participant.identity,
   name: participant.name,
@@ -72,6 +89,8 @@ RoomParticipantView roomParticipantViewFrom(
   handRaisedAt: handRaisedAt,
   presenting: participant.isScreenShareEnabled(),
   screenShareRequested: screenShareRequested,
+  microphoneAllowed: microphoneAllowed,
+  cameraAllowed: cameraAllowed,
 );
 
 /// Giữ một dòng cho mỗi identity; phần tử đầu tiên được ưu tiên nên truyền

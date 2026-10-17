@@ -363,6 +363,61 @@ class ClassroomRepository {
       )
       .safeResult();
 
+  /// Giáo viên đổi quyền thiết bị của một học sinh. Cho phép lại chỉ cấp
+  /// quyền; học sinh vẫn tự bật thiết bị của mình.
+  Future<Result<RoomParticipantState>> moderateParticipantDevice(
+    int classroomId,
+    int roomId,
+    String userId,
+    RoomDeviceModeration action,
+  ) => _dio
+      .post(
+        '$_base/$classroomId/rooms/$roomId/participants/'
+        '${Uri.encodeComponent(userId)}/${action.path}',
+      )
+      .then(
+        (response) => RoomParticipantState.fromJson(
+          response.data as Map<String, dynamic>,
+        ),
+      )
+      .safeResult();
+
+  Future<Result<List<String>>> muteAllParticipants(
+    int classroomId,
+    int roomId,
+  ) => _dio
+      .post('$_base/$classroomId/rooms/$roomId/participants/mute-all')
+      .then(
+        (response) =>
+            ((response.data as Map<String, dynamic>)['userIds']
+                        as List<dynamic>? ??
+                    const [])
+                .cast<String>(),
+      )
+      .safeResult();
+
+  /// Đưa học sinh ra khỏi phòng (không xóa khỏi lớp) và khóa vào lại đến hết
+  /// buổi học.
+  Future<Result<RoomParticipantState>> removeParticipant(
+    int classroomId,
+    int roomId,
+    String userId, {
+    String? reason,
+  }) => _dio
+      .post(
+        '$_base/$classroomId/rooms/$roomId/participants/'
+        '${Uri.encodeComponent(userId)}/remove',
+        data: reason == null || reason.trim().isEmpty
+            ? null
+            : {'reason': reason.trim()},
+      )
+      .then(
+        (response) => RoomParticipantState.fromJson(
+          response.data as Map<String, dynamic>,
+        ),
+      )
+      .safeResult();
+
   /// Gọi ngay trước khi publish; backend dừng lượt chia sẻ khác trong phòng.
   Future<Result<void>> startScreenShare(int classroomId, int roomId) => _dio
       .post<void>('${_screenSharePath(classroomId, roomId)}/start')
@@ -545,4 +600,14 @@ class ClassroomRepository {
             ClassroomAssignment.fromJson(response.data as Map<String, dynamic>),
       )
       .safeResult();
+}
+
+enum RoomDeviceModeration {
+  mute('mute'),
+  allowMicrophone('allow-microphone'),
+  disableCamera('disable-camera'),
+  allowCamera('allow-camera');
+
+  const RoomDeviceModeration(this.path);
+  final String path;
 }
