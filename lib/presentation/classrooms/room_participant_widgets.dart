@@ -33,6 +33,7 @@ class RoomParticipantTile extends StatelessWidget {
       participant.microphoneOn ? 'microphone on' : 'microphone off',
       participant.cameraOn ? 'camera on' : 'camera off',
       if (participant.isSpeaking) 'speaking',
+      if (participant.handRaisedAt != null) 'hand raised',
       ?connectionLabel,
     ].join(', ');
     return Semantics(
@@ -62,6 +63,16 @@ class RoomParticipantTile extends StatelessWidget {
                   else
                     Center(
                       child: _Avatar(participant: participant, radius: 32),
+                    ),
+                  if (participant.handRaisedAt != null)
+                    const Positioned(
+                      top: 8,
+                      right: 8,
+                      child: _StatusChip(
+                        icon: Icons.back_hand,
+                        label: 'Hand raised',
+                        dense: true,
+                      ),
                     ),
                   if (connectionLabel != null)
                     Positioned(
@@ -126,10 +137,16 @@ class RoomParticipantPanel extends StatefulWidget {
     super.key,
     required this.participants,
     required this.onClose,
+    this.onLowerHand,
+    this.onLowerAllHands,
   });
 
   final List<RoomParticipantView> participants;
   final VoidCallback onClose;
+
+  /// Chỉ giáo viên có các thao tác hạ tay; null thì chỉ hiển thị trạng thái.
+  final ValueChanged<String>? onLowerHand;
+  final VoidCallback? onLowerAllHands;
 
   @override
   State<RoomParticipantPanel> createState() => _RoomParticipantPanelState();
@@ -173,6 +190,16 @@ class _RoomParticipantPanelState extends State<RoomParticipantPanel> {
                       ),
                     ),
                   ),
+                  if (widget.onLowerAllHands != null &&
+                      widget.participants.any((p) => p.handRaisedAt != null))
+                    TextButton.icon(
+                      onPressed: widget.onLowerAllHands,
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xfffdd663),
+                      ),
+                      icon: const Icon(Icons.back_hand_outlined, size: 18),
+                      label: const Text('Lower all'),
+                    ),
                   IconButton(
                     tooltip: 'Close participants',
                     onPressed: widget.onClose,
@@ -218,12 +245,18 @@ class _RoomParticipantPanelState extends State<RoomParticipantPanel> {
                         if (hosts.isNotEmpty) ...[
                           const _SectionHeader('Teacher'),
                           for (final p in hosts)
-                            _ParticipantRow(participant: p),
+                            _ParticipantRow(
+                              participant: p,
+                              onLowerHand: widget.onLowerHand,
+                            ),
                         ],
                         if (students.isNotEmpty) ...[
                           _SectionHeader('Students (${students.length})'),
                           for (final p in students)
-                            _ParticipantRow(participant: p),
+                            _ParticipantRow(
+                              participant: p,
+                              onLowerHand: widget.onLowerHand,
+                            ),
                         ],
                       ],
                     ),
@@ -255,8 +288,9 @@ class _SectionHeader extends StatelessWidget {
 }
 
 class _ParticipantRow extends StatelessWidget {
-  const _ParticipantRow({required this.participant});
+  const _ParticipantRow({required this.participant, this.onLowerHand});
   final RoomParticipantView participant;
+  final ValueChanged<String>? onLowerHand;
 
   @override
   Widget build(BuildContext context) {
@@ -288,7 +322,18 @@ class _ParticipantRow extends StatelessWidget {
               label: 'Presenting',
               color: Color(0xff8ab4f8),
             ),
-          if (participant.handRaisedAt != null)
+          if (participant.handRaisedAt != null && onLowerHand != null)
+            IconButton(
+              tooltip: 'Lower ${participant.displayName}\'s hand',
+              visualDensity: VisualDensity.compact,
+              onPressed: () => onLowerHand!(participant.identity),
+              icon: const Icon(
+                Icons.back_hand,
+                size: 18,
+                color: Color(0xfffdd663),
+              ),
+            )
+          else if (participant.handRaisedAt != null)
             const _StateIcon(
               icon: Icons.back_hand,
               label: 'Hand raised',

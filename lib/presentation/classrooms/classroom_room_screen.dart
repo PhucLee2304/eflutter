@@ -20,6 +20,7 @@ import 'package:eflutter/presentation/classrooms/room_device_settings.dart';
 import 'package:eflutter/presentation/classrooms/room_join_control.dart';
 import 'package:eflutter/presentation/classrooms/room_participant_widgets.dart';
 import 'package:eflutter/presentation/classrooms/room_participants.dart';
+import 'package:eflutter/presentation/classrooms/room_reactions.dart';
 import 'package:eflutter/presentation/classrooms/room_screen_share.dart';
 
 class ClassroomRoomScreen extends StatefulWidget {
@@ -94,6 +95,14 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
   ConnectionState? lastConnectionState;
   bool screenShareBusy = false;
   final reviewingScreenShares = <String>{};
+  bool handBusy = false;
+  bool loweringOwnHand = false;
+  bool reactionMenuOpen = false;
+  final reactionSendLimiter = RoomReactionLimiter();
+  final reactionReceiveLimiter = RoomReactionLimiter();
+  List<RoomReactionBubble> reactionBubbles = const [];
+  int nextReactionId = 0;
+  final reactionTimers = <Timer>{};
   final controlsFocus = FocusScopeNode(debugLabel: 'Room controls');
 
   @override
@@ -102,7 +111,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
     roomActivitySubscription = roomSocket.activityEvents.listen((event) {
       if (event.roomId != widget.roomId) return;
       unawaited(_refreshActivity());
-      _handleScreenShareEvent(event);
+      _handleOwnActivityEvent(event);
     });
     // Event phát ra trong lúc socket mất kết nối không được replay, nên tải
     // lại snapshot mỗi khi socket nối lại.
@@ -245,6 +254,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
           })
           // Backend server-mute track khi giáo viên dừng hoặc có lượt chia sẻ
           // mới; gỡ hẳn track thay vì giữ track bị mute.
+          ..on<DataReceivedEvent>(_receiveReaction)
           ..on<TrackMutedEvent>((event) {
             if (event.participant is LocalParticipant &&
                 event.publication.source == TrackSource.screenShareVideo) {
@@ -680,6 +690,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
       liveRoom?.connectionState == ConnectionState.connected &&
       !participantsOpen &&
       !deviceDialogOpen &&
+      !reactionMenuOpen &&
       !controlsFocus.hasFocus;
 
   void _showControls() {
@@ -739,7 +750,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
     return name.isEmpty ? 'A student' : name;
   }
 
-  void _handleScreenShareEvent(RoomActivitySocketEvent event) {
+  void _handleOwnActivityEvent(RoomActivitySocketEvent event) {
     final identity = liveRoom?.localParticipant?.identity;
     if (identity == null || event.userId != identity) return;
     switch (event.type) {
@@ -754,7 +765,128 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
         // Dự phòng khi không nhận được server mute: không giữ track đã bị
         // backend dừng.
         unawaited(_unpublishOwnScreenShare());
+      case 'HAND_LOWERED':
+        // Tay vẫn đang giơ ở snapshot hiện tại và mình không tự hạ: giáo viên
+        // đã hạ tay giúp.
+        if (!loweringOwnHand && _ownActivityState?.handRaisedAt != null) {
+          _showRoomMessage('The teacher lowered your hand.');
+        }
     }
+  }
+
+  void _replaceOwnState(RoomParticipantState state) {
+    final activity = roomActivity;
+    if (activity == null) return;
+    roomActivity = RoomActivity(
+      roomId: activity.roomId,
+      classroomId: activity.classroomId,
+      status: activity.status,
+      isHost: activity.isHost,
+      updatedAt: activity.updatedAt,
+      participants: [
+        for (final participant in activity.participants)
+          if (participant.userId != state.userId) participant,
+        state,
+      ],
+    );
+  }
+
+  Future<void> _toggleHand() async {
+    if (handBusy) return;
+    final raise = _ownActivityState?.handRaisedAt == null;
+    setState(() {
+      handBusy = true;
+      loweringOwnHand = !raise;
+    });
+    final result = await repository.setHandRaised(
+      widget.classroomId,
+      widget.roomId,
+      raised: raise,
+    );
+    if (!mounted) return;
+    switch (result) {
+      case Success(data: final state):
+        _replaceOwnState(state);
+      case Failure(message: final message):
+        _showRoomMessage(
+          message ??
+              (raise
+                  ? 'Could not raise your hand.'
+                  : 'Could not lower your hand.'),
+        );
+      case Cancelled():
+        break;
+    }
+    setState(() {
+      handBusy = false;
+      loweringOwnHand = false;
+    });
+  }
+
+  Future<void> _lowerHands({String? userId}) async {
+    final result = await repository.lowerHands(
+      widget.classroomId,
+      widget.roomId,
+      userId: userId,
+    );
+    if (result case Failure(message: final message)) {
+      _showRoomMessage(message ?? 'Could not lower hands.');
+    }
+    await _refreshActivity();
+  }
+
+  Future<void> _sendReaction(RoomReaction reaction) async {
+    final local = liveRoom?.localParticipant;
+    if (local == null) return;
+    if (!reactionSendLimiter.allow('self', DateTime.now())) {
+      _showRoomMessage('You can send a few reactions every few seconds.');
+      return;
+    }
+    // Data packet không quay về người gửi nên tự hiển thị reaction của mình.
+    _showReaction('You', reaction);
+    try {
+      await local.publishData(
+        encodeRoomReaction(reaction),
+        reliable: false,
+        topic: roomReactionTopic,
+      );
+    } catch (_) {
+      // Mất reaction khi mạng yếu là chấp nhận được.
+    }
+  }
+
+  void _receiveReaction(DataReceivedEvent event) {
+    final sender = event.participant;
+    if (event.topic != roomReactionTopic || sender == null) return;
+    final reaction = decodeRoomReaction(event.data);
+    if (reaction == null) return;
+    if (!reactionReceiveLimiter.allow(sender.identity, DateTime.now())) return;
+    final name = sender.name.trim();
+    _showReaction(name.isEmpty ? sender.identity : name, reaction);
+  }
+
+  void _showReaction(String senderName, RoomReaction reaction) {
+    if (!mounted) return;
+    final bubble = RoomReactionBubble(
+      id: nextReactionId++,
+      reaction: reaction,
+      senderName: senderName,
+    );
+    setState(
+      () => reactionBubbles = addRoomReactionBubble(reactionBubbles, bubble),
+    );
+    late final Timer timer;
+    timer = Timer(roomReactionDisplayDuration, () {
+      reactionTimers.remove(timer);
+      if (!mounted) return;
+      setState(
+        () => reactionBubbles = [
+          for (final item in reactionBubbles)
+            if (item.id != bubble.id) item,
+        ],
+      );
+    });
+    reactionTimers.add(timer);
   }
 
   Future<void> _requestScreenShare() async {
@@ -888,6 +1020,9 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
 
   @override
   void dispose() {
+    for (final timer in reactionTimers) {
+      timer.cancel();
+    }
     HardwareKeyboard.instance.removeHandler(_handleKeyEvent);
     controlsHideTimer?.cancel();
     roomActivitySubscription?.cancel();
@@ -1162,6 +1297,10 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
                   ? RoomParticipantPanel(
                       participants: views,
                       onClose: _toggleParticipants,
+                      onLowerHand: isHost
+                          ? (userId) => _lowerHands(userId: userId)
+                          : null,
+                      onLowerAllHands: isHost ? _lowerHands : null,
                     )
                   : null;
               return Stack(
@@ -1189,6 +1328,11 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
                         ],
                       ),
                     ),
+                  ),
+                  Positioned(
+                    left: 16,
+                    bottom: (showControls ? barHeight : 0) + 16,
+                    child: RoomReactionOverlay(bubbles: reactionBubbles),
                   ),
                   if (requests.isNotEmpty)
                     Positioned(
@@ -1373,6 +1517,19 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
     // Sáu nút phải vừa màn hình điện thoại 320px.
     final gap = MediaQuery.sizeOf(context).width < 400 ? 6.0 : 12.0;
     final gapBox = SizedBox(width: gap);
+    final isHost = roomInfo?.isHost == true;
+    final handRaised = _ownActivityState?.handRaisedAt != null;
+    final raisedHands = isHost
+        ? (roomActivity?.participants ?? const <RoomParticipantState>[])
+              .where((state) => state.handRaisedAt != null)
+              .length
+        : 0;
+    Widget peopleBadge(IconData icon) => Badge(
+      label: Text(raisedHands > 0 ? '✋$raisedHands' : '$participantCount'),
+      backgroundColor: raisedHands > 0 ? const Color(0xfffdd663) : null,
+      textColor: raisedHands > 0 ? Colors.black : null,
+      child: Icon(icon),
+    );
     return IgnorePointer(
       ignoring: !visible,
       child: AnimatedSlide(
@@ -1389,70 +1546,99 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
                 padding: EdgeInsets.fromLTRB(12, 12, 12, 12 + bottomInset),
                 child: SizedBox(
                   height: _controlBarHeight - 24,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      IconButton.filled(
-                        isSelected: microphoneOn,
-                        tooltip: microphoneOn
-                            ? 'Turn off microphone'
-                            : 'Turn on microphone',
-                        style: microphoneOn ? onStyle : offStyle,
-                        onPressed: _toggleMicrophone,
-                        icon: const Icon(Icons.mic_off),
-                        selectedIcon: const Icon(Icons.mic),
-                      ),
-                      gapBox,
-                      IconButton.filled(
-                        isSelected: cameraOn,
-                        tooltip: cameraOn
-                            ? 'Turn off camera'
-                            : 'Turn on camera',
-                        style: cameraOn ? onStyle : offStyle,
-                        onPressed: _toggleCamera,
-                        icon: const Icon(Icons.videocam_off),
-                        selectedIcon: const Icon(Icons.videocam),
-                      ),
-                      gapBox,
-                      if (shareControl !=
-                          RoomScreenShareControl.unavailable) ...[
-                        _screenShareButton(shareControl, onStyle),
-                        gapBox,
-                      ],
-                      IconButton.filled(
-                        isSelected: participantsOpen,
-                        tooltip: participantsOpen
-                            ? 'Hide participants'
-                            : 'Show participants ($participantCount)',
-                        style: onStyle,
-                        onPressed: _toggleParticipants,
-                        icon: Badge(
-                          label: Text('$participantCount'),
-                          child: const Icon(Icons.people_outline),
+                  // Cuộn ngang khi nút không vừa màn hình hẹp, căn giữa khi vừa.
+                  child: LayoutBuilder(
+                    builder: (context, constraints) => SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minWidth: constraints.maxWidth,
                         ),
-                        selectedIcon: Badge(
-                          label: Text('$participantCount'),
-                          child: const Icon(Icons.people),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            IconButton.filled(
+                              isSelected: microphoneOn,
+                              tooltip: microphoneOn
+                                  ? 'Turn off microphone'
+                                  : 'Turn on microphone',
+                              style: microphoneOn ? onStyle : offStyle,
+                              onPressed: _toggleMicrophone,
+                              icon: const Icon(Icons.mic_off),
+                              selectedIcon: const Icon(Icons.mic),
+                            ),
+                            gapBox,
+                            IconButton.filled(
+                              isSelected: cameraOn,
+                              tooltip: cameraOn
+                                  ? 'Turn off camera'
+                                  : 'Turn on camera',
+                              style: cameraOn ? onStyle : offStyle,
+                              onPressed: _toggleCamera,
+                              icon: const Icon(Icons.videocam_off),
+                              selectedIcon: const Icon(Icons.videocam),
+                            ),
+                            gapBox,
+                            if (shareControl !=
+                                RoomScreenShareControl.unavailable) ...[
+                              _screenShareButton(shareControl, onStyle),
+                              gapBox,
+                            ],
+                            if (!isHost) ...[
+                              IconButton.filled(
+                                isSelected: handRaised,
+                                tooltip: handRaised
+                                    ? 'Lower hand'
+                                    : 'Raise hand',
+                                style: handRaised
+                                    ? IconButton.styleFrom(
+                                        backgroundColor: const Color(
+                                          0xfffdd663,
+                                        ),
+                                        foregroundColor: Colors.black,
+                                      )
+                                    : onStyle,
+                                onPressed: handBusy ? null : _toggleHand,
+                                icon: const Icon(Icons.back_hand_outlined),
+                                selectedIcon: const Icon(Icons.back_hand),
+                              ),
+                              gapBox,
+                            ],
+                            _reactionButton(onStyle),
+                            gapBox,
+                            IconButton.filled(
+                              isSelected: participantsOpen,
+                              tooltip: participantsOpen
+                                  ? 'Hide participants'
+                                  : raisedHands > 0
+                                  ? 'Show participants ($raisedHands hands raised)'
+                                  : 'Show participants ($participantCount)',
+                              style: onStyle,
+                              onPressed: _toggleParticipants,
+                              icon: peopleBadge(Icons.people_outline),
+                              selectedIcon: peopleBadge(Icons.people),
+                            ),
+                            gapBox,
+                            IconButton.filled(
+                              tooltip: 'Audio and video settings',
+                              style: onStyle,
+                              onPressed: _openDeviceSettings,
+                              icon: const Icon(Icons.settings_outlined),
+                            ),
+                            gapBox,
+                            IconButton.filled(
+                              tooltip: 'Leave',
+                              style: IconButton.styleFrom(
+                                backgroundColor: Colors.red,
+                                foregroundColor: Colors.white,
+                              ),
+                              onPressed: _leave,
+                              icon: const Icon(Icons.call_end),
+                            ),
+                          ],
                         ),
                       ),
-                      gapBox,
-                      IconButton.filled(
-                        tooltip: 'Audio and video settings',
-                        style: onStyle,
-                        onPressed: _openDeviceSettings,
-                        icon: const Icon(Icons.settings_outlined),
-                      ),
-                      gapBox,
-                      IconButton.filled(
-                        tooltip: 'Leave',
-                        style: IconButton.styleFrom(
-                          backgroundColor: Colors.red,
-                          foregroundColor: Colors.white,
-                        ),
-                        onPressed: _leave,
-                        icon: const Icon(Icons.call_end),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -1462,6 +1648,32 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
       ),
     );
   }
+
+  Widget _reactionButton(ButtonStyle style) => MenuAnchor(
+    onOpen: () => setState(() => reactionMenuOpen = true),
+    onClose: () {
+      reactionMenuOpen = false;
+      _showControls();
+    },
+    menuChildren: [
+      for (final reaction in RoomReaction.values)
+        MenuItemButton(
+          onPressed: () => _sendReaction(reaction),
+          leadingIcon: Text(
+            reaction.emoji,
+            style: const TextStyle(fontSize: 20),
+          ),
+          child: Text(reaction.label),
+        ),
+    ],
+    builder: (context, controller, _) => IconButton.filled(
+      tooltip: 'Send a reaction',
+      style: style,
+      onPressed: () =>
+          controller.isOpen ? controller.close() : controller.open(),
+      icon: const Icon(Icons.add_reaction_outlined),
+    ),
+  );
 
   Widget _screenShareButton(RoomScreenShareControl control, ButtonStyle style) {
     final busy = screenShareBusy;

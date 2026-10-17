@@ -331,6 +331,38 @@ class ClassroomRepository {
       )
       .safeResult();
 
+  Future<Result<RoomParticipantState>> setHandRaised(
+    int classroomId,
+    int roomId, {
+    required bool raised,
+  }) => _dio
+      .patch('$_base/$classroomId/rooms/$roomId/hand', data: {'raised': raised})
+      .then(
+        (response) => RoomParticipantState.fromJson(
+          response.data as Map<String, dynamic>,
+        ),
+      )
+      .safeResult();
+
+  /// Giáo viên hạ tay một học sinh ([userId]) hoặc tất cả; trả về user đã hạ.
+  Future<Result<List<String>>> lowerHands(
+    int classroomId,
+    int roomId, {
+    String? userId,
+  }) => _dio
+      .delete(
+        '$_base/$classroomId/rooms/$roomId/hands'
+        '${userId == null ? '' : '/${Uri.encodeComponent(userId)}'}',
+      )
+      .then(
+        (response) =>
+            ((response.data as Map<String, dynamic>)['userIds']
+                        as List<dynamic>? ??
+                    const [])
+                .cast<String>(),
+      )
+      .safeResult();
+
   /// Gọi ngay trước khi publish; backend dừng lượt chia sẻ khác trong phòng.
   Future<Result<void>> startScreenShare(int classroomId, int roomId) => _dio
       .post<void>('${_screenSharePath(classroomId, roomId)}/start')
