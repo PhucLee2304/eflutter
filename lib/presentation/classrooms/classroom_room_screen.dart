@@ -8,6 +8,7 @@ import 'package:eflutter/data/models/classroom.dart';
 import 'package:eflutter/data/data_sources/room_socket_client.dart';
 import 'package:eflutter/core/base/local_data_base.dart';
 import 'package:eflutter/data/repositories/classroom_repository.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart' hide ConnectionState;
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -19,6 +20,7 @@ import 'package:eflutter/presentation/classrooms/room_device_settings.dart';
 import 'package:eflutter/presentation/classrooms/room_join_control.dart';
 import 'package:eflutter/presentation/classrooms/room_participant_widgets.dart';
 import 'package:eflutter/presentation/classrooms/room_participants.dart';
+import 'package:eflutter/presentation/classrooms/room_screen_share.dart';
 
 class ClassroomRoomScreen extends StatefulWidget {
   const ClassroomRoomScreen({
@@ -37,6 +39,13 @@ class _RoomEntry {
   const _RoomEntry(this.view, this.video);
   final RoomParticipantView view;
   final VideoTrack? video;
+}
+
+class _Presenter {
+  const _Presenter(this.participant, {required this.isLocal, this.track});
+  final Participant participant;
+  final bool isLocal;
+  final VideoTrack? track;
 }
 
 class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
@@ -83,13 +92,17 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
   bool deviceDialogOpen = false;
   Timer? controlsHideTimer;
   ConnectionState? lastConnectionState;
+  bool screenShareBusy = false;
+  final reviewingScreenShares = <String>{};
   final controlsFocus = FocusScopeNode(debugLabel: 'Room controls');
 
   @override
   void initState() {
     super.initState();
     roomActivitySubscription = roomSocket.activityEvents.listen((event) {
-      if (event.roomId == widget.roomId) unawaited(_refreshActivity());
+      if (event.roomId != widget.roomId) return;
+      unawaited(_refreshActivity());
+      _handleScreenShareEvent(event);
     });
     // Event phát ra trong lúc socket mất kết nối không được replay, nên tải
     // lại snapshot mỗi khi socket nối lại.
@@ -222,7 +235,27 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
           ),
         );
         final listener = mediaRoom.createListener()
-          ..on<RoomReconnectedEvent>((_) => unawaited(_refreshActivity()));
+          ..on<RoomReconnectedEvent>((_) => unawaited(_refreshActivity()))
+          // Track screen share của mình bị gỡ vì bất kỳ lý do gì (tự dừng, nút
+          // dừng của trình duyệt, bị thay thế): báo backend xóa phê duyệt.
+          ..on<LocalTrackUnpublishedEvent>((event) {
+            if (event.publication.source == TrackSource.screenShareVideo) {
+              unawaited(_ownScreenShareEnded());
+            }
+          })
+          // Backend server-mute track khi giáo viên dừng hoặc có lượt chia sẻ
+          // mới; gỡ hẳn track thay vì giữ track bị mute.
+          ..on<TrackMutedEvent>((event) {
+            if (event.participant is LocalParticipant &&
+                event.publication.source == TrackSource.screenShareVideo) {
+              _showRoomMessage(
+                roomInfo?.isHost == true
+                    ? 'Your presentation ended because a student started presenting.'
+                    : 'Your presentation was stopped.',
+              );
+              unawaited(_unpublishOwnScreenShare());
+            }
+          });
         try {
           await previewTrack?.stop();
           previewTrack = null;
@@ -679,6 +712,180 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
     _scheduleControlsHide();
   }
 
+  bool get _screenShareSupported => const {
+    TargetPlatform.windows,
+    TargetPlatform.macOS,
+    TargetPlatform.linux,
+  }.contains(defaultTargetPlatform);
+
+  RoomParticipantState? get _ownActivityState {
+    final identity = liveRoom?.localParticipant?.identity;
+    for (final state
+        in roomActivity?.participants ?? const <RoomParticipantState>[]) {
+      if (state.userId == identity) return state;
+    }
+    return null;
+  }
+
+  String _participantName(String identity) {
+    final room = liveRoom;
+    final Participant? participant =
+        room?.localParticipant?.identity == identity
+        ? room?.localParticipant
+        : room?.remoteParticipants.values
+              .where((p) => p.identity == identity)
+              .firstOrNull;
+    final name = participant?.name.trim() ?? '';
+    return name.isEmpty ? 'A student' : name;
+  }
+
+  void _handleScreenShareEvent(RoomActivitySocketEvent event) {
+    final identity = liveRoom?.localParticipant?.identity;
+    if (identity == null || event.userId != identity) return;
+    switch (event.type) {
+      case 'SCREEN_SHARE_APPROVED':
+        _showRoomMessage(
+          'The teacher allowed you to present. Select Present to share your screen.',
+        );
+      case 'SCREEN_SHARE_REJECTED':
+        unawaited(_unpublishOwnScreenShare());
+        _showRoomMessage('The teacher declined your request to present.');
+      case 'SCREEN_SHARE_STOPPED':
+        // Dự phòng khi không nhận được server mute: không giữ track đã bị
+        // backend dừng.
+        unawaited(_unpublishOwnScreenShare());
+    }
+  }
+
+  Future<void> _requestScreenShare() async {
+    if (screenShareBusy) return;
+    setState(() => screenShareBusy = true);
+    final result = await repository.requestScreenShare(
+      widget.classroomId,
+      widget.roomId,
+    );
+    if (!mounted) return;
+    switch (result) {
+      case Success():
+        _showRoomMessage(
+          'Request sent. You can present after the teacher allows it.',
+        );
+      case Failure(message: final message):
+        _showRoomMessage(message ?? 'Could not send the request to present.');
+      case Cancelled():
+        break;
+    }
+    setState(() => screenShareBusy = false);
+    await _refreshActivity();
+  }
+
+  /// Chọn nguồn trước (trong lúc còn thao tác của người dùng, trình duyệt mới
+  /// cho mở hộp chọn), sau đó xin backend dừng lượt khác rồi mới publish.
+  Future<void> _startScreenShare() async {
+    final room = liveRoom;
+    final local = room?.localParticipant;
+    if (room == null || local == null || screenShareBusy) return;
+    setState(() => screenShareBusy = true);
+    try {
+      await _unpublishOwnScreenShare();
+      final LocalVideoTrack track;
+      try {
+        track = await LocalVideoTrack.createScreenShareTrack(
+          const ScreenShareCaptureOptions(),
+        );
+      } catch (_) {
+        _showRoomMessage(
+          'Screen sharing was cancelled or blocked. To present, allow screen sharing in your browser or system settings and try again.',
+        );
+        return;
+      }
+      final result = await repository.startScreenShare(
+        widget.classroomId,
+        widget.roomId,
+      );
+      if (result is! Success) {
+        await track.stop();
+        _showRoomMessage(
+          (result is Failure ? result.message : null) ??
+              'Could not start presenting.',
+        );
+        unawaited(_refreshActivity());
+        return;
+      }
+      if (!mounted || liveRoom != room) {
+        await track.stop();
+        return;
+      }
+      try {
+        await local.publishVideoTrack(track);
+      } catch (_) {
+        await track.stop();
+        _showRoomMessage(
+          'Could not start presenting. Ask the teacher to allow it again.',
+        );
+        unawaited(_refreshActivity());
+      }
+    } finally {
+      if (mounted) setState(() => screenShareBusy = false);
+    }
+  }
+
+  Future<void> _unpublishOwnScreenShare() async {
+    final local = liveRoom?.localParticipant;
+    if (local?.getTrackPublicationBySource(TrackSource.screenShareVideo) ==
+        null) {
+      return;
+    }
+    try {
+      await local!.setScreenShareEnabled(false);
+    } catch (_) {}
+  }
+
+  Future<void> _ownScreenShareEnded() async {
+    final identity = liveRoom?.localParticipant?.identity;
+    if (mounted) setState(() {});
+    if (identity == null || leavingRoom) return;
+    await repository.stopScreenShare(
+      widget.classroomId,
+      widget.roomId,
+      identity,
+    );
+    await _refreshActivity();
+  }
+
+  Future<void> _stopStudentScreenShare(String userId) async {
+    final result = await repository.stopScreenShare(
+      widget.classroomId,
+      widget.roomId,
+      userId,
+    );
+    if (result case Failure(message: final message)) {
+      _showRoomMessage(message ?? 'Could not stop the presentation.');
+    }
+    await _refreshActivity();
+  }
+
+  Future<void> _reviewScreenShare(String userId, bool approve) async {
+    if (!reviewingScreenShares.add(userId)) return;
+    setState(() {});
+    final result = await repository.reviewScreenShare(
+      widget.classroomId,
+      widget.roomId,
+      userId,
+      approve: approve,
+    );
+    reviewingScreenShares.remove(userId);
+    if (result case Failure(message: final message)) {
+      _showRoomMessage(
+        message ??
+            (approve
+                ? 'Could not allow ${_participantName(userId)} to present.'
+                : 'Could not decline the request.'),
+      );
+    }
+    await _refreshActivity();
+  }
+
   @override
   void dispose() {
     HardwareKeyboard.instance.removeHandler(_handleKeyEvent);
@@ -832,10 +1039,10 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
   );
 
   List<_RoomEntry> _participantEntries(Room room) {
-    final hands = {
+    final states = {
       for (final state
           in roomActivity?.participants ?? const <RoomParticipantState>[])
-        state.userId: state.handRaisedAt,
+        state.userId: state,
     };
     final reconnecting = room.connectionState == ConnectionState.reconnecting;
     final participants = <(Participant, bool)>[
@@ -852,13 +1059,44 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
                 participant.metadata == roomHostMetadata ||
                 (isLocal && roomInfo?.isHost == true),
             roomReconnecting: reconnecting,
-            handRaisedAt: hands[participant.identity],
+            handRaisedAt: states[participant.identity]?.handRaisedAt,
+            screenShareRequested:
+                states[participant.identity]?.screenShareRequestedAt != null &&
+                states[participant.identity]?.screenShareApprovedAt == null,
           ),
           _cameraTrack(participant),
         ),
     ];
     return dedupeRoomParticipants(entries, (entry) => entry.view.identity)
       ..sort((a, b) => compareRoomParticipants(a.view, b.view, byHand: false));
+  }
+
+  bool _isHostParticipant(Participant participant) =>
+      participant.metadata == roomHostMetadata ||
+      (participant is LocalParticipant && roomInfo?.isHost == true);
+
+  /// Người đang chia sẻ lấy trực tiếp từ track LiveKit, nên mọi client tự
+  /// chuyển bố cục khi share bắt đầu, kết thúc hoặc người chia sẻ mất mạng.
+  _Presenter? _presenter(Room room) {
+    final presenters = <_Presenter>[
+      if (room.localParticipant case final local?
+          when local.isScreenShareEnabled())
+        _Presenter(local, isLocal: true),
+      for (final remote in room.remoteParticipants.values)
+        if (remote.getTrackPublicationBySource(TrackSource.screenShareVideo)
+            case final publication? when !publication.muted)
+          _Presenter(
+            remote,
+            isLocal: false,
+            track: publication.track is VideoTrack
+                ? publication.track as VideoTrack
+                : null,
+          ),
+    ];
+    return pickRoomPresenter(
+      presenters,
+      (presenter) => _isHostParticipant(presenter.participant),
+    );
   }
 
   VideoTrack? _cameraTrack(Participant participant) {
@@ -876,6 +1114,11 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
     final room = liveRoom!;
     final entries = _participantEntries(room);
     final views = [for (final entry in entries) entry.view];
+    final presenter = _presenter(room);
+    final isHost = roomInfo?.isHost == true;
+    final requests = isHost
+        ? pendingScreenShareRequests(roomActivity)
+        : const <RoomParticipantState>[];
     final showControls =
         controlsVisible ||
         participantsOpen ||
@@ -932,13 +1175,41 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Expanded(child: _participantGrid(entries)),
+                          Expanded(
+                            child: presenter == null
+                                ? _participantGrid(entries)
+                                : _presentationLayout(
+                                    presenter,
+                                    entries,
+                                    canStop: presenter.isLocal || isHost,
+                                  ),
+                          ),
                           if (sidePanel)
                             SizedBox(width: _sidePanelWidth, child: panel),
                         ],
                       ),
                     ),
                   ),
+                  if (requests.isNotEmpty)
+                    Positioned(
+                      top: room.connectionState == ConnectionState.reconnecting
+                          ? 56
+                          : 12,
+                      left: 12,
+                      right: sidePanel ? _sidePanelWidth + 12 : 12,
+                      child: Align(
+                        alignment: Alignment.topRight,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 460),
+                          child: RoomScreenShareRequests(
+                            requests: requests,
+                            nameOf: _participantName,
+                            reviewing: reviewingScreenShares,
+                            onReview: _reviewScreenShare,
+                          ),
+                        ),
+                      ),
+                    ),
                   // Trên màn hình hẹp panel phủ vùng video nhưng dừng phía trên
                   // thanh điều khiển để không che các nút.
                   if (panel != null && !sidePanel)
@@ -983,6 +1254,60 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
       ),
     );
   }
+
+  /// Screen share ở vùng chính, video người tham gia thành dải thu nhỏ bên
+  /// dưới; dải bị ẩn khi màn hình quá thấp để vùng chia sẻ vẫn đọc được.
+  Widget _presentationLayout(
+    _Presenter presenter,
+    List<_RoomEntry> entries, {
+    required bool canStop,
+  }) => LayoutBuilder(
+    builder: (context, constraints) {
+      const padding = 12.0;
+      const stripHeight = 104.0;
+      final showStrip = constraints.maxHeight >= 320;
+      final identity = presenter.participant.identity;
+      return Padding(
+        padding: const EdgeInsets.all(padding),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: RoomScreenShareStage(
+                presenterName: _participantName(identity),
+                isLocal: presenter.isLocal,
+                track: presenter.track,
+                onStop: !canStop
+                    ? null
+                    : presenter.isLocal
+                    ? _unpublishOwnScreenShare
+                    : () => _stopStudentScreenShare(identity),
+              ),
+            ),
+            if (showStrip) ...[
+              const SizedBox(height: 10),
+              SizedBox(
+                height: stripHeight,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: entries.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 10),
+                  itemBuilder: (context, index) => SizedBox(
+                    key: ValueKey(entries[index].view.identity),
+                    width: stripHeight * 16 / 10,
+                    child: RoomParticipantTile(
+                      participant: entries[index].view,
+                      video: entries[index].video,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      );
+    },
+  );
 
   Widget _participantGrid(List<_RoomEntry> entries) => LayoutBuilder(
     builder: (context, constraints) {
@@ -1036,7 +1361,18 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
     final onStyle = IconButton.styleFrom(
       backgroundColor: const Color(0xff3c4043),
       foregroundColor: Colors.white,
+      disabledBackgroundColor: const Color(0xff3c4043),
+      disabledForegroundColor: Colors.white54,
     );
+    final shareControl = roomScreenShareControl(
+      supported: _screenShareSupported,
+      isHost: roomInfo?.isHost == true,
+      sharing: local?.isScreenShareEnabled() ?? false,
+      ownState: _ownActivityState,
+    );
+    // Sáu nút phải vừa màn hình điện thoại 320px.
+    final gap = MediaQuery.sizeOf(context).width < 400 ? 6.0 : 12.0;
+    final gapBox = SizedBox(width: gap);
     return IgnorePointer(
       ignoring: !visible,
       child: AnimatedSlide(
@@ -1066,7 +1402,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
                         icon: const Icon(Icons.mic_off),
                         selectedIcon: const Icon(Icons.mic),
                       ),
-                      const SizedBox(width: 12),
+                      gapBox,
                       IconButton.filled(
                         isSelected: cameraOn,
                         tooltip: cameraOn
@@ -1077,7 +1413,12 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
                         icon: const Icon(Icons.videocam_off),
                         selectedIcon: const Icon(Icons.videocam),
                       ),
-                      const SizedBox(width: 12),
+                      gapBox,
+                      if (shareControl !=
+                          RoomScreenShareControl.unavailable) ...[
+                        _screenShareButton(shareControl, onStyle),
+                        gapBox,
+                      ],
                       IconButton.filled(
                         isSelected: participantsOpen,
                         tooltip: participantsOpen
@@ -1094,14 +1435,14 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
                           child: const Icon(Icons.people),
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      gapBox,
                       IconButton.filled(
                         tooltip: 'Audio and video settings',
                         style: onStyle,
                         onPressed: _openDeviceSettings,
                         icon: const Icon(Icons.settings_outlined),
                       ),
-                      const SizedBox(width: 12),
+                      gapBox,
                       IconButton.filled(
                         tooltip: 'Leave',
                         style: IconButton.styleFrom(
@@ -1120,6 +1461,41 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
         ),
       ),
     );
+  }
+
+  Widget _screenShareButton(RoomScreenShareControl control, ButtonStyle style) {
+    final busy = screenShareBusy;
+    return switch (control) {
+      RoomScreenShareControl.stop => IconButton.filled(
+        isSelected: true,
+        tooltip: 'Stop presenting',
+        style: IconButton.styleFrom(
+          backgroundColor: const Color(0xff8ab4f8),
+          foregroundColor: Colors.black,
+        ),
+        onPressed: busy ? null : _unpublishOwnScreenShare,
+        icon: const Icon(Icons.stop_screen_share),
+      ),
+      RoomScreenShareControl.start => IconButton.filled(
+        tooltip: 'Present your screen',
+        style: style,
+        onPressed: busy ? null : _startScreenShare,
+        icon: const Icon(Icons.present_to_all),
+      ),
+      RoomScreenShareControl.request => IconButton.filled(
+        tooltip: 'Ask the teacher to present',
+        style: style,
+        onPressed: busy ? null : _requestScreenShare,
+        icon: const Icon(Icons.screen_share_outlined),
+      ),
+      RoomScreenShareControl.waiting => IconButton.filled(
+        tooltip: 'Waiting for the teacher to allow presenting',
+        style: style,
+        onPressed: null,
+        icon: const Icon(Icons.hourglass_top),
+      ),
+      RoomScreenShareControl.unavailable => const SizedBox.shrink(),
+    };
   }
 }
 

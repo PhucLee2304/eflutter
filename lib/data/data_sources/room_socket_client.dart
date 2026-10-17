@@ -76,12 +76,16 @@ class RoomSocketClient {
       if (eventId != null &&
           roomId != null &&
           _roomActivityTypes.contains(type)) {
+        final payload = data['payload'];
         _activityEvents.add(
           RoomActivitySocketEvent(
             eventId: eventId,
             type: type,
             roomId: roomId,
             createdAt: DateTime.parse(data['createdAt'] as String).toLocal(),
+            userId: payload is Map<String, dynamic>
+                ? payload['userId'] as String?
+                : null,
           ),
         );
       }
@@ -125,10 +129,14 @@ class RoomActivitySocketEvent {
     required this.type,
     required this.roomId,
     required this.createdAt,
+    this.userId,
   });
 
   final String eventId;
   final String type;
   final int roomId;
   final DateTime createdAt;
+
+  /// Participant bị tác động bởi event (ví dụ người bị dừng chia sẻ màn hình).
+  final String? userId;
 }

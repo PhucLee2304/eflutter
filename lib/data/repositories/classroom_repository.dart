@@ -299,6 +299,53 @@ class ClassroomRepository {
       )
       .safeResult();
 
+  String _screenSharePath(int classroomId, int roomId, [String? userId]) =>
+      '$_base/$classroomId/rooms/$roomId/screen-share'
+      '${userId == null ? '' : '/${Uri.encodeComponent(userId)}'}';
+
+  Future<Result<RoomParticipantState>> requestScreenShare(
+    int classroomId,
+    int roomId,
+  ) => _dio
+      .post('${_screenSharePath(classroomId, roomId)}/request')
+      .then(
+        (response) => RoomParticipantState.fromJson(
+          response.data as Map<String, dynamic>,
+        ),
+      )
+      .safeResult();
+
+  Future<Result<RoomParticipantState>> reviewScreenShare(
+    int classroomId,
+    int roomId,
+    String userId, {
+    required bool approve,
+  }) => _dio
+      .post(
+        '${_screenSharePath(classroomId, roomId, userId)}/${approve ? 'approve' : 'reject'}',
+      )
+      .then(
+        (response) => RoomParticipantState.fromJson(
+          response.data as Map<String, dynamic>,
+        ),
+      )
+      .safeResult();
+
+  /// Gọi ngay trước khi publish; backend dừng lượt chia sẻ khác trong phòng.
+  Future<Result<void>> startScreenShare(int classroomId, int roomId) => _dio
+      .post<void>('${_screenSharePath(classroomId, roomId)}/start')
+      .then((_) {})
+      .safeResult();
+
+  Future<Result<void>> stopScreenShare(
+    int classroomId,
+    int roomId,
+    String userId,
+  ) => _dio
+      .post<void>('${_screenSharePath(classroomId, roomId, userId)}/stop')
+      .then((_) {})
+      .safeResult();
+
   Future<Result<List<RoomAttendanceSession>>> getRoomAttendance(
     int classroomId,
     int roomId,

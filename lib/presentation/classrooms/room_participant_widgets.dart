@@ -263,6 +263,10 @@ class _ParticipantRow extends StatelessWidget {
     final connectionLabel = roomConnectionLabel(participant.connection);
     final subtitle = [
       participant.isHost ? 'Teacher' : 'Student',
+      if (participant.presenting)
+        'Presenting'
+      else if (participant.screenShareRequested)
+        'Wants to present',
       ?connectionLabel,
     ].join(' · ');
     return ListTile(
@@ -278,6 +282,12 @@ class _ParticipantRow extends StatelessWidget {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (participant.presenting)
+            const _StateIcon(
+              icon: Icons.present_to_all,
+              label: 'Presenting',
+              color: Color(0xff8ab4f8),
+            ),
           if (participant.handRaisedAt != null)
             const _StateIcon(
               icon: Icons.back_hand,

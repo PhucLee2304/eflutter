@@ -18,6 +18,8 @@ class RoomParticipantView {
     required this.isSpeaking,
     required this.connection,
     this.handRaisedAt,
+    this.presenting = false,
+    this.screenShareRequested = false,
   });
 
   final String identity;
@@ -29,6 +31,10 @@ class RoomParticipantView {
   final bool isSpeaking;
   final RoomParticipantConnection connection;
   final DateTime? handRaisedAt;
+  final bool presenting;
+
+  /// Chỉ giáo viên (và chính học sinh đó) thấy yêu cầu đang chờ duyệt.
+  final bool screenShareRequested;
 
   String get displayName => name.trim().isEmpty ? identity : name.trim();
 }
@@ -50,6 +56,7 @@ RoomParticipantView roomParticipantViewFrom(
   required bool isHost,
   required bool roomReconnecting,
   DateTime? handRaisedAt,
+  bool screenShareRequested = false,
 }) => RoomParticipantView(
   identity: participant.identity,
   name: participant.name,
@@ -63,6 +70,8 @@ RoomParticipantView roomParticipantViewFrom(
     reconnecting: isLocal && roomReconnecting,
   ),
   handRaisedAt: handRaisedAt,
+  presenting: participant.isScreenShareEnabled(),
+  screenShareRequested: screenShareRequested,
 );
 
 /// Giữ một dòng cho mỗi identity; phần tử đầu tiên được ưu tiên nên truyền
