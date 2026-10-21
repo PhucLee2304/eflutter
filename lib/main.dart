@@ -30,7 +30,14 @@ void main() async {
     Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform),
     authCubit.init(),
   ].wait;
-  await getIt<NotificationPushService>().initialize();
+  if (authCubit.state.isAuthenticated) {
+    try {
+      await getIt<NotificationPushService>().initialize();
+    } catch (e) {
+      // Lỗi mạng/token không được chặn app khởi động.
+      debugPrint('NotificationPushService.initialize failed: $e');
+    }
+  }
 
   configureUrlStrategy();
   final appCubit = getIt<AppCubit>();
