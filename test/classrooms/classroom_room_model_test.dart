@@ -59,4 +59,34 @@ void main() {
     expect(session.user?.name, 'Student');
     expect(session.leftAt, isNull);
   });
+
+  test('parses room activity participant permissions and state', () {
+    final now = DateTime.utc(2026, 10, 16, 8);
+    final activity = RoomActivity.fromJson({
+      'roomId': 7,
+      'classroomId': 2,
+      'status': 'LIVE',
+      'isHost': true,
+      'updatedAt': now.toIso8601String(),
+      'participants': [
+        {
+          'userId': 'student-1',
+          'microphoneAllowed': false,
+          'cameraAllowed': true,
+          'handRaisedAt': now.toIso8601String(),
+          'screenShareRequestedAt': now.toIso8601String(),
+          'screenShareApprovedAt': now.toIso8601String(),
+          'updatedAt': now.toIso8601String(),
+        },
+      ],
+    });
+
+    expect(activity.isHost, isTrue);
+    expect(activity.participants.single.userId, 'student-1');
+    expect(activity.participants.single.microphoneAllowed, isFalse);
+    expect(activity.participants.single.cameraAllowed, isTrue);
+    expect(activity.participants.single.screenShareApprovedAt, isNotNull);
+    expect(activity.participants.single.handRaisedAt, isNotNull);
+    expect(activity.participants.single.removedAt, isNull);
+  });
 }

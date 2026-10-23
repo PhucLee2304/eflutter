@@ -134,3 +134,5 @@ lib/generated/
 firebase_options.dart
 web/firebase-messaging-sw.js
 firebase.json
+
+.fvm/

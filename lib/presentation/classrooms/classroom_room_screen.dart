@@ -1,15 +1,30 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:dio/dio.dart';
 import 'package:eflutter/core/base/result.dart';
 import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/data/models/classroom.dart';
+import 'package:eflutter/data/data_sources/room_socket_client.dart';
+import 'package:eflutter/core/base/local_data_base.dart';
 import 'package:eflutter/data/repositories/classroom_repository.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart' hide ConnectionState;
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:livekit_client/livekit_client.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:eflutter/presentation/app/navigation/app_routes.dart';
+import 'package:eflutter/presentation/classrooms/room_connection_recovery.dart';
+import 'package:eflutter/presentation/classrooms/room_device_preferences.dart';
+import 'package:eflutter/presentation/classrooms/room_device_settings.dart';
+import 'package:eflutter/presentation/classrooms/room_join_control.dart';
+import 'package:eflutter/presentation/classrooms/room_participant_widgets.dart';
+import 'package:eflutter/presentation/classrooms/room_participants.dart';
+import 'package:eflutter/presentation/classrooms/room_reactions.dart';
+import 'package:eflutter/presentation/classrooms/room_screen_share.dart';
+import 'package:eflutter/presentation/classrooms/room_shortcuts.dart';
 
 class ClassroomRoomScreen extends StatefulWidget {
   const ClassroomRoomScreen({
@@ -24,17 +39,51 @@ class ClassroomRoomScreen extends StatefulWidget {
   State<ClassroomRoomScreen> createState() => _ClassroomRoomScreenState();
 }
 
+class _RoomEntry {
+  const _RoomEntry(this.view, this.video);
+  final RoomParticipantView view;
+  final VideoTrack? video;
+}
+
+class _Presenter {
+  const _Presenter(this.participant, {required this.isLocal, this.track});
+  final Participant participant;
+  final bool isLocal;
+  final VideoTrack? track;
+}
+
 class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
   static const _reconnectTimeout = Duration(seconds: 45);
   static const _roomStatusRetryDelay = Duration(seconds: 5);
+  static const _controlsHideDelay = Duration(seconds: 4);
+  static const _controlsAnimation = Duration(milliseconds: 200);
+  static const _controlBarHeight = 72.0;
+  static const _sidePanelBreakpoint = 900.0;
+  static const _sidePanelWidth = 320.0;
 
   late final ClassroomRepository repository = ClassroomRepository(getIt<Dio>());
+  late final RoomSocketClient roomSocket = RoomSocketClient(
+    getIt<LocalDataBase>(),
+  );
+  late final RoomDevicePreferences devicePreferences = RoomDevicePreferences(
+    getIt<SharedPreferencesAsync>(),
+  );
+  StreamSubscription<RoomActivitySocketEvent>? roomActivitySubscription;
+  StreamSubscription<void>? roomSocketReconnectSubscription;
+  StreamSubscription<List<MediaDevice>>? deviceChangeSubscription;
+  EventsListener<RoomEvent>? liveRoomListener;
   ClassroomRoom? roomInfo;
+  RoomActivity? roomActivity;
   Room? liveRoom;
   List<MediaDevice> cameras = const [];
   List<MediaDevice> microphones = const [];
+  List<MediaDevice> speakers = const [];
   MediaDevice? camera;
   MediaDevice? microphone;
+  MediaDevice? speaker;
+  final deviceOptions = ValueNotifier(
+    const RoomDeviceOptions(microphones: [], cameras: [], speakers: []),
+  );
   LocalVideoTrack? previewTrack;
   bool cameraEnabled = true;
   bool microphoneEnabled = true;
@@ -45,19 +94,73 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
   Timer? reconnectTimer;
   bool recoveringConnection = false;
   bool leavingRoom = false;
+  bool participantsOpen = false;
+  bool controlsVisible = true;
+  bool deviceDialogOpen = false;
+  Timer? controlsHideTimer;
+  ConnectionState? lastConnectionState;
+  bool screenShareBusy = false;
+  final reviewingScreenShares = <String>{};
+  bool handBusy = false;
+  bool loweringOwnHand = false;
+  bool reactionMenuOpen = false;
+  final reactionSendLimiter = RoomReactionLimiter();
+  final reactionReceiveLimiter = RoomReactionLimiter();
+  List<RoomReactionBubble> reactionBubbles = const [];
+  int nextReactionId = 0;
+  final reactionTimers = <Timer>{};
+  bool confirmDialogOpen = false;
+
+  /// Khác null khi học sinh bị giáo viên xóa khỏi phòng; màn hình chỉ hiện
+  /// thông báo và không thử kết nối lại.
+  String? removedNotice;
+
+  /// LiveKit báo bị xóa khỏi phòng; tạm dừng tự kết nối lại cho đến khi biết
+  /// lý do từ backend.
+  bool mediaRemovalPending = false;
+  final controlsFocus = FocusScopeNode(debugLabel: 'Room controls');
 
   @override
   void initState() {
     super.initState();
+    roomActivitySubscription = roomSocket.activityEvents.listen((event) {
+      if (event.roomId != widget.roomId) return;
+      unawaited(_refreshActivity());
+      _handleOwnActivityEvent(event);
+    });
+    // Event phát ra trong lúc socket mất kết nối không được replay, nên tải
+    // lại snapshot mỗi khi socket nối lại.
+    roomSocketReconnectSubscription = roomSocket.reconnected.listen(
+      (_) => unawaited(_refreshActivity()),
+    );
+    deviceChangeSubscription = Hardware.instance.onDeviceChange.stream.listen(
+      (devices) => unawaited(_devicesChanged(devices)),
+    );
+    HardwareKeyboard.instance.addHandler(_handleKeyEvent);
+    unawaited(roomSocket.connect());
     _prepare();
   }
 
   Future<void> _prepare() async {
-    final result = await repository.getRoom(widget.classroomId, widget.roomId);
+    final results = await Future.wait([
+      repository.getRoom(widget.classroomId, widget.roomId),
+      repository.getRoomActivity(widget.classroomId, widget.roomId),
+      devicePreferences.load(),
+    ]);
+    final result = results[0] as Result<ClassroomRoom>;
+    final activityResult = results[1] as Result<RoomActivity>;
+    final savedDevices = results[2] as RoomDeviceChoice;
     try {
       await _startPreview();
       cameras = await Hardware.instance.videoInputs();
-      camera = cameras.firstOrNull;
+      camera = preferredRoomDevice(savedDevices.cameraId, cameras);
+      // Danh sách camera chỉ có sau khi được cấp quyền nên preview đầu tiên
+      // dùng camera mặc định; mở lại nếu camera đã lưu là thiết bị khác.
+      if (previewTrack != null &&
+          camera != null &&
+          _previewDeviceId() != camera!.deviceId) {
+        await _startPreview();
+      }
     } catch (_) {
       cameraEnabled = false;
       deviceWarning =
@@ -67,12 +170,36 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
       final audioTrack = await LocalAudioTrack.create();
       await audioTrack.stop();
       microphones = await Hardware.instance.audioInputs();
-      microphone = microphones.firstOrNull;
+      microphone = preferredRoomDevice(savedDevices.microphoneId, microphones);
     } catch (_) {
       microphoneEnabled = false;
       deviceWarning = cameraEnabled
           ? 'Microphone permission was denied. You can still join in listen-only mode.'
           : 'Camera and microphone permissions were denied. You can still join in listen-only mode.';
+    }
+    try {
+      speakers = await Hardware.instance.audioOutputs();
+      speaker = preferredRoomDevice(
+        savedDevices.speakerId,
+        speakers,
+        fallback: Hardware.instance.selectedAudioOutput,
+      );
+    } catch (_) {
+      speakers = const [];
+    }
+    _syncDeviceOptions();
+    if (!mounted) return;
+    if (activityResult case Success(data: final activity)) {
+      roomActivity = activity;
+      final own = _ownActivityState;
+      if (own?.removedAt != null) removedNotice = _removedMessage;
+      // Quyền do giáo viên đặt áp dụng ngay từ màn hình chuẩn bị.
+      if (own?.microphoneAllowed == false) microphoneEnabled = false;
+      if (own?.cameraAllowed == false && cameraEnabled) {
+        cameraEnabled = false;
+        await previewTrack?.stop();
+        previewTrack = null;
+      }
     }
     if (!mounted) return;
     switch (result) {
@@ -88,6 +215,26 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
         });
       case Cancelled():
         setState(() => loading = false);
+    }
+  }
+
+  void _syncDeviceOptions() {
+    deviceOptions.value = RoomDeviceOptions(
+      microphones: microphones,
+      cameras: cameras,
+      speakers: speakers,
+      microphone: microphone,
+      camera: camera,
+      speaker: speaker,
+    );
+  }
+
+  String? _previewDeviceId() {
+    try {
+      return previewTrack?.mediaStreamTrack.getSettings()['deviceId']
+          as String?;
+    } catch (_) {
+      return null;
     }
   }
 
@@ -113,6 +260,9 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
   }
 
   Future<void> _connect() async {
+    // Chặn gọi chồng (bấm Join nhiều lần hoặc recovery trùng lúc) vì mỗi lần
+    // sẽ tạo một Room và participant mới.
+    if (connecting || leavingRoom) return;
     reconnectTimer?.cancel();
     setState(() {
       connecting = true;
@@ -122,34 +272,76 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
     if (!mounted) return;
     switch (result) {
       case Success(data: final connection):
-        final mediaRoom = Room();
+        // Thiết bị đã chọn nằm trong roomOptions để track tạo lại sau khi bật
+        // lại camera/mic hoặc reconnect vẫn dùng đúng thiết bị.
+        final mediaRoom = Room(
+          roomOptions: RoomOptions(
+            defaultCameraCaptureOptions: CameraCaptureOptions(
+              deviceId: camera?.deviceId,
+            ),
+            defaultAudioCaptureOptions: AudioCaptureOptions(
+              deviceId: microphone?.deviceId,
+            ),
+            defaultAudioOutputOptions: AudioOutputOptions(
+              deviceId: speaker?.deviceId,
+            ),
+          ),
+        );
+        final listener = mediaRoom.createListener()
+          ..on<RoomReconnectedEvent>((_) => unawaited(_refreshActivity()))
+          // Track screen share của mình bị gỡ vì bất kỳ lý do gì (tự dừng, nút
+          // dừng của trình duyệt, bị thay thế): báo backend xóa phê duyệt.
+          ..on<LocalTrackUnpublishedEvent>((event) {
+            if (event.publication.source == TrackSource.screenShareVideo) {
+              unawaited(_ownScreenShareEnded());
+            }
+          })
+          // Backend server-mute track khi giáo viên dừng hoặc có lượt chia sẻ
+          // mới; gỡ hẳn track thay vì giữ track bị mute.
+          ..on<DataReceivedEvent>(_receiveReaction)
+          ..on<RoomDisconnectedEvent>((event) {
+            if (event.reason == DisconnectReason.participantRemoved) {
+              mediaRemovalPending = true;
+              unawaited(_handleMediaRemoval());
+            }
+          })
+          ..on<TrackMutedEvent>((event) {
+            if (event.participant is LocalParticipant &&
+                event.publication.source == TrackSource.screenShareVideo) {
+              _showRoomMessage(
+                roomInfo?.isHost == true
+                    ? 'Your presentation ended because a student started presenting.'
+                    : 'Your presentation was stopped.',
+              );
+              unawaited(_unpublishOwnScreenShare());
+            }
+          });
         try {
           await previewTrack?.stop();
           previewTrack = null;
           await mediaRoom.connect(connection.url, connection.token);
-          await mediaRoom.localParticipant?.setCameraEnabled(
-            cameraEnabled,
-            cameraCaptureOptions: CameraCaptureOptions(
-              deviceId: camera?.deviceId,
-            ),
-          );
-          await mediaRoom.localParticipant?.setMicrophoneEnabled(
-            microphoneEnabled,
-            audioCaptureOptions: AudioCaptureOptions(
-              deviceId: microphone?.deviceId,
-            ),
-          );
+          final warnings = await _publishInitialMedia(mediaRoom);
           mediaRoom.addListener(_roomChanged);
-          if (!mounted) {
+          if (!mounted || leavingRoom) {
+            mediaRoom.removeListener(_roomChanged);
+            await listener.dispose();
             await mediaRoom.disconnect();
+            await mediaRoom.dispose();
             return;
           }
           setState(() {
             liveRoom = mediaRoom;
+            liveRoomListener = listener;
+            lastConnectionState = mediaRoom.connectionState;
             roomInfo = connection.room;
             connecting = false;
+            controlsVisible = true;
           });
+          _scheduleControlsHide();
+          if (warnings.isNotEmpty) _showRoomMessage(warnings.join(' '));
+          await _refreshActivity();
         } catch (exception) {
+          await listener.dispose();
           await mediaRoom.dispose();
           if (mounted) {
             setState(() {
@@ -168,15 +360,68 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
     }
   }
 
+  /// Bật mic/camera theo lựa chọn của người dùng. Lỗi thiết bị không làm hỏng
+  /// cả kết nối: người dùng vẫn vào phòng với thiết bị đó tắt.
+  Future<List<String>> _publishInitialMedia(Room room) async {
+    final local = room.localParticipant;
+    if (local == null) return const [];
+    final warnings = <String>[];
+    try {
+      await local.setCameraEnabled(
+        cameraEnabled,
+        cameraCaptureOptions: CameraCaptureOptions(deviceId: camera?.deviceId),
+      );
+    } catch (_) {
+      cameraEnabled = false;
+      warnings.add('Camera is unavailable, joined with the camera off.');
+    }
+    try {
+      await local.setMicrophoneEnabled(
+        microphoneEnabled,
+        audioCaptureOptions: AudioCaptureOptions(
+          deviceId: microphone?.deviceId,
+        ),
+      );
+    } catch (_) {
+      microphoneEnabled = false;
+      warnings.add(
+        'Microphone is unavailable, joined with the microphone off.',
+      );
+    }
+    return warnings;
+  }
+
+  Future<void> _disposeLiveRoom() async {
+    final previousRoom = liveRoom;
+    final previousListener = liveRoomListener;
+    liveRoom = null;
+    liveRoomListener = null;
+    previousRoom?.removeListener(_roomChanged);
+    await previousListener?.dispose();
+    await previousRoom?.dispose();
+  }
+
   void _roomChanged() {
     if (!mounted) return;
-    switch (liveRoom?.connectionState) {
+    // Room notify cả khi đổi người đang nói, nên chỉ xử lý khi trạng thái kết
+    // nối thực sự thay đổi để không liên tục reset timer ẩn thanh điều khiển.
+    final state = liveRoom?.connectionState;
+    final changed = state != lastConnectionState;
+    lastConnectionState = state;
+    if (!changed) {
+      setState(() {});
+      return;
+    }
+    switch (state) {
       case ConnectionState.connected:
         reconnectTimer?.cancel();
         recoveringConnection = false;
+        _scheduleControlsHide();
       case ConnectionState.reconnecting:
+        controlsVisible = true;
         _scheduleConnectionRecovery(_reconnectTimeout);
       case ConnectionState.disconnected:
+        controlsVisible = true;
         _scheduleConnectionRecovery(Duration.zero);
       default:
         break;
@@ -186,6 +431,8 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
 
   void _scheduleConnectionRecovery(Duration delay) {
     if (leavingRoom ||
+        mediaRemovalPending ||
+        removedNotice != null ||
         recoveringConnection ||
         reconnectTimer?.isActive == true) {
       return;
@@ -202,25 +449,238 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
 
     // LiveKit có thể đã tự reconnect trong lúc request kiểm tra trạng thái
     // phòng đang chạy. Khi đó giữ nguyên kết nối hiện tại, không xin token mới.
-    if (liveRoom?.connectionState == ConnectionState.connected) {
-      recoveringConnection = false;
-      reconnectTimer?.cancel();
-      setState(() {});
-      return;
-    }
-
     switch (result) {
       case Success(data: final room):
         roomInfo = room;
-        if (room.status != 'LIVE') {
-          await _exitClosedRoom();
+        await _refreshActivity();
+        await _applyRecoveryAction(
+          decideRoomConnectionRecovery(
+            mediaConnected:
+                liveRoom?.connectionState == ConnectionState.connected,
+            roomRequestSucceeded: true,
+            roomStatus: room.status,
+          ),
+        );
+      case Failure():
+      case Cancelled():
+        await _applyRecoveryAction(
+          decideRoomConnectionRecovery(
+            mediaConnected:
+                liveRoom?.connectionState == ConnectionState.connected,
+            roomRequestSucceeded: false,
+          ),
+        );
+    }
+  }
+
+  Future<void> _refreshActivity() async {
+    final result = await repository.getRoomActivity(
+      widget.classroomId,
+      widget.roomId,
+    );
+    if (!mounted) return;
+    if (result case Success(data: final activity)) {
+      final before = _ownActivityState;
+      setState(() => roomActivity = activity);
+      _applyOwnPermissions(before, _ownActivityState);
+    }
+  }
+
+  static const _removedMessage =
+      'You were removed from this session by the teacher. You can join again when the next session starts.';
+
+  /// Áp dụng quyền giáo viên đặt cho chính mình: thiết bị bị tắt thì tắt ở
+  /// client (LiveKit đã chặn ở server), được cho phép lại thì chỉ báo để học
+  /// sinh tự bật.
+  void _applyOwnPermissions(
+    RoomParticipantState? before,
+    RoomParticipantState? after,
+  ) {
+    if (after == null || roomInfo?.isHost == true) return;
+    if (after.removedAt != null) {
+      unawaited(_exitRemoved());
+      return;
+    }
+    final local = liveRoom?.localParticipant;
+    if (local == null || before == null) return;
+    final messages = <String>[];
+    if (!after.microphoneAllowed) {
+      microphoneEnabled = false;
+      if (local.isMicrophoneEnabled()) {
+        unawaited(_disableLocalSource(TrackSource.microphone));
+      }
+      if (before.microphoneAllowed) {
+        messages.add('The teacher turned off your microphone.');
+      }
+    } else if (!before.microphoneAllowed) {
+      messages.add(
+        'The teacher allowed you to use your microphone. Turn it on when you are ready.',
+      );
+    }
+    if (!after.cameraAllowed) {
+      cameraEnabled = false;
+      if (local.isCameraEnabled()) {
+        unawaited(_disableLocalSource(TrackSource.camera));
+      }
+      if (before.cameraAllowed) {
+        messages.add('The teacher turned off your camera.');
+      }
+    } else if (!before.cameraAllowed) {
+      messages.add('The teacher allowed you to use your camera again.');
+    }
+    if (messages.isNotEmpty) _showRoomMessage(messages.join(' '));
+  }
+
+  Future<void> _disableLocalSource(TrackSource source) async {
+    final local = liveRoom?.localParticipant;
+    try {
+      if (source == TrackSource.microphone) {
+        await local?.setMicrophoneEnabled(false);
+      } else {
+        await local?.setCameraEnabled(false);
+      }
+    } catch (_) {}
+    if (mounted) setState(() {});
+  }
+
+  /// LiveKit ngắt kết nối với lý do bị xóa: hỏi backend xem là bị xóa khỏi
+  /// phòng (không được vào lại) hay đã không còn là thành viên của lớp.
+  Future<void> _handleMediaRemoval() async {
+    final result = await repository.getRoomActivity(
+      widget.classroomId,
+      widget.roomId,
+    );
+    if (!mounted) return;
+    switch (result) {
+      case Success(data: final activity):
+        setState(() => roomActivity = activity);
+        if (_ownActivityState?.removedAt != null) {
+          await _exitRemoved();
           return;
         }
+        mediaRemovalPending = false;
+        _scheduleConnectionRecovery(Duration.zero);
+      case Failure():
+        await _exitRemoved(
+          notice:
+              'You can no longer join this session. You may have been removed from the class.',
+        );
+      case Cancelled():
+        mediaRemovalPending = false;
+    }
+  }
 
-        final previousRoom = liveRoom;
-        liveRoom = null;
-        previousRoom?.removeListener(_roomChanged);
-        await previousRoom?.dispose();
+  Future<void> _exitRemoved({String notice = _removedMessage}) async {
+    if (removedNotice != null && liveRoom == null) return;
+    leavingRoom = true;
+    reconnectTimer?.cancel();
+    await _disposeLiveRoom();
+    if (mounted) setState(() => removedNotice = notice);
+  }
+
+  Future<void> _moderate(String userId, RoomParticipantAction action) async {
+    final name = _participantName(userId);
+    final Result<RoomParticipantState> result;
+    switch (action) {
+      case RoomParticipantAction.remove:
+        confirmDialogOpen = true;
+        final reason = await showDialog<String>(
+          context: context,
+          builder: (_) => _RemoveParticipantDialog(name: name),
+        );
+        confirmDialogOpen = false;
+        _showControls();
+        if (reason == null || !mounted) return;
+        result = await repository.removeParticipant(
+          widget.classroomId,
+          widget.roomId,
+          userId,
+          reason: reason,
+        );
+      case RoomParticipantAction.mute:
+        result = await repository.moderateParticipantDevice(
+          widget.classroomId,
+          widget.roomId,
+          userId,
+          RoomDeviceModeration.mute,
+        );
+      case RoomParticipantAction.allowMicrophone:
+        result = await repository.moderateParticipantDevice(
+          widget.classroomId,
+          widget.roomId,
+          userId,
+          RoomDeviceModeration.allowMicrophone,
+        );
+      case RoomParticipantAction.disableCamera:
+        result = await repository.moderateParticipantDevice(
+          widget.classroomId,
+          widget.roomId,
+          userId,
+          RoomDeviceModeration.disableCamera,
+        );
+      case RoomParticipantAction.allowCamera:
+        result = await repository.moderateParticipantDevice(
+          widget.classroomId,
+          widget.roomId,
+          userId,
+          RoomDeviceModeration.allowCamera,
+        );
+    }
+    if (!mounted) return;
+    switch (result) {
+      case Success():
+        _showRoomMessage(switch (action) {
+          RoomParticipantAction.mute => '$name was muted.',
+          RoomParticipantAction.allowMicrophone =>
+            '$name can turn on their microphone again.',
+          RoomParticipantAction.disableCamera =>
+            "$name's camera was turned off.",
+          RoomParticipantAction.allowCamera =>
+            '$name can turn on their camera again.',
+          RoomParticipantAction.remove =>
+            '$name was removed from this session.',
+        });
+      case Failure(message: final message):
+        _showRoomMessage(message ?? 'Could not update $name.');
+      case Cancelled():
+        break;
+    }
+    await _refreshActivity();
+  }
+
+  Future<void> _muteAll() async {
+    final result = await repository.muteAllParticipants(
+      widget.classroomId,
+      widget.roomId,
+    );
+    if (!mounted) return;
+    switch (result) {
+      case Success(data: final userIds):
+        _showRoomMessage(
+          userIds.isEmpty
+              ? 'Every student is already muted.'
+              : 'Muted ${userIds.length} student${userIds.length == 1 ? '' : 's'}.',
+        );
+      case Failure(message: final message):
+        _showRoomMessage(message ?? 'Could not mute everyone.');
+      case Cancelled():
+        break;
+    }
+    await _refreshActivity();
+  }
+
+  Future<void> _applyRecoveryAction(RoomConnectionRecoveryAction action) async {
+    switch (action) {
+      case RoomConnectionRecoveryAction.keepConnection:
+        recoveringConnection = false;
+        reconnectTimer?.cancel();
+        setState(() {});
+      case RoomConnectionRecoveryAction.exitRoom:
+        await _exitClosedRoom();
+      case RoomConnectionRecoveryAction.reconnect:
+        // Giải phóng hoàn toàn Room cũ (kể cả local track) trước khi tạo Room
+        // mới để không có participant hay track trùng.
+        await _disposeLiveRoom();
         recoveringConnection = false;
         if (mounted) {
           setState(() {});
@@ -229,8 +689,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
             _scheduleConnectionRecovery(_roomStatusRetryDelay);
           }
         }
-      case Failure():
-      case Cancelled():
+      case RoomConnectionRecoveryAction.retry:
         // Khi mạng vẫn mất, giữ màn hình và thử lại cho đến khi có thể xác
         // nhận trạng thái phòng từ backend.
         recoveringConnection = false;
@@ -243,10 +702,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
     if (leavingRoom) return;
     leavingRoom = true;
     reconnectTimer?.cancel();
-    final previousRoom = liveRoom;
-    liveRoom = null;
-    previousRoom?.removeListener(_roomChanged);
-    await previousRoom?.dispose();
+    await _disposeLiveRoom();
     if (mounted) context.pop();
   }
 
@@ -269,13 +725,640 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
     if (mounted) context.pop();
   }
 
+  Future<void> _toggleMicrophone() async {
+    final local = liveRoom?.localParticipant;
+    if (local == null) return;
+    final enable = !local.isMicrophoneEnabled();
+    if (enable && _ownActivityState?.microphoneAllowed == false) {
+      _showRoomMessage('The teacher turned off your microphone.');
+      return;
+    }
+    try {
+      await local.setMicrophoneEnabled(
+        enable,
+        audioCaptureOptions: AudioCaptureOptions(
+          deviceId: microphone?.deviceId,
+        ),
+      );
+    } catch (_) {
+      _showRoomMessage(
+        enable
+            ? 'Could not turn on the microphone. Check the browser permission.'
+            : 'Could not turn off the microphone.',
+      );
+    }
+    if (!mounted) return;
+    setState(() => microphoneEnabled = local.isMicrophoneEnabled());
+  }
+
+  Future<void> _toggleCamera() async {
+    final local = liveRoom?.localParticipant;
+    if (local == null) return;
+    final enable = !local.isCameraEnabled();
+    if (enable && _ownActivityState?.cameraAllowed == false) {
+      _showRoomMessage('The teacher turned off your camera.');
+      return;
+    }
+    try {
+      await local.setCameraEnabled(
+        enable,
+        cameraCaptureOptions: CameraCaptureOptions(deviceId: camera?.deviceId),
+      );
+    } catch (_) {
+      _showRoomMessage(
+        enable
+            ? 'Could not turn on the camera. Check the browser permission.'
+            : 'Could not turn off the camera.',
+      );
+    }
+    if (mounted) setState(() => cameraEnabled = local.isCameraEnabled());
+  }
+
+  // LiveKit đổi thiết bị trên track đang có (setDeviceId/switchCamera) nên
+  // không tạo track mới; khi thiết bị đang tắt chỉ cập nhật roomOptions.
+  // Chỉ lựa chọn của người dùng được ghi nhớ; chuyển tự động khi rút thiết bị
+  // thì không, để lần sau cắm lại vẫn chọn thiết bị cũ.
+  Future<void> _selectMicrophone(
+    MediaDevice device, {
+    bool remember = true,
+  }) async {
+    microphone = device;
+    _syncDeviceOptions();
+    if (remember) {
+      unawaited(devicePreferences.save(RoomDeviceKind.microphone, device));
+    }
+    try {
+      await liveRoom?.setAudioInputDevice(device);
+    } catch (_) {
+      _showRoomMessage('Could not switch to ${_deviceName(device)}.');
+    }
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _selectCamera(MediaDevice device, {bool remember = true}) async {
+    camera = device;
+    _syncDeviceOptions();
+    if (remember) {
+      unawaited(devicePreferences.save(RoomDeviceKind.camera, device));
+    }
+    final room = liveRoom;
+    if (room == null) {
+      await _startPreview();
+      return;
+    }
+    try {
+      await room.setVideoInputDevice(device);
+    } catch (_) {
+      _showRoomMessage('Could not switch to ${_deviceName(device)}.');
+    }
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _selectSpeaker(
+    MediaDevice device, {
+    bool remember = true,
+  }) async {
+    speaker = device;
+    _syncDeviceOptions();
+    if (remember) {
+      unawaited(devicePreferences.save(RoomDeviceKind.speaker, device));
+    }
+    try {
+      await liveRoom?.setAudioOutputDevice(device);
+    } catch (_) {
+      _showRoomMessage('Could not switch to ${_deviceName(device)}.');
+    }
+    if (mounted) setState(() {});
+  }
+
+  String _deviceName(MediaDevice device) =>
+      device.label.isEmpty ? 'the selected device' : device.label;
+
+  /// Cập nhật danh sách khi thiết bị được cắm/rút; nếu thiết bị đang dùng biến
+  /// mất thì chuyển sang thiết bị khả dụng đầu tiên và báo cho người dùng.
+  Future<void> _devicesChanged(List<MediaDevice> devices) async {
+    if (!mounted || leavingRoom) return;
+    final nextMicrophones = devices
+        .where((d) => d.kind == 'audioinput')
+        .toList();
+    final nextCameras = devices.where((d) => d.kind == 'videoinput').toList();
+    final nextSpeakers = devices.where((d) => d.kind == 'audiooutput').toList();
+    final nextMicrophone = resolveRoomDevice(microphone, nextMicrophones);
+    final nextCamera = resolveRoomDevice(camera, nextCameras);
+    final nextSpeaker = resolveRoomDevice(speaker, nextSpeakers);
+    final microphoneLost =
+        microphone != null && nextMicrophone?.deviceId != microphone!.deviceId;
+    final cameraLost =
+        camera != null && nextCamera?.deviceId != camera!.deviceId;
+    final speakerLost =
+        speaker != null && nextSpeaker?.deviceId != speaker!.deviceId;
+    microphones = nextMicrophones;
+    cameras = nextCameras;
+    speakers = nextSpeakers;
+    final messages = <String>[];
+
+    if (microphoneLost && nextMicrophone != null) {
+      messages.add(
+        'Microphone disconnected. Switched to ${_deviceName(nextMicrophone)}.',
+      );
+      await _selectMicrophone(nextMicrophone, remember: false);
+    } else {
+      microphone = nextMicrophone;
+      if (microphoneLost) {
+        messages.add('Microphone disconnected.');
+        microphoneEnabled = false;
+        try {
+          await liveRoom?.localParticipant?.setMicrophoneEnabled(false);
+        } catch (_) {}
+      }
+    }
+
+    if (cameraLost && nextCamera != null) {
+      messages.add(
+        'Camera disconnected. Switched to ${_deviceName(nextCamera)}.',
+      );
+      await _selectCamera(nextCamera, remember: false);
+    } else {
+      camera = nextCamera;
+      if (cameraLost) {
+        messages.add('Camera disconnected.');
+        cameraEnabled = false;
+        try {
+          await liveRoom?.localParticipant?.setCameraEnabled(false);
+        } catch (_) {}
+        if (liveRoom == null) await _startPreview();
+      }
+    }
+
+    if (speakerLost && nextSpeaker != null) {
+      messages.add(
+        'Speaker disconnected. Switched to ${_deviceName(nextSpeaker)}.',
+      );
+      await _selectSpeaker(nextSpeaker, remember: false);
+    } else {
+      speaker = nextSpeaker;
+    }
+
+    _syncDeviceOptions();
+    if (!mounted) return;
+    if (messages.isNotEmpty) {
+      if (liveRoom == null) {
+        deviceWarning = messages.join(' ');
+      } else {
+        _showRoomMessage(messages.join(' '));
+      }
+    }
+    setState(() {});
+  }
+
+  Future<void> _reloadDevices() async {
+    try {
+      await _devicesChanged(await Hardware.instance.enumerateDevices());
+    } catch (_) {}
+  }
+
+  Future<void> _openDeviceSettings() async {
+    deviceDialogOpen = true;
+    _syncDeviceOptions();
+    // Nhãn thiết bị có thể chỉ xuất hiện sau khi trình duyệt cấp quyền.
+    unawaited(_reloadDevices());
+    await showDialog<void>(
+      context: context,
+      builder: (_) => RoomDeviceSettingsDialog(
+        options: deviceOptions,
+        onMicrophoneChanged: _selectMicrophone,
+        onCameraChanged: _selectCamera,
+        onSpeakerChanged: _selectSpeaker,
+      ),
+    );
+    deviceDialogOpen = false;
+    if (mounted) _showControls();
+  }
+
+  void _showRoomMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.maybeOf(context)
+      ?..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, _controlBarHeight + 16),
+          content: Text(message),
+        ),
+      );
+  }
+
+  bool get _canHideControls =>
+      liveRoom?.connectionState == ConnectionState.connected &&
+      !participantsOpen &&
+      !deviceDialogOpen &&
+      !confirmDialogOpen &&
+      !reactionMenuOpen &&
+      !controlsFocus.hasFocus;
+
+  void _showControls() {
+    if (!mounted || liveRoom == null) return;
+    if (!controlsVisible) setState(() => controlsVisible = true);
+    _scheduleControlsHide();
+  }
+
+  void _scheduleControlsHide() {
+    controlsHideTimer?.cancel();
+    controlsHideTimer = Timer(_controlsHideDelay, () {
+      if (mounted && controlsVisible && _canHideControls) {
+        setState(() => controlsVisible = false);
+      }
+    });
+  }
+
+  bool get _appleKeyboard => const {
+    TargetPlatform.macOS,
+    TargetPlatform.iOS,
+  }.contains(defaultTargetPlatform);
+
+  String _withShortcut(String label, RoomShortcut shortcut) =>
+      '$label (${roomShortcutLabel(shortcut, apple: _appleKeyboard)})';
+
+  bool _handleKeyEvent(KeyEvent event) {
+    // Phím thường chỉ hiện lại thanh điều khiển, không bị chặn để ô nhập và
+    // phím Tab vẫn hoạt động bình thường. Bỏ qua phím giữ lặp lại để không
+    // bật/tắt liên tục.
+    if (event is! KeyDownEvent) return false;
+    _showControls();
+    final keyboard = HardwareKeyboard.instance;
+    final shortcut = roomShortcutFor(
+      logicalKey: event.logicalKey,
+      physicalKey: event.physicalKey,
+      control: keyboard.isControlPressed,
+      meta: keyboard.isMetaPressed,
+      alt: keyboard.isAltPressed,
+      shift: keyboard.isShiftPressed,
+      apple: _appleKeyboard,
+    );
+    final local = liveRoom?.localParticipant;
+    if (shortcut == null || local == null || !mounted) return false;
+    final ownState = _ownActivityState;
+    final decision = roomShortcutDecision(
+      shortcut,
+      // Dialog hoặc menu đang mở thì route phòng không còn ở trên cùng.
+      roomActive:
+          liveRoom?.connectionState == ConnectionState.connected &&
+          removedNotice == null &&
+          (ModalRoute.of(context)?.isCurrent ?? true),
+      editingText: roomTextInputFocused(),
+      isHost: roomInfo?.isHost == true,
+      microphoneOn: local.isMicrophoneEnabled(),
+      microphoneAllowed: ownState?.microphoneAllowed ?? true,
+      cameraOn: local.isCameraEnabled(),
+      cameraAllowed: ownState?.cameraAllowed ?? true,
+    );
+    switch (decision) {
+      case RoomShortcutDecision.ignore:
+        return false;
+      case RoomShortcutDecision.locked:
+        _showRoomMessage(
+          shortcut == RoomShortcut.toggleMicrophone
+              ? 'The teacher turned off your microphone.'
+              : 'The teacher turned off your camera.',
+        );
+      case RoomShortcutDecision.run:
+        unawaited(switch (shortcut) {
+          RoomShortcut.toggleMicrophone => _toggleMicrophone(),
+          RoomShortcut.toggleCamera => _toggleCamera(),
+          RoomShortcut.toggleHand => _toggleHand(),
+        });
+    }
+    // Đã xử lý: chặn hành vi mặc định của trình duyệt (Ctrl+D đánh dấu trang,
+    // Ctrl+E ô tìm kiếm).
+    return true;
+  }
+
+  void _toggleParticipants() {
+    setState(() {
+      participantsOpen = !participantsOpen;
+      controlsVisible = true;
+    });
+    _scheduleControlsHide();
+  }
+
+  bool get _screenShareSupported => const {
+    TargetPlatform.windows,
+    TargetPlatform.macOS,
+    TargetPlatform.linux,
+  }.contains(defaultTargetPlatform);
+
+  RoomParticipantState? get _ownActivityState {
+    final activity = roomActivity;
+    if (activity == null) return null;
+    final identity = liveRoom?.localParticipant?.identity;
+    // Trước khi vào phòng chưa có identity; snapshot của học sinh chỉ chứa
+    // state của chính mình.
+    if (identity == null) {
+      return activity.isHost ? null : activity.participants.firstOrNull;
+    }
+    for (final state in activity.participants) {
+      if (state.userId == identity) return state;
+    }
+    return null;
+  }
+
+  String _participantName(String identity) {
+    final room = liveRoom;
+    final Participant? participant =
+        room?.localParticipant?.identity == identity
+        ? room?.localParticipant
+        : room?.remoteParticipants.values
+              .where((p) => p.identity == identity)
+              .firstOrNull;
+    final name = participant?.name.trim() ?? '';
+    return name.isEmpty ? 'A student' : name;
+  }
+
+  void _handleOwnActivityEvent(RoomActivitySocketEvent event) {
+    final identity = liveRoom?.localParticipant?.identity;
+    if (identity == null || event.userId != identity) return;
+    switch (event.type) {
+      case 'SCREEN_SHARE_APPROVED':
+        _showRoomMessage(
+          'The teacher allowed you to present. Select Present to share your screen.',
+        );
+      case 'SCREEN_SHARE_REJECTED':
+        unawaited(_unpublishOwnScreenShare());
+        _showRoomMessage('The teacher declined your request to present.');
+      case 'SCREEN_SHARE_STOPPED':
+        // Dự phòng khi không nhận được server mute: không giữ track đã bị
+        // backend dừng.
+        unawaited(_unpublishOwnScreenShare());
+      case 'HAND_LOWERED':
+        // Tay vẫn đang giơ ở snapshot hiện tại và mình không tự hạ: giáo viên
+        // đã hạ tay giúp.
+        if (!loweringOwnHand && _ownActivityState?.handRaisedAt != null) {
+          _showRoomMessage('The teacher lowered your hand.');
+        }
+    }
+  }
+
+  void _replaceOwnState(RoomParticipantState state) {
+    final activity = roomActivity;
+    if (activity == null) return;
+    roomActivity = RoomActivity(
+      roomId: activity.roomId,
+      classroomId: activity.classroomId,
+      status: activity.status,
+      isHost: activity.isHost,
+      updatedAt: activity.updatedAt,
+      participants: [
+        for (final participant in activity.participants)
+          if (participant.userId != state.userId) participant,
+        state,
+      ],
+    );
+  }
+
+  Future<void> _toggleHand() async {
+    if (handBusy) return;
+    final raise = _ownActivityState?.handRaisedAt == null;
+    setState(() {
+      handBusy = true;
+      loweringOwnHand = !raise;
+    });
+    final result = await repository.setHandRaised(
+      widget.classroomId,
+      widget.roomId,
+      raised: raise,
+    );
+    if (!mounted) return;
+    switch (result) {
+      case Success(data: final state):
+        _replaceOwnState(state);
+      case Failure(message: final message):
+        _showRoomMessage(
+          message ??
+              (raise
+                  ? 'Could not raise your hand.'
+                  : 'Could not lower your hand.'),
+        );
+      case Cancelled():
+        break;
+    }
+    setState(() {
+      handBusy = false;
+      loweringOwnHand = false;
+    });
+  }
+
+  Future<void> _lowerHands({String? userId}) async {
+    final result = await repository.lowerHands(
+      widget.classroomId,
+      widget.roomId,
+      userId: userId,
+    );
+    if (result case Failure(message: final message)) {
+      _showRoomMessage(message ?? 'Could not lower hands.');
+    }
+    await _refreshActivity();
+  }
+
+  Future<void> _sendReaction(RoomReaction reaction) async {
+    final local = liveRoom?.localParticipant;
+    if (local == null) return;
+    if (!reactionSendLimiter.allow('self', DateTime.now())) {
+      _showRoomMessage('You can send a few reactions every few seconds.');
+      return;
+    }
+    // Data packet không quay về người gửi nên tự hiển thị reaction của mình.
+    _showReaction('You', reaction);
+    try {
+      await local.publishData(
+        encodeRoomReaction(reaction),
+        reliable: false,
+        topic: roomReactionTopic,
+      );
+    } catch (_) {
+      // Mất reaction khi mạng yếu là chấp nhận được.
+    }
+  }
+
+  void _receiveReaction(DataReceivedEvent event) {
+    final sender = event.participant;
+    if (event.topic != roomReactionTopic || sender == null) return;
+    final reaction = decodeRoomReaction(event.data);
+    if (reaction == null) return;
+    if (!reactionReceiveLimiter.allow(sender.identity, DateTime.now())) return;
+    final name = sender.name.trim();
+    _showReaction(name.isEmpty ? sender.identity : name, reaction);
+  }
+
+  void _showReaction(String senderName, RoomReaction reaction) {
+    if (!mounted) return;
+    final bubble = RoomReactionBubble(
+      id: nextReactionId++,
+      reaction: reaction,
+      senderName: senderName,
+    );
+    setState(
+      () => reactionBubbles = addRoomReactionBubble(reactionBubbles, bubble),
+    );
+    late final Timer timer;
+    timer = Timer(roomReactionDisplayDuration, () {
+      reactionTimers.remove(timer);
+      if (!mounted) return;
+      setState(
+        () => reactionBubbles = [
+          for (final item in reactionBubbles)
+            if (item.id != bubble.id) item,
+        ],
+      );
+    });
+    reactionTimers.add(timer);
+  }
+
+  Future<void> _requestScreenShare() async {
+    if (screenShareBusy) return;
+    setState(() => screenShareBusy = true);
+    final result = await repository.requestScreenShare(
+      widget.classroomId,
+      widget.roomId,
+    );
+    if (!mounted) return;
+    switch (result) {
+      case Success():
+        _showRoomMessage(
+          'Request sent. You can present after the teacher allows it.',
+        );
+      case Failure(message: final message):
+        _showRoomMessage(message ?? 'Could not send the request to present.');
+      case Cancelled():
+        break;
+    }
+    setState(() => screenShareBusy = false);
+    await _refreshActivity();
+  }
+
+  /// Chọn nguồn trước (trong lúc còn thao tác của người dùng, trình duyệt mới
+  /// cho mở hộp chọn), sau đó xin backend dừng lượt khác rồi mới publish.
+  Future<void> _startScreenShare() async {
+    final room = liveRoom;
+    final local = room?.localParticipant;
+    if (room == null || local == null || screenShareBusy) return;
+    setState(() => screenShareBusy = true);
+    try {
+      await _unpublishOwnScreenShare();
+      final LocalVideoTrack track;
+      try {
+        track = await LocalVideoTrack.createScreenShareTrack(
+          const ScreenShareCaptureOptions(),
+        );
+      } catch (_) {
+        _showRoomMessage(
+          'Screen sharing was cancelled or blocked. To present, allow screen sharing in your browser or system settings and try again.',
+        );
+        return;
+      }
+      final result = await repository.startScreenShare(
+        widget.classroomId,
+        widget.roomId,
+      );
+      if (result is! Success) {
+        await track.stop();
+        _showRoomMessage(
+          (result is Failure ? result.message : null) ??
+              'Could not start presenting.',
+        );
+        unawaited(_refreshActivity());
+        return;
+      }
+      if (!mounted || liveRoom != room) {
+        await track.stop();
+        return;
+      }
+      try {
+        await local.publishVideoTrack(track);
+      } catch (_) {
+        await track.stop();
+        _showRoomMessage(
+          'Could not start presenting. Ask the teacher to allow it again.',
+        );
+        unawaited(_refreshActivity());
+      }
+    } finally {
+      if (mounted) setState(() => screenShareBusy = false);
+    }
+  }
+
+  Future<void> _unpublishOwnScreenShare() async {
+    final local = liveRoom?.localParticipant;
+    if (local?.getTrackPublicationBySource(TrackSource.screenShareVideo) ==
+        null) {
+      return;
+    }
+    try {
+      await local!.setScreenShareEnabled(false);
+    } catch (_) {}
+  }
+
+  Future<void> _ownScreenShareEnded() async {
+    final identity = liveRoom?.localParticipant?.identity;
+    if (mounted) setState(() {});
+    if (identity == null || leavingRoom) return;
+    await repository.stopScreenShare(
+      widget.classroomId,
+      widget.roomId,
+      identity,
+    );
+    await _refreshActivity();
+  }
+
+  Future<void> _stopStudentScreenShare(String userId) async {
+    final result = await repository.stopScreenShare(
+      widget.classroomId,
+      widget.roomId,
+      userId,
+    );
+    if (result case Failure(message: final message)) {
+      _showRoomMessage(message ?? 'Could not stop the presentation.');
+    }
+    await _refreshActivity();
+  }
+
+  Future<void> _reviewScreenShare(String userId, bool approve) async {
+    if (!reviewingScreenShares.add(userId)) return;
+    setState(() {});
+    final result = await repository.reviewScreenShare(
+      widget.classroomId,
+      widget.roomId,
+      userId,
+      approve: approve,
+    );
+    reviewingScreenShares.remove(userId);
+    if (result case Failure(message: final message)) {
+      _showRoomMessage(
+        message ??
+            (approve
+                ? 'Could not allow ${_participantName(userId)} to present.'
+                : 'Could not decline the request.'),
+      );
+    }
+    await _refreshActivity();
+  }
+
   @override
   void dispose() {
+    for (final timer in reactionTimers) {
+      timer.cancel();
+    }
+    HardwareKeyboard.instance.removeHandler(_handleKeyEvent);
+    controlsHideTimer?.cancel();
+    roomActivitySubscription?.cancel();
+    roomSocketReconnectSubscription?.cancel();
+    deviceChangeSubscription?.cancel();
+    roomSocket.close();
     leavingRoom = true;
     reconnectTimer?.cancel();
     previewTrack?.stop();
-    liveRoom?.removeListener(_roomChanged);
-    liveRoom?.dispose();
+    unawaited(_disposeLiveRoom());
+    controlsFocus.dispose();
+    deviceOptions.dispose();
     super.dispose();
   }
 
@@ -284,133 +1367,36 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
     if (loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
+    if (removedNotice != null) return _removedView(context);
     if (liveRoom == null) return _prejoin(context);
     return _conference(context);
   }
 
-  Widget _prejoin(BuildContext context) => Scaffold(
+  Widget _removedView(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Online classroom')),
     body: Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 560),
+        constraints: const BoxConstraints(maxWidth: 480),
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              Icon(
+                Icons.block,
+                size: 56,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              const SizedBox(height: 16),
               Text(
-                'Ready to join?',
-                style: Theme.of(context).textTheme.headlineSmall,
+                removedNotice!,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 24),
-              AspectRatio(
-                aspectRatio: 16 / 9,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: ColoredBox(
-                    color: const Color(0xff303134),
-                    child: previewTrack == null
-                        ? const Center(
-                            child: Icon(
-                              Icons.videocam_off,
-                              size: 56,
-                              color: Colors.white54,
-                            ),
-                          )
-                        : VideoTrackRenderer(previewTrack!),
-                  ),
-                ),
-              ),
-              if (deviceWarning != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: Text(
-                    deviceWarning!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                  ),
-                ),
-              const SizedBox(height: 12),
-              SwitchListTile(
-                value: cameraEnabled,
-                onChanged: (value) async {
-                  setState(() => cameraEnabled = value);
-                  await _startPreview();
-                },
-                title: const Text('Camera'),
-                secondary: const Icon(Icons.videocam_outlined),
-              ),
-              if (cameraEnabled && cameras.isNotEmpty)
-                DropdownButtonFormField<MediaDevice>(
-                  initialValue: camera,
-                  items: cameras
-                      .map(
-                        (device) => DropdownMenuItem(
-                          value: device,
-                          child: Text(
-                            device.label.isEmpty ? 'Camera' : device.label,
-                          ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) async {
-                    setState(() => camera = value);
-                    await _startPreview();
-                  },
-                  decoration: const InputDecoration(labelText: 'Camera device'),
-                ),
-              SwitchListTile(
-                value: microphoneEnabled,
-                onChanged: (value) => setState(() => microphoneEnabled = value),
-                title: const Text('Microphone'),
-                secondary: const Icon(Icons.mic_outlined),
-              ),
-              if (microphoneEnabled && microphones.isNotEmpty)
-                DropdownButtonFormField<MediaDevice>(
-                  initialValue: microphone,
-                  items: microphones
-                      .map(
-                        (device) => DropdownMenuItem(
-                          value: device,
-                          child: Text(
-                            device.label.isEmpty ? 'Microphone' : device.label,
-                          ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) => setState(() => microphone = value),
-                  decoration: const InputDecoration(
-                    labelText: 'Microphone device',
-                  ),
-                ),
-              if (error != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 16),
-                  child: Text(
-                    error!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                  ),
-                ),
-              const SizedBox(height: 24),
-              FilledButton.icon(
-                onPressed: connecting || roomInfo?.status != 'LIVE'
-                    ? null
-                    : _connect,
-                icon: connecting
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.login),
-                label: Text(
-                  roomInfo?.status == 'LIVE'
-                      ? 'Join classroom'
-                      : 'Waiting for the teacher to start',
-                ),
+              FilledButton(
+                onPressed: () => context.pop(),
+                child: const Text('Back to class'),
               ),
             ],
           ),
@@ -419,11 +1405,231 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
     ),
   );
 
-  Widget _conference(BuildContext context) {
-    final participants = <Participant>[
-      ?liveRoom?.localParticipant,
-      ...?liveRoom?.remoteParticipants.values,
+  Widget _prejoin(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Online classroom')),
+    body: Center(
+      child: SingleChildScrollView(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Ready to join?',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+                const SizedBox(height: 24),
+                AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: ColoredBox(
+                      color: const Color(0xff303134),
+                      child: previewTrack == null
+                          ? const Center(
+                              child: Icon(
+                                Icons.videocam_off,
+                                size: 56,
+                                color: Colors.white54,
+                                semanticLabel: 'Camera preview is off',
+                              ),
+                            )
+                          : VideoTrackRenderer(previewTrack!),
+                    ),
+                  ),
+                ),
+                if (deviceWarning != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Text(
+                      deviceWarning!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 12),
+                SwitchListTile(
+                  value: cameraEnabled,
+                  onChanged: _ownActivityState?.cameraAllowed == false
+                      ? null
+                      : (value) async {
+                          setState(() => cameraEnabled = value);
+                          await _startPreview();
+                        },
+                  title: const Text('Camera'),
+                  subtitle: _ownActivityState?.cameraAllowed == false
+                      ? const Text('Turned off by the teacher')
+                      : null,
+                  secondary: const Icon(Icons.videocam_outlined),
+                ),
+                if (cameraEnabled && cameras.isNotEmpty)
+                  DropdownButtonFormField<MediaDevice>(
+                    key: ValueKey('prejoin_camera_${camera?.deviceId}'),
+                    initialValue: camera,
+                    isExpanded: true,
+                    items: cameras
+                        .map(
+                          (device) => DropdownMenuItem(
+                            value: device,
+                            child: Text(
+                              device.label.isEmpty ? 'Camera' : device.label,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value != null) _selectCamera(value);
+                    },
+                    decoration: const InputDecoration(
+                      labelText: 'Camera device',
+                    ),
+                  ),
+                SwitchListTile(
+                  value: microphoneEnabled,
+                  onChanged: _ownActivityState?.microphoneAllowed == false
+                      ? null
+                      : (value) => setState(() => microphoneEnabled = value),
+                  title: const Text('Microphone'),
+                  subtitle: _ownActivityState?.microphoneAllowed == false
+                      ? const Text('Turned off by the teacher')
+                      : null,
+                  secondary: const Icon(Icons.mic_outlined),
+                ),
+                if (microphoneEnabled && microphones.isNotEmpty)
+                  DropdownButtonFormField<MediaDevice>(
+                    key: ValueKey('prejoin_microphone_${microphone?.deviceId}'),
+                    initialValue: microphone,
+                    isExpanded: true,
+                    items: microphones
+                        .map(
+                          (device) => DropdownMenuItem(
+                            value: device,
+                            child: Text(
+                              device.label.isEmpty
+                                  ? 'Microphone'
+                                  : device.label,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value != null) _selectMicrophone(value);
+                    },
+                    decoration: const InputDecoration(
+                      labelText: 'Microphone device',
+                    ),
+                  ),
+                const SizedBox(height: 24),
+                RoomJoinControl(
+                  status: roomInfo?.status,
+                  connecting: connecting,
+                  error: error,
+                  onJoin: _connect,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+
+  List<_RoomEntry> _participantEntries(Room room) {
+    final states = {
+      for (final state
+          in roomActivity?.participants ?? const <RoomParticipantState>[])
+        state.userId: state,
+    };
+    final reconnecting = room.connectionState == ConnectionState.reconnecting;
+    final participants = <(Participant, bool)>[
+      if (room.localParticipant case final local?) (local, true),
+      for (final remote in room.remoteParticipants.values) (remote, false),
     ];
+    final entries = [
+      for (final (participant, isLocal) in participants)
+        _RoomEntry(
+          roomParticipantViewFrom(
+            participant,
+            isLocal: isLocal,
+            isHost:
+                participant.metadata == roomHostMetadata ||
+                (isLocal && roomInfo?.isHost == true),
+            roomReconnecting: reconnecting,
+            handRaisedAt: states[participant.identity]?.handRaisedAt,
+            screenShareRequested:
+                states[participant.identity]?.screenShareRequestedAt != null &&
+                states[participant.identity]?.screenShareApprovedAt == null,
+            microphoneAllowed:
+                states[participant.identity]?.microphoneAllowed ?? true,
+            cameraAllowed: states[participant.identity]?.cameraAllowed ?? true,
+          ),
+          _cameraTrack(participant),
+        ),
+    ];
+    return dedupeRoomParticipants(entries, (entry) => entry.view.identity)
+      ..sort((a, b) => compareRoomParticipants(a.view, b.view, byHand: false));
+  }
+
+  bool _isHostParticipant(Participant participant) =>
+      participant.metadata == roomHostMetadata ||
+      (participant is LocalParticipant && roomInfo?.isHost == true);
+
+  /// Người đang chia sẻ lấy trực tiếp từ track LiveKit, nên mọi client tự
+  /// chuyển bố cục khi share bắt đầu, kết thúc hoặc người chia sẻ mất mạng.
+  _Presenter? _presenter(Room room) {
+    final presenters = <_Presenter>[
+      if (room.localParticipant case final local?
+          when local.isScreenShareEnabled())
+        _Presenter(local, isLocal: true),
+      for (final remote in room.remoteParticipants.values)
+        if (remote.getTrackPublicationBySource(TrackSource.screenShareVideo)
+            case final publication? when !publication.muted)
+          _Presenter(
+            remote,
+            isLocal: false,
+            track: publication.track is VideoTrack
+                ? publication.track as VideoTrack
+                : null,
+          ),
+    ];
+    return pickRoomPresenter(
+      presenters,
+      (presenter) => _isHostParticipant(presenter.participant),
+    );
+  }
+
+  VideoTrack? _cameraTrack(Participant participant) {
+    final publication = participant.getTrackPublicationBySource(
+      TrackSource.camera,
+    );
+    final track = publication?.track;
+    if (publication == null || publication.muted || track is! VideoTrack) {
+      return null;
+    }
+    return track;
+  }
+
+  Widget _conference(BuildContext context) {
+    final room = liveRoom!;
+    final entries = _participantEntries(room);
+    final views = [for (final entry in entries) entry.view];
+    final presenter = _presenter(room);
+    final isHost = roomInfo?.isHost == true;
+    final requests = isHost
+        ? pendingScreenShareRequests(roomActivity)
+        : const <RoomParticipantState>[];
+    final showControls =
+        controlsVisible ||
+        participantsOpen ||
+        room.connectionState != ConnectionState.connected;
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final barHeight = _controlBarHeight + bottomInset;
     return Scaffold(
       backgroundColor: const Color(0xff151719),
       appBar: AppBar(
@@ -447,97 +1653,514 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
             ),
         ],
       ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final columns = constraints.maxWidth >= 1100
-              ? 4
-              : constraints.maxWidth >= 700
-              ? 3
-              : constraints.maxWidth >= 440
-              ? 2
-              : 1;
-          return Stack(
-            children: [
-              GridView.builder(
-                padding: const EdgeInsets.all(12),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: columns,
-                  childAspectRatio: 16 / 10,
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 10,
-                ),
-                itemCount: participants.length,
-                itemBuilder: (context, index) =>
-                    _ParticipantTile(participant: participants[index]),
-              ),
-              if (liveRoom?.connectionState == ConnectionState.reconnecting)
-                const Positioned(
-                  top: 12,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: Chip(
-                      avatar: SizedBox.square(
-                        dimension: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+      body: MouseRegion(
+        onHover: (_) => _showControls(),
+        child: Listener(
+          behavior: HitTestBehavior.translucent,
+          onPointerDown: (_) => _showControls(),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final sidePanel =
+                  participantsOpen &&
+                  constraints.maxWidth >= _sidePanelBreakpoint;
+              final panel = participantsOpen
+                  ? RoomParticipantPanel(
+                      participants: views,
+                      onClose: _toggleParticipants,
+                      onLowerHand: isHost
+                          ? (userId) => _lowerHands(userId: userId)
+                          : null,
+                      onLowerAllHands: isHost ? _lowerHands : null,
+                      onModerate: isHost ? _moderate : null,
+                      onMuteAll: isHost ? _muteAll : null,
+                    )
+                  : null;
+              return Stack(
+                children: [
+                  Positioned.fill(
+                    child: AnimatedPadding(
+                      duration: _controlsAnimation,
+                      padding: EdgeInsets.only(
+                        bottom: showControls ? barHeight : 0,
                       ),
-                      label: Text('Reconnecting...'),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: presenter == null
+                                ? _participantGrid(entries)
+                                : _presentationLayout(
+                                    presenter,
+                                    entries,
+                                    canStop: presenter.isLocal || isHost,
+                                  ),
+                          ),
+                          if (sidePanel)
+                            SizedBox(width: _sidePanelWidth, child: panel),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: 16,
+                    bottom: (showControls ? barHeight : 0) + 16,
+                    child: RoomReactionOverlay(bubbles: reactionBubbles),
+                  ),
+                  if (requests.isNotEmpty)
+                    Positioned(
+                      top: room.connectionState == ConnectionState.reconnecting
+                          ? 56
+                          : 12,
+                      left: 12,
+                      right: sidePanel ? _sidePanelWidth + 12 : 12,
+                      child: Align(
+                        alignment: Alignment.topRight,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 460),
+                          child: RoomScreenShareRequests(
+                            requests: requests,
+                            nameOf: _participantName,
+                            reviewing: reviewingScreenShares,
+                            onReview: _reviewScreenShare,
+                          ),
+                        ),
+                      ),
+                    ),
+                  // Trên màn hình hẹp panel phủ vùng video nhưng dừng phía trên
+                  // thanh điều khiển để không che các nút.
+                  if (panel != null && !sidePanel)
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      top: 0,
+                      bottom: barHeight,
+                      child: panel,
+                    ),
+                  if (room.connectionState == ConnectionState.reconnecting)
+                    const Positioned(
+                      top: 12,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: Chip(
+                          avatar: SizedBox.square(
+                            dimension: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                          label: Text('Reconnecting...'),
+                        ),
+                      ),
+                    ),
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: _controlBar(
+                      room,
+                      visible: showControls,
+                      participantCount: views.length,
+                      bottomInset: bottomInset,
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Screen share ở vùng chính, video người tham gia thành dải thu nhỏ bên
+  /// dưới; dải bị ẩn khi màn hình quá thấp để vùng chia sẻ vẫn đọc được.
+  Widget _presentationLayout(
+    _Presenter presenter,
+    List<_RoomEntry> entries, {
+    required bool canStop,
+  }) => LayoutBuilder(
+    builder: (context, constraints) {
+      const padding = 12.0;
+      const stripHeight = 104.0;
+      final showStrip = constraints.maxHeight >= 320;
+      final identity = presenter.participant.identity;
+      return Padding(
+        padding: const EdgeInsets.all(padding),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: RoomScreenShareStage(
+                presenterName: _participantName(identity),
+                isLocal: presenter.isLocal,
+                track: presenter.track,
+                onStop: !canStop
+                    ? null
+                    : presenter.isLocal
+                    ? _unpublishOwnScreenShare
+                    : () => _stopStudentScreenShare(identity),
+              ),
+            ),
+            if (showStrip) ...[
+              const SizedBox(height: 10),
+              SizedBox(
+                height: stripHeight,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: entries.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 10),
+                  itemBuilder: (context, index) => SizedBox(
+                    key: ValueKey(entries[index].view.identity),
+                    width: stripHeight * 16 / 10,
+                    child: RoomParticipantTile(
+                      participant: entries[index].view,
+                      video: entries[index].video,
                     ),
                   ),
                 ),
+              ),
             ],
-          );
-        },
-      ),
-      bottomNavigationBar: SafeArea(
-        child: ColoredBox(
-          color: const Color(0xff202124),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+          ],
+        ),
+      );
+    },
+  );
+
+  Widget _participantGrid(List<_RoomEntry> entries) => LayoutBuilder(
+    builder: (context, constraints) {
+      const padding = 12.0;
+      const spacing = 10.0;
+      final area = Size(
+        math.max(0, constraints.maxWidth - padding * 2),
+        math.max(0, constraints.maxHeight - padding * 2),
+      );
+      final tile = roomTileSize(area, entries.length, spacing: spacing);
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(padding),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: area.height),
+          child: Center(
+            child: Wrap(
+              alignment: WrapAlignment.center,
+              spacing: spacing,
+              runSpacing: spacing,
               children: [
-                IconButton.filled(
-                  tooltip: microphoneEnabled
-                      ? 'Turn off microphone'
-                      : 'Turn on microphone',
-                  onPressed: () async {
-                    microphoneEnabled = !microphoneEnabled;
-                    await liveRoom?.localParticipant?.setMicrophoneEnabled(
-                      microphoneEnabled,
-                    );
-                    if (mounted) setState(() {});
-                  },
-                  icon: Icon(microphoneEnabled ? Icons.mic : Icons.mic_off),
-                ),
-                const SizedBox(width: 12),
-                IconButton.filled(
-                  tooltip: cameraEnabled ? 'Turn off camera' : 'Turn on camera',
-                  onPressed: () async {
-                    cameraEnabled = !cameraEnabled;
-                    await liveRoom?.localParticipant?.setCameraEnabled(
-                      cameraEnabled,
-                    );
-                    if (mounted) setState(() {});
-                  },
-                  icon: Icon(
-                    cameraEnabled ? Icons.videocam : Icons.videocam_off,
+                for (final entry in entries)
+                  SizedBox.fromSize(
+                    key: ValueKey(entry.view.identity),
+                    size: tile,
+                    child: RoomParticipantTile(
+                      participant: entry.view,
+                      video: entry.video,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+  );
+
+  Widget _controlBar(
+    Room room, {
+    required bool visible,
+    required int participantCount,
+    required double bottomInset,
+  }) {
+    final local = room.localParticipant;
+    final microphoneOn = local?.isMicrophoneEnabled() ?? false;
+    final cameraOn = local?.isCameraEnabled() ?? false;
+    final offStyle = IconButton.styleFrom(
+      backgroundColor: Colors.red.shade400,
+      foregroundColor: Colors.white,
+      disabledBackgroundColor: Colors.red.shade900,
+      disabledForegroundColor: Colors.white60,
+    );
+    // Thiết bị bị giáo viên tắt: khóa nút bật, nhưng vẫn cho tắt nếu đang bật.
+    final ownState = _ownActivityState;
+    final microphoneLocked =
+        ownState?.microphoneAllowed == false && !microphoneOn;
+    final cameraLocked = ownState?.cameraAllowed == false && !cameraOn;
+    final onStyle = IconButton.styleFrom(
+      backgroundColor: const Color(0xff3c4043),
+      foregroundColor: Colors.white,
+      disabledBackgroundColor: const Color(0xff3c4043),
+      disabledForegroundColor: Colors.white54,
+    );
+    final shareControl = roomScreenShareControl(
+      supported: _screenShareSupported,
+      isHost: roomInfo?.isHost == true,
+      sharing: local?.isScreenShareEnabled() ?? false,
+      ownState: _ownActivityState,
+    );
+    // Sáu nút phải vừa màn hình điện thoại 320px.
+    final gap = MediaQuery.sizeOf(context).width < 400 ? 6.0 : 12.0;
+    final gapBox = SizedBox(width: gap);
+    final isHost = roomInfo?.isHost == true;
+    final handRaised = _ownActivityState?.handRaisedAt != null;
+    final raisedHands = isHost
+        ? (roomActivity?.participants ?? const <RoomParticipantState>[])
+              .where((state) => state.handRaisedAt != null)
+              .length
+        : 0;
+    Widget peopleBadge(IconData icon) => Badge(
+      label: Text(raisedHands > 0 ? '✋$raisedHands' : '$participantCount'),
+      backgroundColor: raisedHands > 0 ? const Color(0xfffdd663) : null,
+      textColor: raisedHands > 0 ? Colors.black : null,
+      child: Icon(icon),
+    );
+    return IgnorePointer(
+      ignoring: !visible,
+      child: AnimatedSlide(
+        duration: _controlsAnimation,
+        offset: visible ? Offset.zero : const Offset(0, 1),
+        child: AnimatedOpacity(
+          duration: _controlsAnimation,
+          opacity: visible ? 1 : 0,
+          child: FocusScope(
+            node: controlsFocus,
+            child: Material(
+              color: const Color(0xff202124),
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(12, 12, 12, 12 + bottomInset),
+                child: SizedBox(
+                  height: _controlBarHeight - 24,
+                  // Cuộn ngang khi nút không vừa màn hình hẹp, căn giữa khi vừa.
+                  child: LayoutBuilder(
+                    builder: (context, constraints) => SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minWidth: constraints.maxWidth,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            IconButton.filled(
+                              isSelected: microphoneOn,
+                              tooltip: microphoneLocked
+                                  ? 'The teacher turned off your microphone'
+                                  : _withShortcut(
+                                      microphoneOn
+                                          ? 'Turn off microphone'
+                                          : 'Turn on microphone',
+                                      RoomShortcut.toggleMicrophone,
+                                    ),
+                              style: microphoneOn ? onStyle : offStyle,
+                              onPressed: microphoneLocked
+                                  ? null
+                                  : _toggleMicrophone,
+                              icon: const Icon(Icons.mic_off),
+                              selectedIcon: const Icon(Icons.mic),
+                            ),
+                            gapBox,
+                            IconButton.filled(
+                              isSelected: cameraOn,
+                              tooltip: cameraLocked
+                                  ? 'The teacher turned off your camera'
+                                  : _withShortcut(
+                                      cameraOn
+                                          ? 'Turn off camera'
+                                          : 'Turn on camera',
+                                      RoomShortcut.toggleCamera,
+                                    ),
+                              style: cameraOn ? onStyle : offStyle,
+                              onPressed: cameraLocked ? null : _toggleCamera,
+                              icon: const Icon(Icons.videocam_off),
+                              selectedIcon: const Icon(Icons.videocam),
+                            ),
+                            gapBox,
+                            if (shareControl !=
+                                RoomScreenShareControl.unavailable) ...[
+                              _screenShareButton(shareControl, onStyle),
+                              gapBox,
+                            ],
+                            if (!isHost) ...[
+                              IconButton.filled(
+                                isSelected: handRaised,
+                                tooltip: _withShortcut(
+                                  handRaised ? 'Lower hand' : 'Raise hand',
+                                  RoomShortcut.toggleHand,
+                                ),
+                                style: handRaised
+                                    ? IconButton.styleFrom(
+                                        backgroundColor: const Color(
+                                          0xfffdd663,
+                                        ),
+                                        foregroundColor: Colors.black,
+                                      )
+                                    : onStyle,
+                                onPressed: handBusy ? null : _toggleHand,
+                                icon: const Icon(Icons.back_hand_outlined),
+                                selectedIcon: const Icon(Icons.back_hand),
+                              ),
+                              gapBox,
+                            ],
+                            _reactionButton(onStyle),
+                            gapBox,
+                            IconButton.filled(
+                              isSelected: participantsOpen,
+                              tooltip: participantsOpen
+                                  ? 'Hide participants'
+                                  : raisedHands > 0
+                                  ? 'Show participants ($raisedHands hands raised)'
+                                  : 'Show participants ($participantCount)',
+                              style: onStyle,
+                              onPressed: _toggleParticipants,
+                              icon: peopleBadge(Icons.people_outline),
+                              selectedIcon: peopleBadge(Icons.people),
+                            ),
+                            gapBox,
+                            IconButton.filled(
+                              tooltip: 'Audio and video settings',
+                              style: onStyle,
+                              onPressed: _openDeviceSettings,
+                              icon: const Icon(Icons.settings_outlined),
+                            ),
+                            gapBox,
+                            IconButton.filled(
+                              tooltip: 'Leave',
+                              style: IconButton.styleFrom(
+                                backgroundColor: Colors.red,
+                                foregroundColor: Colors.white,
+                              ),
+                              onPressed: _leave,
+                              icon: const Icon(Icons.call_end),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-                const SizedBox(width: 12),
-                IconButton.filled(
-                  tooltip: 'Leave',
-                  style: IconButton.styleFrom(backgroundColor: Colors.red),
-                  onPressed: _leave,
-                  icon: const Icon(Icons.call_end),
-                ),
-              ],
+              ),
             ),
           ),
         ),
       ),
     );
   }
+
+  Widget _reactionButton(ButtonStyle style) => MenuAnchor(
+    onOpen: () => setState(() => reactionMenuOpen = true),
+    onClose: () {
+      reactionMenuOpen = false;
+      _showControls();
+    },
+    menuChildren: [
+      for (final reaction in RoomReaction.values)
+        MenuItemButton(
+          onPressed: () => _sendReaction(reaction),
+          leadingIcon: Text(
+            reaction.emoji,
+            style: const TextStyle(fontSize: 20),
+          ),
+          child: Text(reaction.label),
+        ),
+    ],
+    builder: (context, controller, _) => IconButton.filled(
+      tooltip: 'Send a reaction',
+      style: style,
+      onPressed: () =>
+          controller.isOpen ? controller.close() : controller.open(),
+      icon: const Icon(Icons.add_reaction_outlined),
+    ),
+  );
+
+  Widget _screenShareButton(RoomScreenShareControl control, ButtonStyle style) {
+    final busy = screenShareBusy;
+    return switch (control) {
+      RoomScreenShareControl.stop => IconButton.filled(
+        isSelected: true,
+        tooltip: 'Stop presenting',
+        style: IconButton.styleFrom(
+          backgroundColor: const Color(0xff8ab4f8),
+          foregroundColor: Colors.black,
+        ),
+        onPressed: busy ? null : _unpublishOwnScreenShare,
+        icon: const Icon(Icons.stop_screen_share),
+      ),
+      RoomScreenShareControl.start => IconButton.filled(
+        tooltip: 'Present your screen',
+        style: style,
+        onPressed: busy ? null : _startScreenShare,
+        icon: const Icon(Icons.present_to_all),
+      ),
+      RoomScreenShareControl.request => IconButton.filled(
+        tooltip: 'Ask the teacher to present',
+        style: style,
+        onPressed: busy ? null : _requestScreenShare,
+        icon: const Icon(Icons.screen_share_outlined),
+      ),
+      RoomScreenShareControl.waiting => IconButton.filled(
+        tooltip: 'Waiting for the teacher to allow presenting',
+        style: style,
+        onPressed: null,
+        icon: const Icon(Icons.hourglass_top),
+      ),
+      RoomScreenShareControl.unavailable => const SizedBox.shrink(),
+    };
+  }
+}
+
+class _RemoveParticipantDialog extends StatefulWidget {
+  const _RemoveParticipantDialog({required this.name});
+  final String name;
+
+  @override
+  State<_RemoveParticipantDialog> createState() =>
+      _RemoveParticipantDialogState();
+}
+
+/// Trả về lý do (có thể rỗng) khi xác nhận, null khi hủy.
+class _RemoveParticipantDialogState extends State<_RemoveParticipantDialog> {
+  final reason = TextEditingController();
+
+  @override
+  void dispose() {
+    reason.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: Text('Remove ${widget.name}?'),
+    content: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 420),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            '${widget.name} will leave this session and cannot rejoin until it ends. They stay in the class.',
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: reason,
+            maxLength: 500,
+            decoration: const InputDecoration(
+              labelText: 'Reason (optional)',
+              border: OutlineInputBorder(),
+            ),
+          ),
+        ],
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.of(context).pop(),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(
+        style: FilledButton.styleFrom(
+          backgroundColor: Theme.of(context).colorScheme.error,
+          foregroundColor: Theme.of(context).colorScheme.onError,
+        ),
+        onPressed: () => Navigator.of(context).pop(reason.text),
+        child: const Text('Remove'),
+      ),
+    ],
+  );
 }
 
 class RoomAttendanceScreen extends StatefulWidget {
@@ -646,65 +2269,6 @@ class _RoomAttendanceScreenState extends State<RoomAttendanceScreen> {
                 );
               },
             ),
-    );
-  }
-}
-
-class _ParticipantTile extends StatelessWidget {
-  const _ParticipantTile({required this.participant});
-  final Participant participant;
-
-  @override
-  Widget build(BuildContext context) {
-    VideoTrack? video;
-    for (final publication in participant.videoTrackPublications) {
-      if (publication.track case final VideoTrack track) {
-        video = track;
-        break;
-      }
-    }
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: participant.isSpeaking
-              ? Theme.of(context).colorScheme.primary
-              : Colors.transparent,
-          width: 3,
-        ),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(5),
-        child: ColoredBox(
-          color: const Color(0xff303134),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (video != null)
-                VideoTrackRenderer(video)
-              else
-                const Icon(Icons.person, size: 64, color: Colors.white54),
-              Align(
-                alignment: Alignment.bottomLeft,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  color: Colors.black54,
-                  child: Text(
-                    participant.name.isEmpty
-                        ? participant.identity
-                        : participant.name,
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

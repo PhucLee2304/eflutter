@@ -46,6 +46,7 @@ class AuthCubit extends AuthCubitBase<AuthState> {
     switch (result) {
       case Success():
         emit(const AuthState(isAuthenticated: true));
+        _notificationPushService.initialize().catchError((_) {});
       case Cancelled():
         break;
       case Failure():

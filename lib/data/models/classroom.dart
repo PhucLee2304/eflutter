@@ -513,6 +513,78 @@ class RoomConnection {
   );
 }
 
+class RoomParticipantState {
+  const RoomParticipantState({
+    required this.userId,
+    required this.microphoneAllowed,
+    required this.cameraAllowed,
+    required this.updatedAt,
+    this.handRaisedAt,
+    this.removedAt,
+    this.screenShareRequestedAt,
+    this.screenShareApprovedAt,
+  });
+
+  final String userId;
+  final bool microphoneAllowed;
+  final bool cameraAllowed;
+  final DateTime? handRaisedAt;
+  final DateTime? removedAt;
+  final DateTime? screenShareRequestedAt;
+  final DateTime? screenShareApprovedAt;
+  final DateTime updatedAt;
+
+  factory RoomParticipantState.fromJson(Map<String, dynamic> json) =>
+      RoomParticipantState(
+        userId: json['userId'] as String,
+        microphoneAllowed: json['microphoneAllowed'] as bool? ?? true,
+        cameraAllowed: json['cameraAllowed'] as bool? ?? true,
+        handRaisedAt: _optionalLocalDateTime(json['handRaisedAt']),
+        removedAt: _optionalLocalDateTime(json['removedAt']),
+        screenShareRequestedAt: _optionalLocalDateTime(
+          json['screenShareRequestedAt'],
+        ),
+        screenShareApprovedAt: _optionalLocalDateTime(
+          json['screenShareApprovedAt'],
+        ),
+        updatedAt: DateTime.parse(json['updatedAt'] as String).toLocal(),
+      );
+}
+
+class RoomActivity {
+  const RoomActivity({
+    required this.roomId,
+    required this.classroomId,
+    required this.status,
+    required this.isHost,
+    required this.participants,
+    required this.updatedAt,
+  });
+
+  final int roomId;
+  final int classroomId;
+  final String status;
+  final bool isHost;
+  final List<RoomParticipantState> participants;
+  final DateTime updatedAt;
+
+  factory RoomActivity.fromJson(Map<String, dynamic> json) => RoomActivity(
+    roomId: (json['roomId'] as num).toInt(),
+    classroomId: (json['classroomId'] as num).toInt(),
+    status: json['status'] as String,
+    isHost: json['isHost'] as bool? ?? false,
+    participants: (json['participants'] as List<dynamic>? ?? const [])
+        .map(
+          (item) => RoomParticipantState.fromJson(item as Map<String, dynamic>),
+        )
+        .toList(growable: false),
+    updatedAt: DateTime.parse(json['updatedAt'] as String).toLocal(),
+  );
+}
+
+DateTime? _optionalLocalDateTime(dynamic value) =>
+    value == null ? null : DateTime.parse(value as String).toLocal();
+
 class RoomAttendanceSession {
   const RoomAttendanceSession({
     required this.id,

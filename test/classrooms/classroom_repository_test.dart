@@ -113,6 +113,37 @@ void main() {
     expect(result.dataOrNull?.id, 5);
   });
 
+  test('gets the room activity snapshot from the room route', () async {
+    late RequestOptions captured;
+    final now = DateTime.utc(2026, 10, 16, 8).toIso8601String();
+    final dio = Dio()
+      ..interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            captured = options;
+            handler.resolve(
+              Response(
+                requestOptions: options,
+                data: {
+                  'roomId': 7,
+                  'classroomId': 5,
+                  'status': 'LIVE',
+                  'isHost': false,
+                  'updatedAt': now,
+                  'participants': <dynamic>[],
+                },
+              ),
+            );
+          },
+        ),
+      );
+
+    final result = await ClassroomRepository(dio).getRoomActivity(5, 7);
+
+    expect(captured.path, '/classrooms/api/v1/classrooms/5/rooms/7/activity');
+    expect(result.dataOrNull?.roomId, 7);
+  });
+
   test(
     'sends the full description and an empty value when clearing it',
     () async {
@@ -274,6 +305,73 @@ void main() {
       '2026-10-04T01:00:00.000Z',
     );
     expect(result.dataOrNull?.assignments.single.classroomId, 5);
+  });
+
+  test('room operations use the room API contract', () async {
+    final requests = <RequestOptions>[];
+    final startsAt = DateTime.utc(2026, 10, 12, 10);
+    final roomJson = {
+      'id': 7,
+      'classroomId': 2,
+      'scheduleId': 9,
+      'status': 'LIVE',
+      'startsAt': startsAt.toIso8601String(),
+      'endsAt': startsAt.add(const Duration(hours: 1)).toIso8601String(),
+      'isHost': false,
+    };
+    final dio = Dio()
+      ..interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            requests.add(options);
+            handler.resolve(
+              Response(
+                requestOptions: options,
+                data: options.path.endsWith('/join')
+                    ? {
+                        'url': 'ws://localhost:7880',
+                        'token': 'jwt',
+                        'room': roomJson,
+                      }
+                    : roomJson,
+              ),
+            );
+          },
+        ),
+      );
+    final repository = ClassroomRepository(dio);
+
+    expect(await repository.getRoom(2, 7), isA<Success>());
+    expect(await repository.joinRoom(2, 7), isA<Success>());
+    expect(await repository.endRoom(2, 7), isA<Success>());
+
+    expect(requests[0].path, '/classrooms/api/v1/classrooms/2/rooms/7');
+    expect(requests[0].method, 'GET');
+    expect(requests[1].path, '/classrooms/api/v1/classrooms/2/rooms/7/join');
+    expect(requests[1].method, 'POST');
+    expect(requests[2].path, '/classrooms/api/v1/classrooms/2/rooms/7/end');
+    expect(requests[2].method, 'POST');
+  });
+
+  test('room API errors are returned as failures', () async {
+    final dio = Dio()
+      ..interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) => handler.reject(
+            DioException(
+              requestOptions: options,
+              response: Response(
+                requestOptions: options,
+                statusCode: 403,
+                data: {'error': '[ERROR] Classroom access forbidden'},
+              ),
+              type: DioExceptionType.badResponse,
+            ),
+          ),
+        ),
+      );
+
+    expect(await ClassroomRepository(dio).joinRoom(2, 7), isA<Failure>());
   });
 
   test(

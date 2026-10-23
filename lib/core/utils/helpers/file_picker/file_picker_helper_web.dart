@@ -92,7 +92,8 @@ Future<List<LocalPickedFile>> pickPostAttachments() async {
   web.document.body?.append(input);
   final completer = Completer<List<LocalPickedFile>>();
   late final web.EventListener listener;
-  listener = ((web.Event event) async {
+  // toJS chỉ nhận hàm trả về void, nên phần đọc file async tách ra hàm riêng.
+  Future<void> readSelectedFiles() async {
     final files = input.files;
     if (files == null) {
       completer.complete(const []);
@@ -140,7 +141,9 @@ Future<List<LocalPickedFile>> pickPostAttachments() async {
       if (picked != null) result.add(picked);
     }
     completer.complete(result);
-  }).toJS;
+  }
+
+  listener = ((web.Event _) => unawaited(readSelectedFiles())).toJS;
   input.addEventListener('change', listener);
   input.click();
   return completer.future.whenComplete(() {
