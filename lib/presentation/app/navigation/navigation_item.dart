@@ -314,20 +314,12 @@ class NavigationItem {
     isChild: true,
     subRoutes: [
       GoRoute(
-        path: AppRoutes.attemptPractice.path,
-        builder: (context, state) {
+        path: AppRoutes.attemptPracticeLegacy.path,
+        redirect: (context, state) {
           final id = int.tryParse(state.pathParameters['id'] ?? '');
-          if (id == null) {
-            return const Scaffold(
-              body: Center(child: Text('Invalid attempt ID')),
-            );
-          }
-          return AttemptPracticeScreen(
-            attemptId: id,
-            initialAttempt: state.extra is ExamAttempt
-                ? state.extra as ExamAttempt
-                : null,
-          );
+          return id == null
+              ? AppRoutes.histories.path
+              : attemptPracticePath(id);
         },
       ),
       GoRoute(
@@ -348,6 +340,24 @@ class NavigationItem {
         },
       ),
     ],
+  );
+
+  /// Màn làm bài nằm ngoài shell (không sidebar/bottom nav): khi đang làm bài
+  /// người dùng chỉ thao tác được trong màn này (xem AttemptLockNotifier).
+  static final attemptRoute = GoRoute(
+    path: AppRoutes.attemptPractice.path,
+    builder: (context, state) {
+      final id = int.tryParse(state.pathParameters['id'] ?? '');
+      if (id == null) {
+        return const Scaffold(body: Center(child: Text('Invalid attempt ID')));
+      }
+      return AttemptPracticeScreen(
+        attemptId: id,
+        initialAttempt: state.extra is ExamAttempt
+            ? state.extra as ExamAttempt
+            : null,
+      );
+    },
   );
 
   static final otherItem = NavigationItem(

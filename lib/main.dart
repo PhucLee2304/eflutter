@@ -1,3 +1,4 @@
+import 'package:eflutter/core/attempt_lock/attempt_lock_notifier.dart';
 import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:eflutter/core/utils/helpers/platform/platform_helper.dart';
@@ -27,6 +28,7 @@ void main() async {
     Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform),
     authCubit.init(),
   ].wait;
+  final attemptLock = getIt<AttemptLockNotifier>();
   if (authCubit.state.isAuthenticated) {
     try {
       await getIt<NotificationPushService>().initialize();
@@ -34,7 +36,21 @@ void main() async {
       // Lỗi mạng/token không được chặn app khởi động.
       debugPrint('NotificationPushService.initialize failed: $e');
     }
+    // Đang có bài làm dở thì mở thẳng vào màn làm bài.
+    await attemptLock.refresh().timeout(
+      const Duration(seconds: 5),
+      onTimeout: () {},
+    );
   }
+  authCubit.stream.map((state) => state.isAuthenticated).distinct().listen((
+    isAuthenticated,
+  ) {
+    if (isAuthenticated) {
+      attemptLock.refresh();
+    } else {
+      attemptLock.unlock();
+    }
+  });
 
   configureUrlStrategy();
   final appCubit = getIt<AppCubit>();

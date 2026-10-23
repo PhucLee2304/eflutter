@@ -10,6 +10,10 @@
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:dio/dio.dart' as _i361;
+import 'package:eflutter/core/attempt_lock/attempt_integrity_reporter.dart'
+    as _i649;
+import 'package:eflutter/core/attempt_lock/attempt_lock_notifier.dart' as _i668;
+import 'package:eflutter/core/attempt_lock/leave_guard.dart' as _i744;
 import 'package:eflutter/core/auth/auth_interceptor.dart' as _i393;
 import 'package:eflutter/core/auth/auth_notifier.dart' as _i549;
 import 'package:eflutter/core/base/local_data_base.dart' as _i942;
@@ -52,8 +56,12 @@ extension GetItInjectableX on _i174.GetIt {
       () => registerModule.sharedPreferencesAsync,
     );
     gh.lazySingleton<_i207.Talker>(() => registerModule.talker);
+    gh.lazySingleton<_i744.LeaveGuard>(() => registerModule.leaveGuard);
     gh.lazySingleton<_i942.LocalDataBase>(
       () => _i264.LocalData(gh<_i460.SharedPreferencesAsync>()),
+    );
+    gh.lazySingleton<_i649.AttemptIntegrityReporter>(
+      () => _i649.LogAttemptIntegrityReporter(gh<_i207.Talker>()),
     );
     gh.lazySingleton<_i361.Dio>(
       () => registerModule.dio(gh<_i393.AuthInterceptor>()),
@@ -63,6 +71,13 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.lazySingleton<_i834.NotificationController>(
       () => _i834.NotificationController(gh<_i361.Dio>()),
+    );
+    gh.lazySingleton<_i668.AttemptLockNotifier>(
+      () => _i668.AttemptLockNotifier(
+        gh<_i90.RemoteDataBase>(),
+        gh<_i649.AttemptIntegrityReporter>(),
+        gh<_i744.LeaveGuard>(),
+      ),
     );
     gh.lazySingleton<_i695.AuthRepository>(
       () => _i695.AuthRepository(

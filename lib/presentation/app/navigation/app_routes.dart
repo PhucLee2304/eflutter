@@ -9,7 +9,8 @@ enum AppRoutes {
   examToeic(path: '/exams/toeic'),
   examDetail(path: 'details/:id'),
   histories(path: '/histories'),
-  attemptPractice(path: 'attempts/:id/practice'),
+  attemptPractice(path: '/attempts/:id/take'),
+  attemptPracticeLegacy(path: 'attempts/:id/practice'),
   attemptHistoryDetail(path: 'attempts/:id/history'),
   profile(path: '/profile'),
   classrooms(path: '/classrooms'),
@@ -41,8 +42,7 @@ String examDetailPath(String examType, int examId) {
   return '$basePath/details/$examId';
 }
 
-String attemptPracticePath(int attemptId) =>
-    '${AppRoutes.histories.path}/attempts/$attemptId/practice';
+String attemptPracticePath(int attemptId) => '/attempts/$attemptId/take';
 
 String attemptHistoryDetailPath(int attemptId) =>
     '${AppRoutes.histories.path}/attempts/$attemptId/history';

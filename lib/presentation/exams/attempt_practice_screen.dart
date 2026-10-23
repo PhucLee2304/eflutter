@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:eflutter/core/attempt_lock/attempt_lock_notifier.dart';
 import 'package:eflutter/core/base/local_data_base.dart';
 import 'package:eflutter/core/base/remote_data_base.dart';
 import 'package:eflutter/core/di/injection.dart';
@@ -34,6 +35,7 @@ class AttemptPracticeScreen extends StatefulWidget {
 
 class _AttemptPracticeScreenState extends State<AttemptPracticeScreen> {
   late final AttemptSessionCubit _cubit;
+  final _lock = getIt<AttemptLockNotifier>();
 
   @override
   void initState() {
@@ -69,21 +71,32 @@ class _AttemptPracticeScreenState extends State<AttemptPracticeScreen> {
     if (accepted) await _cubit.cancel();
   }
 
-  Future<void> _requestLeave() async {
-    final state = _cubit.state;
-    final isActive =
-        state.attempt?.status.toUpperCase() == 'ACTIVE' &&
-        state.completedAttempt == null;
-    if (isActive) {
-      final accepted = await _confirm(
-        title: 'Leave attempt?',
-        message:
-            'Your saved answers will remain, but the timer continues running.',
-        action: 'Leave',
+  /// Đang làm bài thì không có lối rời màn: chỉ nộp hoặc hủy bài.
+  void _handleBack() {
+    if (_lock.isLocked) {
+      _lock.reportBackBlocked();
+      context.showToast(
+        'You are taking an exam. Submit or cancel it to leave.',
+        type: ToastType.warning,
       );
-      if (!accepted) return;
+      return;
     }
-    if (mounted) context.pop();
+    _leave();
+  }
+
+  void _leave() {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(AppRoutes.histories.path);
+    }
+  }
+
+  /// Không tải được attempt (đã nộp, hết hạn, không tồn tại): đồng bộ lại khóa
+  /// với server trước khi rời màn.
+  Future<void> _leaveMissingAttempt() async {
+    await _lock.refresh();
+    if (mounted) _leave();
   }
 
   Future<bool> _confirm({
@@ -119,11 +132,17 @@ class _AttemptPracticeScreenState extends State<AttemptPracticeScreen> {
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) unawaited(_requestLeave());
+        if (!didPop) _handleBack();
       },
       child: BlocConsumer<AttemptSessionCubit, AttemptSessionState>(
         bloc: _cubit,
         listener: (context, state) {
+          final attempt = state.attempt;
+          if (attempt != null &&
+              attempt.status.toUpperCase() == 'ACTIVE' &&
+              state.completedAttempt == null) {
+            _lock.lock(attempt.id);
+          }
           if (state.failure != null) context.handleFailure(state.failure);
           if (state.socketMessage != null) {
             context.showToast(state.socketMessage!, type: ToastType.error);
@@ -131,6 +150,7 @@ class _AttemptPracticeScreenState extends State<AttemptPracticeScreen> {
           final completed = state.completedAttempt;
           if (completed != null) {
             notifyExamHistoryChanged();
+            _lock.unlock();
             context.go(
               attemptHistoryDetailPath(completed.id),
               extra: completed,
@@ -144,12 +164,11 @@ class _AttemptPracticeScreenState extends State<AttemptPracticeScreen> {
               child: state.isLoading && attempt == null
                   ? const Center(child: CircularProgressIndicator())
                   : attempt == null
-                  ? _MissingAttempt(onBack: context.pop)
+                  ? _MissingAttempt(onBack: _leaveMissingAttempt)
                   : _AttemptBody(
                       attempt: attempt,
                       state: state,
                       onSelect: _cubit.selectAnswer,
-                      onBack: _requestLeave,
                       onSubmit: _confirmSubmit,
                       onCancel: _confirmCancel,
                     ),
@@ -166,7 +185,6 @@ class _AttemptBody extends StatelessWidget {
     required this.attempt,
     required this.state,
     required this.onSelect,
-    required this.onBack,
     required this.onSubmit,
     required this.onCancel,
   });
@@ -174,7 +192,6 @@ class _AttemptBody extends StatelessWidget {
   final ExamAttempt attempt;
   final AttemptSessionState state;
   final void Function(int, int?) onSelect;
-  final VoidCallback onBack;
   final VoidCallback onSubmit;
   final VoidCallback onCancel;
 
@@ -191,7 +208,6 @@ class _AttemptBody extends StatelessWidget {
           totalQuestions: attempt.totalQuestions,
           onSubmit: onSubmit,
           onCancel: onCancel,
-          onBack: onBack,
         ),
         Expanded(
           child: SelectionArea(
@@ -218,7 +234,6 @@ class _SessionHeader extends StatelessWidget {
     required this.totalQuestions,
     required this.onSubmit,
     required this.onCancel,
-    required this.onBack,
   });
 
   final String title;
@@ -226,7 +241,6 @@ class _SessionHeader extends StatelessWidget {
   final int totalQuestions;
   final VoidCallback onSubmit;
   final VoidCallback onCancel;
-  final VoidCallback onBack;
 
   @override
   Widget build(BuildContext context) {
@@ -241,12 +255,6 @@ class _SessionHeader extends StatelessWidget {
         children: [
           Row(
             children: [
-              IconButton.outlined(
-                tooltip: 'Back',
-                onPressed: onBack,
-                icon: const Icon(SolarIconsOutline.altArrowLeft),
-              ),
-              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
