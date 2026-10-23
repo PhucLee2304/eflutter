@@ -1,5 +1,4 @@
 import 'package:eflutter/core/di/injection.dart';
-import 'package:eflutter/core/base/local_data_base.dart';
 import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:eflutter/core/utils/helpers/platform/platform_helper.dart';
 import 'package:eflutter/core/base/remote_data_base.dart';
@@ -19,12 +18,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   configureDependencies();
-  await _clearAuthStorageForNewDevSession();
   final authCubit = getIt<AuthCubit>();
   await [
     Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform),
@@ -58,19 +55,6 @@ void main() async {
       child: const MyApp(),
     ),
   );
-}
-
-Future<void> _clearAuthStorageForNewDevSession() async {
-  const devSession = String.fromEnvironment('DEV_AUTH_STORAGE_SESSION');
-  if (devSession.isEmpty) return;
-
-  const devSessionKey = 'devAuthStorageSession';
-  final prefs = getIt<SharedPreferencesAsync>();
-  final previousSession = await prefs.getString(devSessionKey);
-  if (previousSession == devSession) return;
-
-  await getIt<LocalDataBase>().clearTokens();
-  await prefs.setString(devSessionKey, devSession);
 }
 
 class MyApp extends StatelessWidget {

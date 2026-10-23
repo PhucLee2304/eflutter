@@ -6,6 +6,7 @@ import 'package:eflutter/data/repositories/notification_repository.dart';
 import 'package:eflutter/presentation/notifications/notification_controller.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:injectable/injectable.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -21,13 +22,38 @@ class NotificationPushService {
   static const _deviceIDKey = 'notificationDeviceID';
   StreamSubscription<RemoteMessage>? _messageSubscription;
   StreamSubscription<String>? _tokenSubscription;
+  Timer? _fallbackTimer;
+  AppLifecycleListener? _lifecycleListener;
+
+  /// Push chỉ đến khi người dùng cấp quyền thông báo, nên chuông còn được làm
+  /// mới định kỳ và khi quay lại tab để không phải reload trang.
+  static const _fallbackRefreshInterval = Duration(seconds: 60);
 
   Future<void> initialize() async {
     if (!kIsWeb) return;
     _messageSubscription ??= FirebaseMessaging.onMessage.listen((_) {
       unawaited(_controller.refresh());
     });
-    final settings = await FirebaseMessaging.instance.getNotificationSettings();
+    _fallbackTimer ??= Timer.periodic(
+      _fallbackRefreshInterval,
+      (_) => unawaited(_controller.refreshIfChanged()),
+    );
+    _lifecycleListener ??= AppLifecycleListener(
+      onResume: () => unawaited(_controller.refreshIfChanged()),
+    );
+    // Không await: hộp thoại xin quyền chờ người dùng bấm, không được chặn app.
+    unawaited(
+      _enablePush().catchError((Object e) {
+        debugPrint('NotificationPushService push setup failed: $e');
+      }),
+    );
+  }
+
+  Future<void> _enablePush() async {
+    var settings = await FirebaseMessaging.instance.getNotificationSettings();
+    if (settings.authorizationStatus == AuthorizationStatus.notDetermined) {
+      settings = await FirebaseMessaging.instance.requestPermission();
+    }
     if (settings.authorizationStatus != AuthorizationStatus.authorized &&
         settings.authorizationStatus != AuthorizationStatus.provisional) {
       return;
@@ -70,6 +96,10 @@ class NotificationPushService {
   }
 
   Future<void> disablePush() async {
+    _fallbackTimer?.cancel();
+    _fallbackTimer = null;
+    _lifecycleListener?.dispose();
+    _lifecycleListener = null;
     final token = await _preferences.getString(_tokenKey);
     if (token == null || token.isEmpty) return;
     try {
