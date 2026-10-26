@@ -23,7 +23,9 @@ class AttemptHeader extends StatelessWidget {
   final int answeredCount;
   final int totalQuestions;
   final VoidCallback onSubmit;
-  final VoidCallback onCancel;
+
+  /// Null thì ẩn nút hủy (bài giao không hủy được, chỉ nộp).
+  final VoidCallback? onCancel;
   final VoidCallback? onOpenPalette;
 
   /// Dòng phụ thêm, vd "Listening · Part 2".
@@ -86,17 +88,19 @@ class AttemptHeader extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
               ],
-              IconButton.outlined(
-                tooltip: 'Cancel attempt',
-                onPressed: busy ? null : onCancel,
-                icon: state.isCancelling
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(SolarIconsOutline.closeCircle),
-              ),
-              const SizedBox(width: 8),
+              if (onCancel != null) ...[
+                IconButton.outlined(
+                  tooltip: 'Cancel attempt',
+                  onPressed: busy ? null : onCancel,
+                  icon: state.isCancelling
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(SolarIconsOutline.closeCircle),
+                ),
+                const SizedBox(width: 8),
+              ],
               FilledButton.icon(
                 onPressed: busy ? null : onSubmit,
                 icon: state.isSubmitting

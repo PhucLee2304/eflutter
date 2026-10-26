@@ -481,6 +481,7 @@ class ClassroomRepository {
                   'explanation': question.explanation,
                   'options': question.options,
                   'correctOptionIndex': question.correctOptionIndex,
+                  'excludedFromScore': question.excludedFromScore,
                 },
               )
               .toList(),

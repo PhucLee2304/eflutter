@@ -14,14 +14,14 @@ class PaletteItem {
     required this.questionId,
     required this.number,
     required this.status,
-    this.excluded = false,
+    this.enabled = true,
   });
   final int questionId;
   final int number;
   final PaletteStatus status;
 
-  /// Câu không tính điểm: viền nét đứt.
-  final bool excluded;
+  /// Câu đã khóa (trang nghe đã qua / chưa tới): giữ màu, chỉ không bấm được.
+  final bool enabled;
 }
 
 class PaletteGroup {
@@ -42,6 +42,7 @@ List<PaletteGroup> paletteGroupsFromNavigator(AttemptNavigatorState state) {
           questionId: question.id,
           number: question.number,
           status: state.statusOf(page.index, question),
+          enabled: state.isPageOpen(page.index),
         ),
       );
     }
@@ -52,12 +53,23 @@ List<PaletteGroup> paletteGroupsFromNavigator(AttemptNavigatorState state) {
   ];
 }
 
-/// Nhóm theo section từ danh sách câu (flow FREE): số câu là thứ tự toàn bài.
+/// Số hiển thị của từng câu (flow FREE): `number` gốc, không có thì thứ tự toàn bài.
+/// Bảng câu hỏi và tiêu đề câu cùng dùng hàm này để không lệch nhau.
+Map<int, int> attemptQuestionNumbers(List<ExamQuestionsSection> sections) {
+  var number = 0;
+  return {
+    for (final section in sections)
+      for (final question in orderedSectionQuestions(section))
+        question.id: question.number ?? ++number,
+  };
+}
+
+/// Nhóm theo section từ danh sách câu (flow FREE).
 List<PaletteGroup> paletteGroupsFromSections(
   List<ExamQuestionsSection> sections,
   Map<int, int?> selectedOptions,
 ) {
-  var number = 0;
+  final numbers = attemptQuestionNumbers(sections);
   return [
     for (final section in sections)
       PaletteGroup(
@@ -66,7 +78,7 @@ List<PaletteGroup> paletteGroupsFromSections(
           for (final question in orderedSectionQuestions(section))
             PaletteItem(
               questionId: question.id,
-              number: question.number ?? ++number,
+              number: numbers[question.id]!,
               status: selectedOptions[question.id] != null
                   ? PaletteStatus.answered
                   : PaletteStatus.empty,
@@ -95,8 +107,9 @@ List<PaletteGroup> paletteGroupsForReview(
             PaletteItem(
               questionId: question.id,
               number: numbers[question.id]!,
-              excluded: question.excludedFromScore,
-              status: question.selectedOptionId == null
+              status: question.excludedFromScore
+                  ? PaletteStatus.notScored
+                  : question.selectedOptionId == null
                   ? PaletteStatus.empty
                   : !submitted || question.isCorrect == null
                   ? PaletteStatus.answered
@@ -176,7 +189,7 @@ class QuestionPalette extends StatelessWidget {
               for (final item in group.items)
                 _PaletteCell(
                   item: item,
-                  onTap: onTap == null || item.status == PaletteStatus.locked
+                  onTap: onTap == null || !item.enabled
                       ? null
                       : () => onTap!(item.questionId),
                 ),
@@ -198,34 +211,26 @@ class _PaletteCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (background, foreground, border) = _colors(item.status);
-    return Opacity(
-      opacity: item.status == PaletteStatus.locked ? 0.45 : 1,
-      child: Material(
-        color: background,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(6),
-          side: BorderSide(color: border, width: 2),
-        ),
-        child: InkWell(
-          key: ValueKey('palette-${item.questionId}'),
-          borderRadius: BorderRadius.circular(6),
-          onTap: onTap,
-          child: CustomPaint(
-            foregroundPainter: item.excluded
-                ? const _DashedBorderPainter(color: ColorName.labelPrimary)
-                : null,
-            child: SizedBox(
-              width: 40,
-              height: 34,
-              child: Center(
-                child: Text(
-                  '${item.number}',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: foreground,
-                  ),
-                ),
+    return Material(
+      color: background,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(6),
+        side: BorderSide(color: border, width: 2),
+      ),
+      child: InkWell(
+        key: ValueKey('palette-${item.questionId}'),
+        borderRadius: BorderRadius.circular(6),
+        onTap: onTap,
+        child: SizedBox(
+          width: 40,
+          height: 34,
+          child: Center(
+            child: Text(
+              '${item.number}',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: foreground,
               ),
             ),
           ),
@@ -241,61 +246,41 @@ class _PaletteCell extends StatelessWidget {
     ColorName.white,
     ColorName.primary,
   ),
-  PaletteStatus.current => (
-    ColorName.white,
-    ColorName.primary,
-    ColorName.primary,
-  ),
-  PaletteStatus.locked => (ColorName.gray6, ColorName.gray1, ColorName.gray6),
   PaletteStatus.empty => (
-    ColorName.gray5,
+    ColorName.white,
     ColorName.labelPrimary,
-    ColorName.gray5,
+    ColorName.gray4,
   ),
   PaletteStatus.correct => (ColorName.green, ColorName.white, ColorName.green),
   PaletteStatus.wrong => (ColorName.red, ColorName.white, ColorName.red),
+  PaletteStatus.notScored => (
+    ColorName.purple,
+    ColorName.white,
+    ColorName.purple,
+  ),
 };
 
-Widget _dashedEntry() => const Row(
-  mainAxisSize: MainAxisSize.min,
-  children: [
-    CustomPaint(
-      size: Size(14, 14),
-      painter: _DashedBorderPainter(color: ColorName.labelSecondary),
+/// Nhãn tím "Not scored" cạnh câu không tính điểm, cùng màu với ô trong bảng câu hỏi.
+class NotScoredBadge extends StatelessWidget {
+  const NotScoredBadge({super.key});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    margin: const EdgeInsets.only(left: 8),
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+    decoration: BoxDecoration(
+      color: ColorName.purple,
+      borderRadius: BorderRadius.circular(10),
     ),
-    SizedBox(width: 6),
-    Text(
+    child: const Text(
       'Not scored',
-      style: TextStyle(fontSize: 12, color: ColorName.labelSecondary),
+      style: TextStyle(
+        color: ColorName.white,
+        fontSize: 11,
+        fontWeight: FontWeight.w600,
+      ),
     ),
-  ],
-);
-
-/// Viền nét đứt quanh ô (câu excludedFromScore).
-class _DashedBorderPainter extends CustomPainter {
-  const _DashedBorderPainter({required this.color});
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
-    final path = Path()
-      ..addRRect(
-        RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(4)),
-      );
-    for (final metric in path.computeMetrics()) {
-      for (var d = 0.0; d < metric.length; d += 6) {
-        canvas.drawPath(metric.extractPath(d, d + 3), paint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_DashedBorderPainter oldDelegate) =>
-      oldDelegate.color != color;
+  );
 }
 
 class _PaletteLegend extends StatelessWidget {
@@ -309,16 +294,13 @@ class _PaletteLegend extends StatelessWidget {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Opacity(
-            opacity: status == PaletteStatus.locked ? 0.45 : 1,
-            child: Container(
-              width: 14,
-              height: 14,
-              decoration: BoxDecoration(
-                color: background,
-                border: Border.all(color: border, width: 2),
-                borderRadius: BorderRadius.circular(3),
-              ),
+          Container(
+            width: 14,
+            height: 14,
+            decoration: BoxDecoration(
+              color: background,
+              border: Border.all(color: border, width: 2),
+              borderRadius: BorderRadius.circular(3),
             ),
           ),
           const SizedBox(width: 6),
@@ -341,13 +323,11 @@ class _PaletteLegend extends StatelessWidget {
               entry(PaletteStatus.correct, 'Correct'),
               entry(PaletteStatus.wrong, 'Wrong'),
               entry(PaletteStatus.empty, 'Blank'),
-              _dashedEntry(),
+              entry(PaletteStatus.notScored, 'Not scored'),
             ]
           : [
               entry(PaletteStatus.answered, 'Answered'),
-              entry(PaletteStatus.current, 'Viewing'),
               entry(PaletteStatus.empty, 'Not answered'),
-              entry(PaletteStatus.locked, 'Locked'),
             ],
     );
   }

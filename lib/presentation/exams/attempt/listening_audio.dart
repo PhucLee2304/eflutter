@@ -1,12 +1,11 @@
 import 'dart:async';
 
-import 'package:eflutter/generated/colors.gen.dart';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:solar_icons/solar_icons.dart';
 
 /// Audio của trang nghe TOEIC_STRICT (PLAN_TOEIC_ATTEMPT.md T7): tự phát từ
-/// [startOffset] (elapsedMs của server), không tua, không dừng, chỉ chỉnh âm lượng.
+/// [startOffset] (elapsedMs của server), không tua, không dừng, không hiện điều khiển.
 /// Phát xong (hoặc không phát được, sau khi hết thời lượng) thì gọi [onCompleted].
 /// Trình duyệt chặn autoplay (sau F5) thì hiện lớp phủ "Nhấn để tiếp tục nghe".
 ///
@@ -40,7 +39,6 @@ class _ListeningAudioState extends State<ListeningAudio> {
   Timer? _blockedCheck;
   bool _blocked = false;
   bool _completed = false;
-  double _volume = 1;
 
   Duration get _duration => Duration(milliseconds: widget.durationMs ?? 0);
 
@@ -68,7 +66,6 @@ class _ListeningAudioState extends State<ListeningAudio> {
       if (state.processingState == ProcessingState.completed) _complete();
     }, onError: (_) => _scheduleFallback());
     try {
-      await player.setVolume(_volume);
       if (player.audioSource == null) {
         await player.setUrl(url, initialPosition: _expectedPosition);
       } else {
@@ -151,57 +148,17 @@ class _ListeningAudioState extends State<ListeningAudio> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: ColorName.gray6,
-        borderRadius: BorderRadius.circular(8),
+    if (!_blocked) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Center(
+        child: FilledButton.icon(
+          key: const ValueKey('listening-resume'),
+          onPressed: _resume,
+          icon: const Icon(SolarIconsOutline.play),
+          label: const Text('Tap to continue listening'),
+        ),
       ),
-      child: _blocked
-          ? Center(
-              child: FilledButton.icon(
-                key: const ValueKey('listening-resume'),
-                onPressed: _resume,
-                icon: const Icon(SolarIconsOutline.play),
-                label: const Text('Tap to continue listening'),
-              ),
-            )
-          : Row(
-              children: [
-                Icon(
-                  _completed
-                      ? SolarIconsOutline.checkCircle
-                      : SolarIconsOutline.musicNote,
-                  color: ColorName.primary,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    _completed
-                        ? 'Audio finished'
-                        : 'Playing — the audio cannot be paused or replayed',
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                ),
-                const Icon(
-                  SolarIconsOutline.volumeLoud,
-                  size: 18,
-                  color: ColorName.labelSecondary,
-                ),
-                SizedBox(
-                  width: 120,
-                  child: Slider(
-                    value: _volume,
-                    onChanged: (value) {
-                      setState(() => _volume = value);
-                      _player?.setVolume(value);
-                      widget.preloader.volume = value;
-                    },
-                  ),
-                ),
-              ],
-            ),
     );
   }
 }
@@ -210,7 +167,6 @@ class _ListeningAudioState extends State<ListeningAudio> {
 class ListeningAudioPreloader {
   AudioPlayer? _player;
   String? _url;
-  double volume = 1;
 
   void preload(String? url) {
     if (url == null || url.isEmpty || url == _url) return;
@@ -224,7 +180,7 @@ class ListeningAudioPreloader {
   /// Lấy player đã tải sẵn cho [url] (người gọi sở hữu và dispose), null nếu không có.
   AudioPlayer? take(String url) {
     if (url != _url || _player == null) return null;
-    final player = _player!..setVolume(volume);
+    final player = _player!;
     _player = null;
     _url = null;
     return player;

@@ -18,7 +18,8 @@ void main() {
                   PaletteItem(
                     questionId: 11,
                     number: 1,
-                    status: PaletteStatus.locked,
+                    status: PaletteStatus.empty,
+                    enabled: false,
                   ),
                   PaletteItem(
                     questionId: 12,
@@ -85,9 +86,8 @@ void main() {
     expect(items.map((i) => i.number), [101, 102, 1]);
     expect(items.map((i) => i.status), [
       PaletteStatus.correct,
-      PaletteStatus.wrong,
+      PaletteStatus.notScored,
       PaletteStatus.empty,
     ]);
-    expect(items[1].excluded, isTrue);
   });
 }

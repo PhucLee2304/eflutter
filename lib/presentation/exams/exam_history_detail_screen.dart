@@ -335,24 +335,12 @@ class _ReviewQuestion extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '$number. ${question.content.isEmpty ? 'Choose the correct answer.' : question.content}',
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  if (question.excludedFromScore)
-                    const Padding(
-                      padding: EdgeInsets.only(top: 4),
-                      child: Text(
-                        'Not included in score',
-                        style: TextStyle(color: ColorName.gray2, fontSize: 12),
-                      ),
-                    ),
-                ],
+              child: Text(
+                '$number. ${question.content.isEmpty ? 'Choose the correct answer.' : question.content}',
+                style: const TextStyle(fontWeight: FontWeight.w700),
               ),
             ),
+            if (question.excludedFromScore) const NotScoredBadge(),
             if (submitted && question.isCorrect != null)
               Icon(
                 question.isCorrect!

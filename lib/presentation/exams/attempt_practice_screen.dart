@@ -102,7 +102,9 @@ class _AttemptPracticeScreenState extends State<AttemptPracticeScreen> {
                       onSelect: _cubit.selectAnswer,
                       onOpenPalette: () => _openPalette(attempt),
                       onSubmit: () => confirmSubmitAttempt(context, _cubit),
-                      onCancel: () => confirmCancelAttempt(context, _cubit),
+                      onCancel: attempt.isAssignment
+                          ? null
+                          : () => confirmCancelAttempt(context, _cubit),
                     ),
             ),
           );
@@ -129,13 +131,14 @@ class _AttemptBody extends StatelessWidget {
   final void Function(int, int?) onSelect;
   final VoidCallback onOpenPalette;
   final VoidCallback onSubmit;
-  final VoidCallback onCancel;
+  final VoidCallback? onCancel;
 
   @override
   Widget build(BuildContext context) {
     final title = attempt.exam?.title.trim().isNotEmpty == true
         ? attempt.exam!.title
         : 'Attempt #${attempt.id}';
+    final numbers = attemptQuestionNumbers(attempt.questions);
     return Column(
       children: [
         AttemptHeader(
@@ -157,6 +160,7 @@ class _AttemptBody extends StatelessWidget {
                   for (final section in attempt.questions)
                     _SectionBlock(
                       section: section,
+                      numbers: numbers,
                       state: state,
                       keyFor: keyFor,
                       onSelect: onSelect,
@@ -173,12 +177,14 @@ class _AttemptBody extends StatelessWidget {
 
 class _SectionBlock extends StatelessWidget {
   const _SectionBlock({
+    required this.numbers,
     required this.section,
     required this.state,
     required this.keyFor,
     required this.onSelect,
   });
   final ExamQuestionsSection section;
+  final Map<int, int> numbers;
   final GlobalKey Function(int questionId) keyFor;
   final AttemptSessionState state;
   final void Function(int, int?) onSelect;
@@ -199,6 +205,7 @@ class _SectionBlock extends StatelessWidget {
           ...section.groups.map(
             (group) => _GroupBlock(
               group: group,
+              numbers: numbers,
               state: state,
               keyFor: keyFor,
               onSelect: onSelect,
@@ -208,6 +215,7 @@ class _SectionBlock extends StatelessWidget {
             (question) => _QuestionCard(
               key: keyFor(question.id),
               question: question,
+              number: numbers[question.id] ?? question.order,
               state: state,
               onSelect: onSelect,
             ),
@@ -220,12 +228,14 @@ class _SectionBlock extends StatelessWidget {
 
 class _GroupBlock extends StatelessWidget {
   const _GroupBlock({
+    required this.numbers,
     required this.group,
     required this.state,
     required this.keyFor,
     required this.onSelect,
   });
   final ExamQuestionGroup group;
+  final Map<int, int> numbers;
   final GlobalKey Function(int questionId) keyFor;
   final AttemptSessionState state;
   final void Function(int, int?) onSelect;
@@ -283,6 +293,7 @@ class _GroupBlock extends StatelessWidget {
           (question) => _QuestionCard(
             key: keyFor(question.id),
             question: question,
+            number: numbers[question.id] ?? question.order,
             state: state,
             onSelect: onSelect,
           ),
@@ -296,10 +307,12 @@ class _QuestionCard extends StatelessWidget {
   const _QuestionCard({
     super.key,
     required this.question,
+    required this.number,
     required this.state,
     required this.onSelect,
   });
   final ExamQuestion question;
+  final int number;
   final AttemptSessionState state;
   final void Function(int, int?) onSelect;
 
@@ -323,10 +336,11 @@ class _QuestionCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  '${question.order}. ${question.content.isEmpty ? 'Choose the correct answer.' : question.content}',
+                  '$number. ${question.content.isEmpty ? 'Choose the correct answer.' : question.content}',
                   style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
               ),
+              if (question.excludedFromScore) const NotScoredBadge(),
               if (sync != null) AttemptSyncIcon(status: sync),
             ],
           ),

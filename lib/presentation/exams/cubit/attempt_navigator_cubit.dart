@@ -7,7 +7,7 @@ import 'package:eflutter/presentation/exams/cubit/attempt_session_cubit.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// Trạng thái một ô trên bảng câu hỏi. [correct]/[wrong] chỉ dùng ở màn lịch sử.
-enum PaletteStatus { empty, answered, current, locked, correct, wrong }
+enum PaletteStatus { empty, answered, correct, wrong, notScored }
 
 class AttemptNavigatorState {
   final AttemptNavigator? navigator;
@@ -57,8 +57,6 @@ class AttemptNavigatorState {
       : question.answered;
 
   PaletteStatus statusOf(int pageIndex, AttemptNavigatorQuestion question) {
-    if (pageIndex == viewingPage) return PaletteStatus.current;
-    if (!isPageOpen(pageIndex)) return PaletteStatus.locked;
     return isAnswered(question) ? PaletteStatus.answered : PaletteStatus.empty;
   }
 

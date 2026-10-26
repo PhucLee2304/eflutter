@@ -34,8 +34,11 @@ void main() {
     expect(state.isPageOpen(1), isFalse);
     expect(state.isPageOpen(2), isFalse);
     final pages = state.navigator!.pages;
-    expect(state.statusOf(0, pages[0].questions.single), PaletteStatus.current);
-    expect(state.statusOf(2, pages[2].questions.single), PaletteStatus.locked);
+    expect(
+      state.statusOf(0, pages[0].questions.single),
+      PaletteStatus.answered,
+    );
+    expect(state.statusOf(2, pages[2].questions.single), PaletteStatus.empty);
     expect(state.answeredCount, 1);
 
     await navigator.openPage(2);

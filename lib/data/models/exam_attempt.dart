@@ -78,6 +78,9 @@ class ExamAttempt {
   final DateTime? updatedAt;
   final List<ExamQuestionsSection> questions;
 
+  /// Bài giao trong lớp: không hủy được, chỉ nộp.
+  bool get isAssignment => mode == 'ASSIGNMENT';
+
   const ExamAttempt({
     required this.id,
     required this.examId,

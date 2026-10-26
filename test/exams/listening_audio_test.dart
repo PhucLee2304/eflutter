@@ -28,6 +28,6 @@ void main() {
     expect(completed, 1);
     await tester.pump(const Duration(seconds: 5));
     expect(completed, 1);
-    expect(find.text('Audio finished'), findsOneWidget);
+    expect(find.byKey(const ValueKey('listening-resume')), findsNothing);
   });
 }

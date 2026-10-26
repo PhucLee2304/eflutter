@@ -124,24 +124,22 @@ class _AttemptExamScreenState extends State<AttemptExamScreen> {
     );
   }
 
+  static bool _listeningOnlyDone(AttemptNavigatorState state) =>
+      state.navigator != null &&
+      !state.isListening &&
+      !state.isLoading &&
+      state.viewingPage == null;
+
   Widget _listeningTop(ListeningState listening) {
     final page = listening.page!;
     _preloader.preload(page.nextAudioUrl);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        ListeningAudio(
-          key: ValueKey('audio-${page.index}'),
-          url: page.group?.audioUrl,
-          durationMs: page.group?.audioDurationMs,
-          startOffset: listening.startOffset,
-          onCompleted: _listening.audioCompleted,
-          preloader: _preloader,
-        ),
-        if (listening.phase == ListeningPhase.gap ||
-            listening.phase == ListeningPhase.advancing)
-          _ListeningStatus(state: listening),
-      ],
+    return ListeningAudio(
+      key: ValueKey('audio-${page.index}'),
+      url: page.group?.audioUrl,
+      durationMs: page.group?.audioDurationMs,
+      startOffset: listening.startOffset,
+      onCompleted: _listening.audioCompleted,
+      preloader: _preloader,
     );
   }
 
@@ -162,9 +160,21 @@ class _AttemptExamScreenState extends State<AttemptExamScreen> {
     final page = navigator.isListening ? listening.page : navigator.currentPage;
     final stageLabel = navigator.navigator == null
         ? null
-        : navigator.isListening
-        ? 'Listening'
-        : 'Reading';
+        : [
+            navigator.isListening ? 'Listening' : 'Reading',
+            if (!_readingIntro) ?partLabel(page?.part),
+          ].join(' · ');
+    // Attempt chỉ có phần nghe (vd luyện Part 1): nghe xong thì server tự nộp bài
+    // (ATTEMPT_SUBMITTED đưa sang trang kết quả); nút Submit chỉ để dự phòng.
+    final noReadingPages = _listeningOnlyDone(navigator);
+    void submit() => confirmSubmitAttempt(
+      context,
+      _session,
+      message: navigator.isListening
+          ? 'The listening section is not finished. Unanswered questions, '
+                'including those not reached yet, will be scored as 0.'
+          : 'Your current answers will be graded and cannot be changed.',
+    );
     return Column(
       children: [
         AttemptHeader(
@@ -175,18 +185,15 @@ class _AttemptExamScreenState extends State<AttemptExamScreen> {
           totalQuestions:
               navigator.navigator?.totalQuestions ?? attempt.totalQuestions,
           onOpenPalette: navigator.navigator == null ? null : _openPalette,
-          onSubmit: () => confirmSubmitAttempt(
-            context,
-            _session,
-            message: navigator.isListening
-                ? 'The listening section is not finished. Unanswered questions, '
-                      'including those not reached yet, will be scored as 0.'
-                : 'Your current answers will be graded and cannot be changed.',
-          ),
-          onCancel: () => confirmCancelAttempt(context, _session),
+          onSubmit: submit,
+          onCancel: attempt.isAssignment
+              ? null
+              : () => confirmCancelAttempt(context, _session),
         ),
         Expanded(
-          child: _readingIntro
+          child: noReadingPages
+              ? _ListeningOnlyFinished(onSubmit: submit)
+              : _readingIntro
               ? _ReadingIntro(
                   onStart: () => setState(() => _readingIntro = false),
                 )
@@ -212,6 +219,7 @@ class _AttemptExamScreenState extends State<AttemptExamScreen> {
         ),
         if (!navigator.isListening &&
             !_readingIntro &&
+            !noReadingPages &&
             navigator.navigator != null)
           _PageNavigationBar(
             onPrevious: _navigator.adjacentPage(-1) == null
@@ -225,6 +233,43 @@ class _AttemptExamScreenState extends State<AttemptExamScreen> {
       ],
     );
   }
+}
+
+/// Attempt chỉ có phần nghe đã nghe xong: chờ server nộp bài.
+class _ListeningOnlyFinished extends StatelessWidget {
+  const _ListeningOnlyFinished({required this.onSubmit});
+  final VoidCallback onSubmit;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'The listening section has ended',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Submitting your answers…',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: ColorName.labelSecondary),
+          ),
+          const SizedBox(height: 20),
+          const CircularProgressIndicator(),
+          const SizedBox(height: 20),
+          TextButton(
+            key: const ValueKey('listening-only-submit'),
+            onPressed: onSubmit,
+            child: const Text('Submit now'),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 /// Màn chuyển "Kết thúc phần nghe — bắt đầu phần đọc".
@@ -261,30 +306,6 @@ class _ReadingIntro extends StatelessWidget {
       ),
     ),
   );
-}
-
-/// Đếm ngược gap / đang chuyển trang.
-class _ListeningStatus extends StatelessWidget {
-  const _ListeningStatus({required this.state});
-  final ListeningState state;
-
-  @override
-  Widget build(BuildContext context) {
-    final text = switch (state.phase) {
-      ListeningPhase.gap =>
-        'Next question in ${state.gapRemaining?.inSeconds ?? 0}s',
-      _ => 'Moving to the next question…',
-    };
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: ColorName.gray6,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(text, style: const TextStyle(fontWeight: FontWeight.w600)),
-    );
-  }
 }
 
 /// Nút Trước/Sau của phần đọc (T8).

@@ -84,34 +84,12 @@ class _PageContext extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final group = page.group;
-    final numbers = page.questions.map((q) => q.number).toList();
-    final range = numbers.isEmpty
-        ? ''
-        : numbers.length == 1
-        ? 'Question ${numbers.first}'
-        : 'Questions ${numbers.first}-${numbers.last}';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          [?partLabel(page.part), range].where((s) => s.isNotEmpty).join(' · '),
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: ColorName.labelSecondary,
-          ),
-        ),
-        if (group != null && group.title.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              group.title,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-            ),
-          ),
         if (group != null && group.instruction.isNotEmpty)
           Padding(
-            padding: const EdgeInsets.only(top: 8),
+            padding: const EdgeInsets.only(bottom: 8),
             child: Text(group.instruction),
           ),
         if (group?.imageUrl != null)
@@ -200,6 +178,7 @@ class _PageQuestionCard extends StatelessWidget {
                   style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
               ),
+              if (question.excludedFromScore) const NotScoredBadge(),
               if (sync != null) AttemptSyncIcon(status: sync!),
             ],
           ),

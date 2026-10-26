@@ -189,12 +189,16 @@ class AttemptPageQuestion {
   final List<AttemptPageOption> options;
   final int? selectedOptionId;
 
+  /// Câu không tính điểm (bài giao): hiện nhãn "Not scored".
+  final bool excludedFromScore;
+
   const AttemptPageQuestion({
     required this.id,
     required this.number,
     required this.content,
     required this.options,
     required this.selectedOptionId,
+    this.excludedFromScore = false,
   });
 
   factory AttemptPageQuestion.fromJson(Map<String, dynamic> json) {
@@ -203,6 +207,7 @@ class AttemptPageQuestion {
       id: (json['id'] as num).toInt(),
       number: (json['number'] as num?)?.toInt() ?? 0,
       content: json['content'] as String? ?? '',
+      excludedFromScore: json['excludedFromScore'] as bool? ?? false,
       options: options
           .map(
             (item) => AttemptPageOption.fromJson(item as Map<String, dynamic>),
