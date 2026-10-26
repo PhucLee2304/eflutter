@@ -1,22 +1,18 @@
-import 'dart:async';
-
-import 'package:eflutter/core/attempt_lock/attempt_lock_notifier.dart';
 import 'package:eflutter/core/base/local_data_base.dart';
 import 'package:eflutter/core/base/remote_data_base.dart';
 import 'package:eflutter/core/di/injection.dart';
-import 'package:eflutter/core/utils/extensions/toast_bar_extension.dart';
 import 'package:eflutter/data/data_sources/attempt_socket_client.dart';
 import 'package:eflutter/data/models/exam_attempt.dart';
 import 'package:eflutter/data/models/exam_questions.dart';
 import 'package:eflutter/data/repositories/exam_repository.dart';
 import 'package:eflutter/generated/colors.gen.dart';
-import 'package:eflutter/presentation/app/navigation/app_routes.dart';
+import 'package:eflutter/presentation/exams/attempt/attempt_header.dart';
+import 'package:eflutter/presentation/exams/attempt/attempt_session_scope.dart';
+import 'package:eflutter/presentation/exams/attempt/question_palette.dart';
 import 'package:eflutter/presentation/exams/cubit/attempt_session_cubit.dart';
-import 'package:eflutter/presentation/exams/exam_history_refresh.dart';
 import 'package:eflutter/presentation/exams/widgets/exam_audio_player.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 import 'package:solar_icons/solar_icons.dart';
 
 class AttemptPracticeScreen extends StatefulWidget {
@@ -35,7 +31,9 @@ class AttemptPracticeScreen extends StatefulWidget {
 
 class _AttemptPracticeScreenState extends State<AttemptPracticeScreen> {
   late final AttemptSessionCubit _cubit;
-  final _lock = getIt<AttemptLockNotifier>();
+
+  /// Key theo câu để bấm số trên bảng câu hỏi thì cuộn tới câu đó (Q7).
+  final _questionKeys = <int, GlobalKey>{};
 
   @override
   void initState() {
@@ -52,111 +50,43 @@ class _AttemptPracticeScreenState extends State<AttemptPracticeScreen> {
     super.dispose();
   }
 
-  Future<void> _confirmSubmit() async {
-    final accepted = await _confirm(
-      title: 'Submit attempt?',
-      message: 'Your current answers will be graded and cannot be changed.',
-      action: 'Submit',
+  GlobalKey _keyFor(int questionId) =>
+      _questionKeys.putIfAbsent(questionId, GlobalKey.new);
+
+  void _scrollTo(int questionId) {
+    final target = _questionKeys[questionId]?.currentContext;
+    if (target == null) return;
+    Scrollable.ensureVisible(
+      target,
+      duration: const Duration(milliseconds: 300),
+      alignment: 0.1,
     );
-    if (accepted) await _cubit.submit();
   }
 
-  Future<void> _confirmCancel() async {
-    final accepted = await _confirm(
-      title: 'Cancel attempt?',
-      message: 'The attempt will be saved as cancelled without a score.',
-      action: 'Cancel attempt',
-      destructive: true,
+  void _openPalette(ExamAttempt attempt) {
+    showQuestionPalette(
+      context,
+      onSelect: _scrollTo,
+      builder: (context, onTap) =>
+          BlocBuilder<AttemptSessionCubit, AttemptSessionState>(
+            bloc: _cubit,
+            builder: (context, state) => QuestionPalette(
+              groups: paletteGroupsFromSections(
+                attempt.questions,
+                state.selectedOptions,
+              ),
+              onTap: onTap,
+            ),
+          ),
     );
-    if (accepted) await _cubit.cancel();
   }
-
-  /// Đang làm bài thì không có lối rời màn: chỉ nộp hoặc hủy bài.
-  void _handleBack() {
-    if (_lock.isLocked) {
-      _lock.reportBackBlocked();
-      context.showToast(
-        'You are taking an exam. Submit or cancel it to leave.',
-        type: ToastType.warning,
-      );
-      return;
-    }
-    _leave();
-  }
-
-  void _leave() {
-    if (context.canPop()) {
-      context.pop();
-    } else {
-      context.go(AppRoutes.histories.path);
-    }
-  }
-
-  /// Không tải được attempt (đã nộp, hết hạn, không tồn tại): đồng bộ lại khóa
-  /// với server trước khi rời màn.
-  Future<void> _leaveMissingAttempt() async {
-    await _lock.refresh();
-    if (mounted) _leave();
-  }
-
-  Future<bool> _confirm({
-    required String title,
-    required String message,
-    required String action,
-    bool destructive = false,
-  }) async =>
-      await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text(title),
-          content: Text(message),
-          actions: [
-            TextButton(
-              onPressed: () => context.pop(false),
-              child: const Text('Back'),
-            ),
-            FilledButton(
-              style: destructive
-                  ? FilledButton.styleFrom(backgroundColor: ColorName.red)
-                  : null,
-              onPressed: () => context.pop(true),
-              child: Text(action),
-            ),
-          ],
-        ),
-      ) ??
-      false;
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _handleBack();
-      },
-      child: BlocConsumer<AttemptSessionCubit, AttemptSessionState>(
+    return AttemptSessionScope(
+      cubit: _cubit,
+      child: BlocBuilder<AttemptSessionCubit, AttemptSessionState>(
         bloc: _cubit,
-        listener: (context, state) {
-          final attempt = state.attempt;
-          if (attempt != null &&
-              attempt.status.toUpperCase() == 'ACTIVE' &&
-              state.completedAttempt == null) {
-            _lock.lock(attempt.id);
-          }
-          if (state.failure != null) context.handleFailure(state.failure);
-          if (state.socketMessage != null) {
-            context.showToast(state.socketMessage!, type: ToastType.error);
-          }
-          final completed = state.completedAttempt;
-          if (completed != null) {
-            notifyExamHistoryChanged();
-            _lock.unlock();
-            context.go(
-              attemptHistoryDetailPath(completed.id),
-              extra: completed,
-            );
-          }
-        },
         builder: (context, state) {
           final attempt = state.attempt;
           return Scaffold(
@@ -164,13 +94,15 @@ class _AttemptPracticeScreenState extends State<AttemptPracticeScreen> {
               child: state.isLoading && attempt == null
                   ? const Center(child: CircularProgressIndicator())
                   : attempt == null
-                  ? _MissingAttempt(onBack: _leaveMissingAttempt)
+                  ? const MissingAttempt()
                   : _AttemptBody(
                       attempt: attempt,
                       state: state,
+                      keyFor: _keyFor,
                       onSelect: _cubit.selectAnswer,
-                      onSubmit: _confirmSubmit,
-                      onCancel: _confirmCancel,
+                      onOpenPalette: () => _openPalette(attempt),
+                      onSubmit: () => confirmSubmitAttempt(context, _cubit),
+                      onCancel: () => confirmCancelAttempt(context, _cubit),
                     ),
             ),
           );
@@ -184,14 +116,18 @@ class _AttemptBody extends StatelessWidget {
   const _AttemptBody({
     required this.attempt,
     required this.state,
+    required this.keyFor,
     required this.onSelect,
+    required this.onOpenPalette,
     required this.onSubmit,
     required this.onCancel,
   });
 
   final ExamAttempt attempt;
   final AttemptSessionState state;
+  final GlobalKey Function(int questionId) keyFor;
   final void Function(int, int?) onSelect;
+  final VoidCallback onOpenPalette;
   final VoidCallback onSubmit;
   final VoidCallback onCancel;
 
@@ -202,22 +138,30 @@ class _AttemptBody extends StatelessWidget {
         : 'Attempt #${attempt.id}';
     return Column(
       children: [
-        _SessionHeader(
+        AttemptHeader(
           title: title,
           state: state,
+          answeredCount: state.answeredCount,
           totalQuestions: attempt.totalQuestions,
+          onOpenPalette: onOpenPalette,
           onSubmit: onSubmit,
           onCancel: onCancel,
         ),
         Expanded(
+          // Dựng hết câu (không lazy) để ensureVisible tới được câu ngoài màn hình.
           child: SelectionArea(
-            child: ListView.builder(
+            child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-              itemCount: attempt.questions.length,
-              itemBuilder: (context, index) => _SectionBlock(
-                section: attempt.questions[index],
-                state: state,
-                onSelect: onSelect,
+              child: Column(
+                children: [
+                  for (final section in attempt.questions)
+                    _SectionBlock(
+                      section: section,
+                      state: state,
+                      keyFor: keyFor,
+                      onSelect: onSelect,
+                    ),
+                ],
               ),
             ),
           ),
@@ -227,102 +171,15 @@ class _AttemptBody extends StatelessWidget {
   }
 }
 
-class _SessionHeader extends StatelessWidget {
-  const _SessionHeader({
-    required this.title,
-    required this.state,
-    required this.totalQuestions,
-    required this.onSubmit,
-    required this.onCancel,
-  });
-
-  final String title;
-  final AttemptSessionState state;
-  final int totalQuestions;
-  final VoidCallback onSubmit;
-  final VoidCallback onCancel;
-
-  @override
-  Widget build(BuildContext context) {
-    final busy = state.isSubmitting || state.isCancelling;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: const BoxDecoration(
-        color: ColorName.white,
-        border: Border(bottom: BorderSide(color: ColorName.gray5)),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    Text(
-                      '${state.answeredCount}/$totalQuestions answered  |  ${_socketLabel(state.socketStatus)}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: ColorName.labelSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              _TimerBadge(remaining: state.remaining),
-              const Spacer(),
-              IconButton.outlined(
-                tooltip: 'Cancel attempt',
-                onPressed: busy ? null : onCancel,
-                icon: state.isCancelling
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(SolarIconsOutline.closeCircle),
-              ),
-              const SizedBox(width: 8),
-              FilledButton.icon(
-                onPressed: busy ? null : onSubmit,
-                icon: state.isSubmitting
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(SolarIconsOutline.checkCircle),
-                label: const Text('Submit'),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _SectionBlock extends StatelessWidget {
   const _SectionBlock({
     required this.section,
     required this.state,
+    required this.keyFor,
     required this.onSelect,
   });
   final ExamQuestionsSection section;
+  final GlobalKey Function(int questionId) keyFor;
   final AttemptSessionState state;
   final void Function(int, int?) onSelect;
 
@@ -340,11 +197,16 @@ class _SectionBlock extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           ...section.groups.map(
-            (group) =>
-                _GroupBlock(group: group, state: state, onSelect: onSelect),
+            (group) => _GroupBlock(
+              group: group,
+              state: state,
+              keyFor: keyFor,
+              onSelect: onSelect,
+            ),
           ),
           ...section.questions.map(
             (question) => _QuestionCard(
+              key: keyFor(question.id),
               question: question,
               state: state,
               onSelect: onSelect,
@@ -360,9 +222,11 @@ class _GroupBlock extends StatelessWidget {
   const _GroupBlock({
     required this.group,
     required this.state,
+    required this.keyFor,
     required this.onSelect,
   });
   final ExamQuestionGroup group;
+  final GlobalKey Function(int questionId) keyFor;
   final AttemptSessionState state;
   final void Function(int, int?) onSelect;
 
@@ -417,6 +281,7 @@ class _GroupBlock extends StatelessWidget {
           ),
         ...group.questions.map(
           (question) => _QuestionCard(
+            key: keyFor(question.id),
             question: question,
             state: state,
             onSelect: onSelect,
@@ -429,6 +294,7 @@ class _GroupBlock extends StatelessWidget {
 
 class _QuestionCard extends StatelessWidget {
   const _QuestionCard({
+    super.key,
     required this.question,
     required this.state,
     required this.onSelect,
@@ -461,7 +327,7 @@ class _QuestionCard extends StatelessWidget {
                   style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
               ),
-              if (sync != null) _SyncIcon(status: sync),
+              if (sync != null) AttemptSyncIcon(status: sync),
             ],
           ),
           const SizedBox(height: 10),
@@ -502,75 +368,3 @@ class _QuestionCard extends StatelessWidget {
     );
   }
 }
-
-class _SyncIcon extends StatelessWidget {
-  const _SyncIcon({required this.status});
-  final AnswerSyncStatus status;
-  @override
-  Widget build(BuildContext context) => Tooltip(
-    message: switch (status) {
-      AnswerSyncStatus.pending => 'Saving',
-      AnswerSyncStatus.synced => 'Saved',
-      AnswerSyncStatus.failed => 'Will retry',
-    },
-    child: Icon(
-      switch (status) {
-        AnswerSyncStatus.pending => SolarIconsOutline.clockCircle,
-        AnswerSyncStatus.synced => SolarIconsOutline.checkCircle,
-        AnswerSyncStatus.failed => SolarIconsOutline.refreshCircle,
-      },
-      size: 20,
-      color: status == AnswerSyncStatus.failed
-          ? ColorName.orange
-          : ColorName.labelSecondary,
-    ),
-  );
-}
-
-class _TimerBadge extends StatelessWidget {
-  const _TimerBadge({required this.remaining});
-  final Duration? remaining;
-  @override
-  Widget build(BuildContext context) {
-    final value = remaining == null
-        ? 'No limit'
-        : '${remaining!.inHours.toString().padLeft(2, '0')}:${(remaining!.inMinutes % 60).toString().padLeft(2, '0')}:${(remaining!.inSeconds % 60).toString().padLeft(2, '0')}';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: ColorName.gray6,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(value, style: const TextStyle(fontWeight: FontWeight.w700)),
-    );
-  }
-}
-
-class _MissingAttempt extends StatelessWidget {
-  const _MissingAttempt({required this.onBack});
-  final VoidCallback onBack;
-  @override
-  Widget build(BuildContext context) => Center(
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Text(
-          'Attempt not found',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 12),
-        OutlinedButton.icon(
-          onPressed: onBack,
-          icon: const Icon(SolarIconsOutline.altArrowLeft),
-          label: const Text('Back'),
-        ),
-      ],
-    ),
-  );
-}
-
-String _socketLabel(AttemptSocketStatus status) => switch (status) {
-  AttemptSocketStatus.connected => 'Saved online',
-  AttemptSocketStatus.connecting => 'Connecting',
-  AttemptSocketStatus.disconnected => 'Offline, answers kept locally',
-};

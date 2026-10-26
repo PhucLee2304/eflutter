@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:eflutter/data/models/attempt_page.dart';
 import 'package:eflutter/data/models/exam_attempt.dart';
 import 'package:eflutter/data/models/exam_attempt_page.dart';
 import 'package:eflutter/data/models/exam_detail.dart';
@@ -68,4 +69,8 @@ abstract interface class RemoteDataBase {
   Future<ExamAttempt> cancelAttempt(int attemptId);
 
   Future<ExamAttempt> getAttemptHistory(int attemptId);
+
+  Future<AttemptNavigator> getAttemptNavigator(int attemptId);
+
+  Future<AttemptPage> getAttemptPage(int attemptId, int index);
 }

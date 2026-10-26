@@ -44,12 +44,26 @@ class SubmitAttemptAnswer {
   };
 }
 
+/// Luồng làm bài do server chốt lúc tạo attempt (PLAN_TOEIC_ATTEMPT.md mục 1.1).
+abstract final class AttemptFlow {
+  static const free = 'FREE';
+  static const toeicStrict = 'TOEIC_STRICT';
+}
+
+/// Giai đoạn của attempt TOEIC_STRICT.
+abstract final class AttemptStage {
+  static const listening = 'LISTENING';
+  static const reading = 'READING';
+}
+
 class ExamAttempt {
   final int id;
   final int examId;
   final AttemptExamSummary? exam;
   final String mode;
   final String status;
+  final String flow;
+  final String? stage;
   final String? section;
   final List<String> parts;
   final int? duration;
@@ -70,6 +84,8 @@ class ExamAttempt {
     required this.exam,
     required this.mode,
     required this.status,
+    this.flow = AttemptFlow.free,
+    this.stage,
     required this.section,
     required this.parts,
     required this.duration,
@@ -101,6 +117,8 @@ class ExamAttempt {
           : _flatExamFromJson(json, examId),
       mode: json['mode'] as String? ?? '',
       status: json['status'] as String? ?? '',
+      flow: json['flow'] as String? ?? AttemptFlow.free,
+      stage: json['stage'] as String?,
       section: json['section'] as String?,
       parts: parts.map((item) => item.toString()).toList(),
       duration: (json['duration'] as num?)?.toInt(),
@@ -121,6 +139,8 @@ class ExamAttempt {
           .toList(),
     );
   }
+
+  bool get isStrict => flow == AttemptFlow.toeicStrict;
 
   factory ExamAttempt.fromQuestionsResponse(Map<String, dynamic> json) {
     final attemptJson = json['attempt'];

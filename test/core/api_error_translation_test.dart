@@ -42,9 +42,6 @@ void main() {
         type: DioExceptionType.badResponse,
       ),
     ).safeResult();
-    expect(
-      (result as Failure).message,
-      'Some English backend detail',
-    );
+    expect((result as Failure).message, 'Some English backend detail');
   });
 }

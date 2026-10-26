@@ -5,6 +5,7 @@ import 'package:eflutter/core/auth/auth_interceptor.dart';
 import 'package:eflutter/core/base/remote_data_base.dart';
 import 'package:eflutter/core/utils/helpers/upload/upload_binary_to_url.dart'
     as upload_helper;
+import 'package:eflutter/data/models/attempt_page.dart';
 import 'package:eflutter/data/models/exam_attempt.dart';
 import 'package:eflutter/data/models/exam_attempt_page.dart';
 import 'package:eflutter/data/models/exam_detail.dart';
@@ -212,5 +213,21 @@ class RemoteData implements RemoteDataBase {
       '/exams/api/v1/attempts/$attemptId/history',
     );
     return ExamAttempt.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  @override
+  Future<AttemptNavigator> getAttemptNavigator(int attemptId) async {
+    final response = await _dio.get(
+      '/exams/api/v1/attempts/$attemptId/navigator',
+    );
+    return AttemptNavigator.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  @override
+  Future<AttemptPage> getAttemptPage(int attemptId, int index) async {
+    final response = await _dio.get(
+      '/exams/api/v1/attempts/$attemptId/pages/$index',
+    );
+    return AttemptPage.fromJson(response.data as Map<String, dynamic>);
   }
 }

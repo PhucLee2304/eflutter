@@ -17,6 +17,9 @@ class AttemptSocketEvent {
   final String? type;
   final int? attemptId;
 
+  /// Payload của ACK (vd `ListeningState` cho ATTEMPT_LISTENING_ADVANCE).
+  final Map<String, dynamic>? payload;
+
   const AttemptSocketEvent({
     required this.requestId,
     required this.success,
@@ -24,7 +27,18 @@ class AttemptSocketEvent {
     this.message,
     this.type,
     this.attemptId,
+    this.payload,
   });
+}
+
+/// Mã lỗi WS của luồng TOEIC_STRICT (PLAN_TOEIC_ATTEMPT.md mục 1.5).
+abstract final class AttemptSocketCode {
+  static const questionLocked = 'QUESTION_LOCKED';
+  static const pageLocked = 'PAGE_LOCKED';
+  static const listeningPageMismatch = 'LISTENING_PAGE_MISMATCH';
+  static const listeningAdvanceTooEarly = 'LISTENING_ADVANCE_TOO_EARLY';
+  static const attemptExpired = 'ATTEMPT_EXPIRED';
+  static const attemptNotActive = 'ATTEMPT_NOT_ACTIVE';
 }
 
 abstract interface class AttemptSocketGateway {
@@ -36,6 +50,7 @@ abstract interface class AttemptSocketGateway {
     required int questionId,
     required int? optionId,
   });
+  String sendListeningAdvance({required int attemptId, required int page});
   Future<void> close();
 }
 
@@ -92,19 +107,26 @@ class AttemptSocketClient implements AttemptSocketGateway {
     required int questionId,
     required int? optionId,
   }) {
+    return _send('ATTEMPT_ANSWER_UPDATED', {
+      'attemptId': attemptId,
+      'questionId': questionId,
+      'optionId': optionId,
+    });
+  }
+
+  @override
+  String sendListeningAdvance({required int attemptId, required int page}) =>
+      _send('ATTEMPT_LISTENING_ADVANCE', {
+        'attemptId': attemptId,
+        'page': page,
+      });
+
+  String _send(String type, Map<String, dynamic> payload) {
     final channel = _channel;
     if (channel == null) throw StateError('Socket is not connected.');
     final requestId = _uuid.v4();
     channel.sink.add(
-      jsonEncode({
-        'type': 'ATTEMPT_ANSWER_UPDATED',
-        'requestId': requestId,
-        'payload': {
-          'attemptId': attemptId,
-          'questionId': questionId,
-          'optionId': optionId,
-        },
-      }),
+      jsonEncode({'type': type, 'requestId': requestId, 'payload': payload}),
     );
     return requestId;
   }
@@ -133,6 +155,9 @@ class AttemptSocketClient implements AttemptSocketGateway {
           code: data['code'] as String?,
           message: data['message'] as String?,
           type: type,
+          payload: data['payload'] is Map<String, dynamic>
+              ? data['payload'] as Map<String, dynamic>
+              : null,
         ),
       );
     } catch (_) {

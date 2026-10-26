@@ -2,7 +2,7 @@ import 'package:eflutter/presentation/app/navigation/app_routes.dart';
 import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/core/base/remote_data_base.dart';
 import 'package:eflutter/data/repositories/topic_repository.dart';
-import 'package:eflutter/presentation/exams/attempt_practice_screen.dart';
+import 'package:eflutter/presentation/exams/attempt/attempt_route_screen.dart';
 import 'package:eflutter/presentation/exams/exam_detail_screen.dart';
 import 'package:eflutter/presentation/exams/exam_history_screen.dart';
 import 'package:eflutter/presentation/exams/exam_history_detail_screen.dart';
@@ -351,7 +351,7 @@ class NavigationItem {
       if (id == null) {
         return const Scaffold(body: Center(child: Text('Invalid attempt ID')));
       }
-      return AttemptPracticeScreen(
+      return AttemptRouteScreen(
         attemptId: id,
         initialAttempt: state.extra is ExamAttempt
             ? state.extra as ExamAttempt
