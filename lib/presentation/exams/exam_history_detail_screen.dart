@@ -6,6 +6,7 @@ import 'package:eflutter/data/models/exam_attempt.dart';
 import 'package:eflutter/data/models/exam_questions.dart';
 import 'package:eflutter/data/repositories/exam_repository.dart';
 import 'package:eflutter/generated/colors.gen.dart';
+import 'package:eflutter/presentation/exams/attempt/question_palette.dart';
 import 'package:eflutter/presentation/exams/widgets/exam_audio_player.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -29,6 +30,35 @@ class ExamHistoryDetailScreen extends StatefulWidget {
 class _ExamHistoryDetailScreenState extends State<ExamHistoryDetailScreen> {
   ExamAttempt? _attempt;
   bool _loading = true;
+
+  /// Key theo câu để bấm số trên bảng câu hỏi thì cuộn tới câu đó.
+  final _questionKeys = <int, GlobalKey>{};
+
+  GlobalKey _keyFor(int questionId) =>
+      _questionKeys.putIfAbsent(questionId, GlobalKey.new);
+
+  void _scrollTo(int questionId) {
+    final target = _questionKeys[questionId]?.currentContext;
+    if (target == null) return;
+    Scrollable.ensureVisible(
+      target,
+      duration: const Duration(milliseconds: 300),
+      alignment: 0.1,
+    );
+  }
+
+  void _openPalette(ExamAttempt attempt) {
+    final groups = paletteGroupsForReview(
+      attempt.questions,
+      submitted: attempt.status == 'SUBMITTED',
+    );
+    showQuestionPalette(
+      context,
+      onSelect: _scrollTo,
+      builder: (context, onTap) =>
+          QuestionPalette(groups: groups, onTap: onTap, review: true),
+    );
+  }
 
   @override
   void initState() {
@@ -60,6 +90,9 @@ class _ExamHistoryDetailScreenState extends State<ExamHistoryDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final attempt = _attempt;
+    final numbers = attempt == null
+        ? const <int, int>{}
+        : reviewQuestionNumbers(attempt.questions);
     return Scaffold(
       body: SafeArea(
         child: _loading
@@ -68,19 +101,26 @@ class _ExamHistoryDetailScreenState extends State<ExamHistoryDetailScreen> {
             ? const Center(child: Text('Attempt history not found'))
             : Column(
                 children: [
-                  _ReviewHeader(attempt: attempt),
+                  _ReviewHeader(
+                    attempt: attempt,
+                    onOpenPalette: () => _openPalette(attempt),
+                  ),
                   Expanded(
+                    // Dựng hết câu (không lazy) để ensureVisible tới được câu ngoài màn.
                     child: SelectionArea(
-                      child: ListView(
+                      child: SingleChildScrollView(
                         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-                        children: attempt.questions
-                            .map(
-                              (section) => _ReviewSection(
+                        child: Column(
+                          children: [
+                            for (final section in attempt.questions)
+                              _ReviewSection(
                                 section: section,
                                 submitted: attempt.status == 'SUBMITTED',
+                                numbers: numbers,
+                                keyFor: _keyFor,
                               ),
-                            )
-                            .toList(),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -92,8 +132,9 @@ class _ExamHistoryDetailScreenState extends State<ExamHistoryDetailScreen> {
 }
 
 class _ReviewHeader extends StatelessWidget {
-  const _ReviewHeader({required this.attempt});
+  const _ReviewHeader({required this.attempt, required this.onOpenPalette});
   final ExamAttempt attempt;
+  final VoidCallback onOpenPalette;
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(12),
@@ -136,6 +177,11 @@ class _ReviewHeader extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
+            IconButton.outlined(
+              tooltip: 'Question palette',
+              onPressed: onOpenPalette,
+              icon: const Icon(SolarIconsOutline.widget),
             ),
           ],
         ),
@@ -186,9 +232,16 @@ class _ResultMetric extends StatelessWidget {
 }
 
 class _ReviewSection extends StatelessWidget {
-  const _ReviewSection({required this.section, required this.submitted});
+  const _ReviewSection({
+    required this.section,
+    required this.submitted,
+    required this.numbers,
+    required this.keyFor,
+  });
   final ExamQuestionsSection section;
   final bool submitted;
+  final Map<int, int> numbers;
+  final GlobalKey Function(int questionId) keyFor;
   @override
   Widget build(BuildContext context) => Container(
     constraints: const BoxConstraints(maxWidth: 920),
@@ -229,8 +282,12 @@ class _ReviewSection extends StatelessWidget {
                 child: ExamAudioPlayer(url: group.audioUrl!),
               ),
             ...group.questions.map(
-              (question) =>
-                  _ReviewQuestion(question: question, submitted: submitted),
+              (question) => _ReviewQuestion(
+                key: keyFor(question.id),
+                question: question,
+                number: numbers[question.id] ?? question.order,
+                submitted: submitted,
+              ),
             ),
             if (group.transcript.isNotEmpty)
               _Explanation(title: 'Transcript', value: group.transcript),
@@ -242,8 +299,12 @@ class _ReviewSection extends StatelessWidget {
           ],
         ),
         ...section.questions.map(
-          (question) =>
-              _ReviewQuestion(question: question, submitted: submitted),
+          (question) => _ReviewQuestion(
+            key: keyFor(question.id),
+            question: question,
+            number: numbers[question.id] ?? question.order,
+            submitted: submitted,
+          ),
         ),
       ],
     ),
@@ -251,8 +312,14 @@ class _ReviewSection extends StatelessWidget {
 }
 
 class _ReviewQuestion extends StatelessWidget {
-  const _ReviewQuestion({required this.question, required this.submitted});
+  const _ReviewQuestion({
+    super.key,
+    required this.question,
+    required this.number,
+    required this.submitted,
+  });
   final ExamQuestion question;
+  final int number;
   final bool submitted;
   @override
   Widget build(BuildContext context) => Container(
@@ -268,24 +335,12 @@ class _ReviewQuestion extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${question.order}. ${question.content.isEmpty ? 'Choose the correct answer.' : question.content}',
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  if (question.excludedFromScore)
-                    const Padding(
-                      padding: EdgeInsets.only(top: 4),
-                      child: Text(
-                        'Not included in score',
-                        style: TextStyle(color: ColorName.gray2, fontSize: 12),
-                      ),
-                    ),
-                ],
+              child: Text(
+                '$number. ${question.content.isEmpty ? 'Choose the correct answer.' : question.content}',
+                style: const TextStyle(fontWeight: FontWeight.w700),
               ),
             ),
+            if (question.excludedFromScore) const NotScoredBadge(),
             if (submitted && question.isCorrect != null)
               Icon(
                 question.isCorrect!

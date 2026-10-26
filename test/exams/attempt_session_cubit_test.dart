@@ -120,6 +120,10 @@ class _FakeSocket implements AttemptSocketGateway {
     return id;
   }
 
+  @override
+  String sendListeningAdvance({required int attemptId, required int page}) =>
+      throw UnimplementedError();
+
   void ack(String requestId) => eventController.add(
     AttemptSocketEvent(requestId: requestId, success: true),
   );

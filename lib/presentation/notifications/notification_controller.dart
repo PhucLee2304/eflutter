@@ -40,6 +40,21 @@ class NotificationController extends ChangeNotifier {
     await loadMore();
   }
 
+  /// Dùng cho làm mới định kỳ: chỉ tải lại danh sách khi số chưa đọc đổi,
+  /// để không đẩy người đang cuộn danh sách về trang đầu.
+  Future<void> refreshIfChanged() async {
+    if (_loading) return;
+    try {
+      final result = await _repository.getNotifications(
+        page: 1,
+        read: _readFilter,
+      );
+      if (result.unreadCount != _unreadCount) await refresh();
+    } catch (_) {
+      // Lần làm mới sau sẽ thử lại.
+    }
+  }
+
   Future<void> setFilter(NotificationFilter value) async {
     if (_filter == value) return;
     _filter = value;

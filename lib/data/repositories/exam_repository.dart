@@ -1,5 +1,6 @@
 import 'package:eflutter/core/base/remote_data_base.dart';
 import 'package:eflutter/core/base/result.dart';
+import 'package:eflutter/data/models/attempt_page.dart';
 import 'package:eflutter/data/models/exam_attempt.dart';
 import 'package:eflutter/data/models/exam_attempt_page.dart';
 import 'package:eflutter/data/models/exam_detail.dart';
@@ -48,4 +49,10 @@ class ExamRepository {
 
   Future<Result<ExamAttempt>> getAttemptHistory(int attemptId) =>
       _remoteData.getAttemptHistory(attemptId).safeResult();
+
+  Future<Result<AttemptNavigator>> getAttemptNavigator(int attemptId) =>
+      _remoteData.getAttemptNavigator(attemptId).safeResult();
+
+  Future<Result<AttemptPage>> getAttemptPage(int attemptId, int index) =>
+      _remoteData.getAttemptPage(attemptId, index).safeResult();
 }

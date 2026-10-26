@@ -83,6 +83,9 @@ class ExamQuestion {
   final int id;
   final String content;
   final String? part;
+
+  /// Số câu gốc của đề (TOEIC 1–200); null với đề không đánh số hoặc snapshot cũ.
+  final int? number;
   final String explanation;
   final int order;
   final bool excludedFromScore;
@@ -95,6 +98,7 @@ class ExamQuestion {
     required this.id,
     required this.content,
     required this.part,
+    this.number,
     required this.explanation,
     required this.order,
     required this.excludedFromScore,
@@ -110,6 +114,7 @@ class ExamQuestion {
       id: (json['id'] as num).toInt(),
       content: json['content'] as String? ?? '',
       part: json['part'] as String?,
+      number: (json['number'] as num?)?.toInt(),
       explanation: json['explanation'] as String? ?? '',
       order: (json['order'] as num?)?.toInt() ?? 0,
       excludedFromScore:

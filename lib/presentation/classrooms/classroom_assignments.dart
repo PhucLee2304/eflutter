@@ -777,6 +777,7 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
                       key: ObjectKey(questions[index]),
                       index: index,
                       draft: questions[index],
+                      showScoreExclusion: true,
                       canRemove: questions.length > 1,
                       onRemove: () => setState(() {
                         final removed = questions.removeAt(index);
@@ -972,6 +973,7 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
                                 .map((option) => option.text.trim())
                                 .toList(),
                             correctOptionIndex: question.correctOptionIndex,
+                            excludedFromScore: question.excludedFromScore,
                           ),
                         )
                         .toList(),

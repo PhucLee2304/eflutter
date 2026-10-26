@@ -7,6 +7,7 @@ import 'package:eflutter/data/repositories/exam_repository.dart';
 import 'package:eflutter/generated/colors.gen.dart';
 import 'package:eflutter/presentation/exams/cubit/exam_detail_cubit.dart';
 import 'package:eflutter/presentation/app/navigation/app_routes.dart';
+import 'package:eflutter/presentation/exams/attempt/question_palette.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -100,6 +101,8 @@ class _ExamDetailBody extends StatelessWidget {
                 _SectionOverview(sections: exam.sections),
                 const SizedBox(height: 16),
                 _PartOverview(parts: exam.parts),
+                const SizedBox(height: 16),
+                const _ToeicTestNote(),
               ],
             ],
           ),
@@ -700,13 +703,37 @@ class _PartOverview extends StatelessWidget {
           .map(
             (part) => _OverviewRow(
               icon: SolarIconsOutline.book,
-              title: part.part,
+              title: partLabel(part.part) ?? part.part,
               subtitle: '${part.sectionCode} · ${part.questionCount} questions',
             ),
           )
           .toList(),
     );
   }
+}
+
+/// Thể thức thi theo trang của TOEIC (PLAN_TOEIC_ATTEMPT.md T9).
+class _ToeicTestNote extends StatelessWidget {
+  const _ToeicTestNote();
+
+  @override
+  Widget build(BuildContext context) => _OverviewBlock(
+    title: 'How the test works',
+    children: [
+      _OverviewRow(
+        icon: SolarIconsOutline.headphonesRound,
+        title: 'Listening plays automatically',
+        subtitle:
+            'Audio cannot be paused or replayed. Each page moves on by itself, '
+            'and answers on past pages are locked.',
+      ),
+      _OverviewRow(
+        icon: SolarIconsOutline.book,
+        title: 'Reading opens after listening',
+        subtitle: 'Move freely between reading questions until you submit.',
+      ),
+    ],
+  );
 }
 
 class _OverviewBlock extends StatelessWidget {

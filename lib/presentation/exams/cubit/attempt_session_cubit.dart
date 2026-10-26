@@ -7,7 +7,8 @@ import 'package:eflutter/data/models/exam_questions.dart';
 import 'package:eflutter/data/repositories/exam_repository.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-enum AnswerSyncStatus { pending, synced, failed }
+/// [rejected]: server từ chối vĩnh viễn (QUESTION_LOCKED), không gửi lại.
+enum AnswerSyncStatus { pending, synced, failed, rejected }
 
 class AttemptSessionState {
   final ExamAttempt? attempt;
@@ -100,8 +101,11 @@ class AttemptSessionCubit extends Cubit<AttemptSessionState> {
 
   Future<void> load(int attemptId, {ExamAttempt? initialAttempt}) async {
     emit(state.copyWith(isLoading: initialAttempt == null, failure: null));
+    // Flow TOEIC_STRICT không có `GET /questions` (409): đáp án nạp dần theo trang
+    // qua mergeAnswers.
     final attempt =
-        initialAttempt != null && initialAttempt.questions.isNotEmpty
+        initialAttempt != null &&
+            (initialAttempt.questions.isNotEmpty || initialAttempt.isStrict)
         ? initialAttempt
         : (await _repository.getAttemptQuestions(attemptId)).dataOrNull;
     if (attempt == null) {
@@ -131,6 +135,23 @@ class AttemptSessionCubit extends Cubit<AttemptSessionState> {
         selectedOptions: answers,
         isLoading: false,
         isLocked: attempt.status.toUpperCase() != 'ACTIVE',
+      ),
+    );
+  }
+
+  /// Nạp đáp án đã lưu của một trang (flow strict). Câu đã có trong state giữ giá trị
+  /// local vì có thể vừa chọn mà chưa kịp đồng bộ.
+  void mergeAnswers(Map<int, int?> answers) {
+    final missing = answers.entries.where(
+      (e) => !state.selectedOptions.containsKey(e.key),
+    );
+    if (missing.isEmpty) return;
+    emit(
+      state.copyWith(
+        selectedOptions: {
+          ...state.selectedOptions,
+          ...Map.fromEntries(missing),
+        },
       ),
     );
   }
@@ -275,9 +296,12 @@ class AttemptSessionCubit extends Cubit<AttemptSessionState> {
     final statuses = Map<int, AnswerSyncStatus>.from(state.syncStatuses)
       ..[questionId] = event.success
           ? AnswerSyncStatus.synced
+          : event.code == AttemptSocketCode.questionLocked
+          ? AnswerSyncStatus.rejected
           : AnswerSyncStatus.failed;
     final terminal =
-        event.code == 'ATTEMPT_EXPIRED' || event.code == 'ATTEMPT_NOT_ACTIVE';
+        event.code == AttemptSocketCode.attemptExpired ||
+        event.code == AttemptSocketCode.attemptNotActive;
     emit(
       state.copyWith(
         syncStatuses: statuses,
@@ -285,7 +309,9 @@ class AttemptSessionCubit extends Cubit<AttemptSessionState> {
         socketMessage: event.success ? null : event.message ?? event.code,
       ),
     );
-    if (event.code == 'ATTEMPT_EXPIRED') _waitForBackendSubmission();
+    if (event.code == AttemptSocketCode.attemptExpired) {
+      _waitForBackendSubmission();
+    }
   }
 
   void _handleSocketStatus(AttemptSocketStatus status) {
@@ -293,7 +319,10 @@ class AttemptSessionCubit extends Cubit<AttemptSessionState> {
     if (status == AttemptSocketStatus.connected) {
       _reconnectTimer?.cancel();
       for (final entry in state.syncStatuses.entries) {
-        if (entry.value != AnswerSyncStatus.synced) _sendLatest(entry.key);
+        if (entry.value == AnswerSyncStatus.pending ||
+            entry.value == AnswerSyncStatus.failed) {
+          _sendLatest(entry.key);
+        }
       }
     } else if (status == AttemptSocketStatus.disconnected) {
       _scheduleReconnect();
