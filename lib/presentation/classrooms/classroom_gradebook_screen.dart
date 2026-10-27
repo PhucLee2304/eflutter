@@ -5,12 +5,17 @@ import 'package:eflutter/core/base/local_data_base.dart';
 import 'package:eflutter/core/base/result.dart';
 import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/data/data_sources/gradebook_socket_client.dart';
+import 'package:eflutter/data/models/attempt_integrity.dart';
 import 'package:eflutter/data/models/classroom.dart';
 import 'package:eflutter/data/repositories/classroom_repository.dart';
 import 'package:eflutter/presentation/app/navigation/app_routes.dart';
+import 'package:eflutter/presentation/classrooms/integrity_log_dialog.dart';
+import 'package:eflutter/presentation/classrooms/integrity_violation_panel.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+
+part 'classroom_gradebook_integrity.dart';
 
 class ClassroomGradebookScreen extends StatefulWidget {
   const ClassroomGradebookScreen({
@@ -31,12 +36,15 @@ class ClassroomGradebookScreen extends StatefulWidget {
       _ClassroomGradebookScreenState();
 }
 
-class _ClassroomGradebookScreenState extends State<ClassroomGradebookScreen> {
+class _ClassroomGradebookScreenState extends State<ClassroomGradebookScreen>
+    with _GradebookIntegrity {
+  @override
   late final ClassroomRepository repository;
   late final GradebookSocketGateway socket;
   StreamSubscription<GradebookSocketEvent>? eventSubscription;
   StreamSubscription<GradebookSocketStatus>? statusSubscription;
   Timer? refreshDebounce;
+  @override
   ClassroomAssignment? assignment;
   AssignmentAnalytics? analytics;
   String? error;
@@ -51,6 +59,10 @@ class _ClassroomGradebookScreenState extends State<ClassroomGradebookScreen> {
     eventSubscription = socket.events.listen(handleSocketEvent);
     statusSubscription = socket.statuses.listen((status) {
       if (mounted) setState(() => socketStatus = status);
+      // Nối lại: có thể đã lỡ push, tải lại cả vi phạm chờ xử lý.
+      if (status == GradebookSocketStatus.connected && assignment != null) {
+        load(showLoading: false);
+      }
     });
     load();
     socket.connect().catchError((_) {});
@@ -61,6 +73,7 @@ class _ClassroomGradebookScreenState extends State<ClassroomGradebookScreen> {
         event.assignmentId != widget.assignmentId) {
       return;
     }
+    if (event.integrity case final update?) applyIntegrityUpdate(update);
     refreshDebounce?.cancel();
     refreshDebounce = Timer(
       const Duration(milliseconds: 250),
@@ -68,6 +81,7 @@ class _ClassroomGradebookScreenState extends State<ClassroomGradebookScreen> {
     );
   }
 
+  @override
   Future<void> load({bool showLoading = true}) async {
     if (showLoading) {
       setState(() {
@@ -93,6 +107,7 @@ class _ClassroomGradebookScreenState extends State<ClassroomGradebookScreen> {
           }
           loading = false;
         });
+        await loadPendingViolations();
       case Failure(message: final message):
         setState(() {
           error = message ?? 'Could not load the gradebook';
@@ -225,6 +240,9 @@ class _ClassroomGradebookScreenState extends State<ClassroomGradebookScreen> {
             analytics: analytics,
             onRefresh: load,
             onResetAttempt: resetAttempt,
+            integrityPanel: integrityPanel(),
+            awayStudents: awayStudents,
+            onOpenIntegrity: openIntegrityLog,
           ),
   );
 }
@@ -238,12 +256,20 @@ class GradebookView extends StatefulWidget {
     this.analytics,
     this.onRefresh,
     this.onResetAttempt,
+    this.integrityPanel,
+    this.awayStudents = const {},
+    this.onOpenIntegrity,
   });
 
   final ClassroomAssignment assignment;
   final AssignmentAnalytics? analytics;
   final Future<void> Function()? onRefresh;
   final ValueChanged<AssignmentSubmission>? onResetAttempt;
+
+  /// Giám sát: panel vi phạm chờ xử lý, học sinh đang rời màn, mở log.
+  final Widget? integrityPanel;
+  final Set<String> awayStudents;
+  final ValueChanged<AssignmentSubmission>? onOpenIntegrity;
 
   @override
   State<GradebookView> createState() => _GradebookViewState();
@@ -302,6 +328,15 @@ class _GradebookViewState extends State<GradebookView> {
         ? null
         : scores.reduce((left, right) => left + right) / scores.length;
     final visible = visibleSubmissions;
+    Widget integrityCell(AssignmentSubmission submission) =>
+        IntegrityStatusCell(
+          submission: submission,
+          maxViolations: widget.assignment.maxViolations,
+          away: widget.awayStudents.contains(submission.student?.id),
+          onTap: widget.onOpenIntegrity == null || submission.attemptId == 0
+              ? null
+              : () => widget.onOpenIntegrity!(submission),
+        );
 
     final content = ListView(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
@@ -385,6 +420,10 @@ class _GradebookViewState extends State<GradebookView> {
                   ],
                 ),
                 const Divider(height: 32),
+                if (widget.integrityPanel case final panel?) ...[
+                  panel,
+                  const SizedBox(height: 16),
+                ],
                 _GradebookToolbar(
                   status: status,
                   sort: sort,
@@ -405,10 +444,12 @@ class _GradebookViewState extends State<GradebookView> {
                         ? _GradebookList(
                             submissions: visible,
                             onResetAttempt: widget.onResetAttempt,
+                            integrity: integrityCell,
                           )
                         : _GradebookTable(
                             submissions: visible,
                             onResetAttempt: widget.onResetAttempt,
+                            integrity: integrityCell,
                           ),
                   ),
               ],
@@ -506,21 +547,29 @@ class _GradebookToolbar extends StatelessWidget {
 }
 
 class _GradebookTable extends StatelessWidget {
-  const _GradebookTable({required this.submissions, this.onResetAttempt});
+  const _GradebookTable({
+    required this.submissions,
+    this.onResetAttempt,
+    required this.integrity,
+  });
   final List<AssignmentSubmission> submissions;
   final ValueChanged<AssignmentSubmission>? onResetAttempt;
+  final Widget Function(AssignmentSubmission) integrity;
+
+  bool get _proctored => submissions.any((item) => item.proctored);
 
   @override
   Widget build(BuildContext context) => SingleChildScrollView(
     scrollDirection: Axis.horizontal,
     child: DataTable(
-      columns: const [
-        DataColumn(label: Text('Student')),
-        DataColumn(label: Text('Email')),
-        DataColumn(label: Text('Status')),
-        DataColumn(label: Text('Score'), numeric: true),
-        DataColumn(label: Text('Sync')),
-        DataColumn(label: Text('Actions')),
+      columns: [
+        const DataColumn(label: Text('Student')),
+        const DataColumn(label: Text('Email')),
+        const DataColumn(label: Text('Status')),
+        if (_proctored) const DataColumn(label: Text('Violations')),
+        const DataColumn(label: Text('Score'), numeric: true),
+        const DataColumn(label: Text('Sync')),
+        const DataColumn(label: Text('Actions')),
       ],
       rows: submissions
           .map(
@@ -529,6 +578,7 @@ class _GradebookTable extends StatelessWidget {
                 DataCell(Text(submission.student?.name ?? 'Unavailable')),
                 DataCell(Text(submission.student?.email ?? '')),
                 DataCell(Text(_statusLabel(submission.status))),
+                if (_proctored) DataCell(integrity(submission)),
                 DataCell(Text(_scoreLabel(submission.score))),
                 DataCell(Text(_statusLabel(submission.syncStatus))),
                 DataCell(
@@ -550,9 +600,14 @@ class _GradebookTable extends StatelessWidget {
 }
 
 class _GradebookList extends StatelessWidget {
-  const _GradebookList({required this.submissions, this.onResetAttempt});
+  const _GradebookList({
+    required this.submissions,
+    this.onResetAttempt,
+    required this.integrity,
+  });
   final List<AssignmentSubmission> submissions;
   final ValueChanged<AssignmentSubmission>? onResetAttempt;
+  final Widget Function(AssignmentSubmission) integrity;
 
   @override
   Widget build(BuildContext context) => Column(
@@ -561,8 +616,14 @@ class _GradebookList extends StatelessWidget {
           (submission) => ListTile(
             contentPadding: EdgeInsets.zero,
             title: Text(submission.student?.name ?? 'Unavailable'),
-            subtitle: Text(
-              '${submission.student?.email ?? ''}\n${_statusLabel(submission.status)}',
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${submission.student?.email ?? ''}\n${_statusLabel(submission.status)}',
+                ),
+                if (submission.proctored) integrity(submission),
+              ],
             ),
             isThreeLine: true,
             trailing: Row(

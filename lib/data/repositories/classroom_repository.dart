@@ -1,3 +1,4 @@
+import 'package:eflutter/data/models/attempt_integrity.dart';
 import 'package:dio/dio.dart';
 import 'package:eflutter/core/base/result.dart';
 import 'package:eflutter/data/models/classroom.dart';
@@ -182,6 +183,96 @@ class ClassroomRepository {
       .delete<void>(
         '$_base/$classroomId/assignments/$assignmentId/students/'
         '${Uri.encodeComponent(studentId)}/attempt',
+      )
+      .then((_) {})
+      .safeResult();
+
+  // Giám sát (PLAN_ATTEMPT_INTEGRITY.md mục 1.9).
+
+  Future<Result<IntegrityEventPage>> getIntegrityEvents({
+    required int classroomId,
+    required int assignmentId,
+    String? studentId,
+    bool pending = false,
+    String? level,
+    int page = 1,
+    int pageSize = 100,
+  }) => _dio
+      .get(
+        '$_base/$classroomId/assignments/$assignmentId/integrity-events',
+        queryParameters: {
+          'studentId': ?studentId,
+          if (pending) 'pending': true,
+          'level': ?level,
+          'page': page,
+          'pageSize': pageSize,
+        },
+      )
+      .then(
+        (response) =>
+            IntegrityEventPage.fromJson(response.data as Map<String, dynamic>),
+      )
+      .safeResult();
+
+  Future<Result<void>> reviewIntegrityEvent({
+    required int classroomId,
+    required int assignmentId,
+    required String eventId,
+    required String action,
+  }) => _dio
+      .post<void>(
+        '$_base/$classroomId/assignments/$assignmentId/integrity-events/'
+        '${Uri.encodeComponent(eventId)}/review',
+        data: {'action': action},
+      )
+      .then((_) {})
+      .safeResult();
+
+  Future<Result<void>> banAttempt({
+    required int classroomId,
+    required int assignmentId,
+    required String studentId,
+    String? note,
+  }) => _studentAttemptAction(classroomId, assignmentId, studentId, 'ban', {
+    'note': ?note,
+  });
+
+  Future<Result<void>> releaseAttemptSession({
+    required int classroomId,
+    required int assignmentId,
+    required String studentId,
+  }) => _studentAttemptAction(
+    classroomId,
+    assignmentId,
+    studentId,
+    'release-session',
+    const {},
+  );
+
+  Future<Result<void>> reinstateAttempt({
+    required int classroomId,
+    required int assignmentId,
+    required String studentId,
+    required String note,
+  }) => _studentAttemptAction(
+    classroomId,
+    assignmentId,
+    studentId,
+    'reinstate',
+    {'note': note.trim()},
+  );
+
+  Future<Result<void>> _studentAttemptAction(
+    int classroomId,
+    int assignmentId,
+    String studentId,
+    String action,
+    Map<String, dynamic> body,
+  ) => _dio
+      .post<void>(
+        '$_base/$classroomId/assignments/$assignmentId/students/'
+        '${Uri.encodeComponent(studentId)}/attempt/$action',
+        data: body,
       )
       .then((_) {})
       .safeResult();
@@ -485,16 +576,7 @@ class ClassroomRepository {
                 },
               )
               .toList(),
-          'schedules': schedules
-              .map(
-                (schedule) => {
-                  'classroomId': schedule.classroomId,
-                  'duration': schedule.duration,
-                  'opensAt': schedule.opensAt.toUtc().toIso8601String(),
-                  'dueAt': schedule.dueAt.toUtc().toIso8601String(),
-                },
-              )
-              .toList(),
+          'schedules': schedules.map((schedule) => schedule.toJson()).toList(),
         },
       )
       .then(
@@ -561,16 +643,7 @@ class ClassroomRepository {
       .post(
         '$_base/$classroomId/assignments/$assignmentId/classrooms',
         data: {
-          'schedules': schedules
-              .map(
-                (schedule) => {
-                  'classroomId': schedule.classroomId,
-                  'duration': schedule.duration,
-                  'opensAt': schedule.opensAt.toUtc().toIso8601String(),
-                  'dueAt': schedule.dueAt.toUtc().toIso8601String(),
-                },
-              )
-              .toList(),
+          'schedules': schedules.map((schedule) => schedule.toJson()).toList(),
         },
       )
       .then(
@@ -585,6 +658,8 @@ class ClassroomRepository {
     required int duration,
     required DateTime opensAt,
     required DateTime dueAt,
+    bool? proctored,
+    int? maxViolations,
     bool confirm = false,
   }) => _dio
       .patch(
@@ -593,6 +668,8 @@ class ClassroomRepository {
           'duration': duration,
           'opensAt': opensAt.toUtc().toIso8601String(),
           'dueAt': dueAt.toUtc().toIso8601String(),
+          'proctored': ?proctored,
+          'maxViolations': ?maxViolations,
           'confirm': confirm,
         },
       )

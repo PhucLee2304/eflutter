@@ -61,7 +61,7 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i264.LocalData(gh<_i460.SharedPreferencesAsync>()),
     );
     gh.lazySingleton<_i649.AttemptIntegrityReporter>(
-      () => _i649.LogAttemptIntegrityReporter(gh<_i207.Talker>()),
+      () => _i649.SocketAttemptIntegrityReporter(gh<_i207.Talker>()),
     );
     gh.lazySingleton<_i361.Dio>(
       () => registerModule.dio(gh<_i393.AuthInterceptor>()),

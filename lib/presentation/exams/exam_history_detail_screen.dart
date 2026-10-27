@@ -185,6 +185,12 @@ class _ReviewHeader extends StatelessWidget {
             ),
           ],
         ),
+        if (attempt.proctored &&
+            attempt.integrityOutcome != null &&
+            attempt.integrityOutcome != IntegrityOutcome.none) ...[
+          const SizedBox(height: 8),
+          _IntegrityBanner(attempt: attempt),
+        ],
         if (attempt.status == 'SUBMITTED') ...[
           const SizedBox(height: 8),
           Row(
@@ -396,4 +402,48 @@ class _Explanation extends StatelessWidget {
       style: const TextStyle(color: ColorName.labelSecondary),
     ),
   );
+}
+
+/// Kết quả giám sát (PLAN_ATTEMPT_INTEGRITY.md mục 1.2): bị đình chỉ hoặc đã được
+/// giáo viên khôi phục.
+class _IntegrityBanner extends StatelessWidget {
+  const _IntegrityBanner({required this.attempt});
+  final ExamAttempt attempt;
+
+  @override
+  Widget build(BuildContext context) {
+    final terminated = attempt.isTerminated;
+    final color = terminated ? ColorName.red : ColorName.green;
+    final violations = attempt.maxViolations == null
+        ? ''
+        : ' Violations: ${attempt.violationCount ?? 0}/${attempt.maxViolations}.';
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            terminated
+                ? SolarIconsOutline.forbiddenCircle
+                : SolarIconsOutline.shieldCheck,
+            color: color,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              terminated
+                  ? '${attempt.terminationReason == 'TEACHER_BANNED' ? 'Suspended by your teacher' : 'Suspended for going over the allowed violations'}: '
+                        'the score is 0.$violations'
+                  : 'The result was reinstated by your teacher after a suspension.$violations',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

@@ -8,6 +8,9 @@ class CreateExamAttemptRequest {
   final String contextType;
   final int? contextId;
 
+  /// Phiên bản quy chế đã đồng ý; bắt buộc với bài có giám sát.
+  final String? integrityConsentVersion;
+
   const CreateExamAttemptRequest({
     this.mode,
     this.section,
@@ -15,6 +18,7 @@ class CreateExamAttemptRequest {
     this.duration,
     this.contextType = 'STANDALONE',
     this.contextId,
+    this.integrityConsentVersion,
   });
 
   Map<String, dynamic> toJson() {
@@ -25,6 +29,8 @@ class CreateExamAttemptRequest {
       if (parts.isNotEmpty) 'parts': parts,
       if (duration != null) 'duration': duration,
       if (contextId != null) 'contextId': contextId,
+      if (integrityConsentVersion != null)
+        'integrityConsent': {'version': integrityConsentVersion},
     };
   }
 }
@@ -42,6 +48,13 @@ class SubmitAttemptAnswer {
     'questionId': questionId,
     'selectedOptionId': selectedOptionId,
   };
+}
+
+/// Kết quả giám sát của attempt (PLAN_ATTEMPT_INTEGRITY.md mục 1.2).
+abstract final class IntegrityOutcome {
+  static const none = 'NONE';
+  static const terminated = 'TERMINATED';
+  static const reinstated = 'REINSTATED';
 }
 
 /// Luồng làm bài do server chốt lúc tạo attempt (PLAN_TOEIC_ATTEMPT.md mục 1.1).
@@ -78,6 +91,15 @@ class ExamAttempt {
   final DateTime? updatedAt;
   final List<ExamQuestionsSection> questions;
 
+  // Giám sát: chỉ có giá trị khi proctored.
+  final bool proctored;
+  final int? maxViolations;
+  final int? violationCount;
+  final String? integrityOutcome;
+  final String? terminationReason;
+
+  bool get isTerminated => integrityOutcome == IntegrityOutcome.terminated;
+
   /// Bài giao trong lớp: không hủy được, chỉ nộp.
   bool get isAssignment => mode == 'ASSIGNMENT';
 
@@ -102,6 +124,11 @@ class ExamAttempt {
     required this.createdAt,
     required this.updatedAt,
     required this.questions,
+    this.proctored = false,
+    this.maxViolations,
+    this.violationCount,
+    this.integrityOutcome,
+    this.terminationReason,
   });
 
   factory ExamAttempt.fromJson(Map<String, dynamic> json) {
@@ -140,6 +167,11 @@ class ExamAttempt {
                 ExamQuestionsSection.fromJson(item as Map<String, dynamic>),
           )
           .toList(),
+      proctored: json['proctored'] as bool? ?? false,
+      maxViolations: (json['maxViolations'] as num?)?.toInt(),
+      violationCount: (json['violationCount'] as num?)?.toInt(),
+      integrityOutcome: json['integrityOutcome'] as String?,
+      terminationReason: json['terminationReason'] as String?,
     );
   }
 

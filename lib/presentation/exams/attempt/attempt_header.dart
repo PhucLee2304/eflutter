@@ -1,5 +1,6 @@
 import 'package:eflutter/data/data_sources/attempt_socket_client.dart';
 import 'package:eflutter/generated/colors.gen.dart';
+import 'package:eflutter/presentation/exams/attempt/integrity_overlays.dart';
 import 'package:eflutter/presentation/exams/cubit/attempt_session_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:solar_icons/solar_icons.dart';
@@ -79,6 +80,10 @@ class AttemptHeader extends StatelessWidget {
           Row(
             children: [
               AttemptTimerBadge(remaining: state.remaining),
+              if (state.integrity case final integrity?) ...[
+                const SizedBox(width: 8),
+                Flexible(child: IntegrityBadge(integrity: integrity)),
+              ],
               const Spacer(),
               if (onOpenPalette != null) ...[
                 IconButton.outlined(

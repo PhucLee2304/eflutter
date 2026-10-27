@@ -182,6 +182,9 @@ class _FakeReporter implements AttemptIntegrityReporter {
 
   @override
   void report(AttemptIntegrityEvent event) => events.add(event);
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => null;
 }
 
 class _FakeLeaveGuard implements LeaveGuard {

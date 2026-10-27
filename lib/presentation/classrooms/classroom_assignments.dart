@@ -1,4 +1,6 @@
+import 'package:eflutter/generated/colors.gen.dart';
 import 'package:eflutter/data/models/classroom.dart';
+import 'package:eflutter/presentation/classrooms/proctoring_fields.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -306,6 +308,23 @@ class _AssignmentTile extends StatelessWidget {
                 'Time limit: ${assignment.duration} minutes',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
+              if (assignment.proctored) ...[
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.shield_outlined,
+                      size: 16,
+                      color: ColorName.primary,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Proctored · ${assignment.maxViolations} violations allowed',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ],
               if (!isTeacher && submission?.score != null) ...[
                 const SizedBox(height: 4),
                 Text('Score: ${submission!.score!.toStringAsFixed(2)}/10'),
@@ -392,11 +411,15 @@ Future<AssignmentScheduleInput?> showAssignmentScheduleDialog(
   required int duration,
   required DateTime opensAt,
   required DateTime dueAt,
+  bool proctored = false,
+  int maxViolations = 2,
   String title = 'Edit schedule',
 }) async {
   var selectedDuration = duration;
   var selectedOpensAt = opensAt;
   var selectedDueAt = dueAt;
+  var selectedProctored = proctored;
+  var selectedMaxViolations = maxViolations;
   final formKey = GlobalKey<FormState>();
 
   return showDialog<AssignmentScheduleInput>(
@@ -429,50 +452,60 @@ Future<AssignmentScheduleInput?> showAssignmentScheduleDialog(
           title: Text(title),
           content: Form(
             key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  initialValue: '$duration',
-                  decoration: const InputDecoration(
-                    labelText: 'Time limit (minutes)',
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    initialValue: '$duration',
+                    decoration: const InputDecoration(
+                      labelText: 'Time limit (minutes)',
+                    ),
+                    keyboardType: TextInputType.number,
+                    onChanged: (value) =>
+                        selectedDuration = int.tryParse(value) ?? 0,
+                    validator: (value) {
+                      final parsed = int.tryParse(value ?? '');
+                      return parsed == null || parsed < 1 || parsed > 1440
+                          ? 'Enter a value from 1 to 1440'
+                          : null;
+                    },
                   ),
-                  keyboardType: TextInputType.number,
-                  onChanged: (value) =>
-                      selectedDuration = int.tryParse(value) ?? 0,
-                  validator: (value) {
-                    final parsed = int.tryParse(value ?? '');
-                    return parsed == null || parsed < 1 || parsed > 1440
-                        ? 'Enter a value from 1 to 1440'
-                        : null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.play_circle_outline),
-                  title: const Text('Opens'),
-                  subtitle: Text(_formatDateTime(selectedOpensAt)),
-                  onTap: () async {
-                    final value = await pick(selectedOpensAt);
-                    if (value != null) {
-                      setDialogState(() => selectedOpensAt = value);
-                    }
-                  },
-                ),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.event_outlined),
-                  title: const Text('Due'),
-                  subtitle: Text(_formatDateTime(selectedDueAt)),
-                  onTap: () async {
-                    final value = await pick(selectedDueAt);
-                    if (value != null) {
-                      setDialogState(() => selectedDueAt = value);
-                    }
-                  },
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.play_circle_outline),
+                    title: const Text('Opens'),
+                    subtitle: Text(_formatDateTime(selectedOpensAt)),
+                    onTap: () async {
+                      final value = await pick(selectedOpensAt);
+                      if (value != null) {
+                        setDialogState(() => selectedOpensAt = value);
+                      }
+                    },
+                  ),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.event_outlined),
+                    title: const Text('Due'),
+                    subtitle: Text(_formatDateTime(selectedDueAt)),
+                    onTap: () async {
+                      final value = await pick(selectedDueAt);
+                      if (value != null) {
+                        setDialogState(() => selectedDueAt = value);
+                      }
+                    },
+                  ),
+                  ProctoringFields(
+                    proctored: selectedProctored,
+                    maxViolations: selectedMaxViolations,
+                    onProctoredChanged: (value) =>
+                        setDialogState(() => selectedProctored = value),
+                    onMaxViolationsChanged: (value) =>
+                        selectedMaxViolations = value,
+                  ),
+                ],
+              ),
             ),
           ),
           actions: [
@@ -495,6 +528,8 @@ Future<AssignmentScheduleInput?> showAssignmentScheduleDialog(
                     duration: selectedDuration,
                     opensAt: selectedOpensAt,
                     dueAt: selectedDueAt,
+                    proctored: selectedProctored,
+                    maxViolations: selectedMaxViolations,
                   ),
                 );
               },
@@ -890,6 +925,15 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
                                       ),
                                     ],
                                   ),
+                                  ProctoringFields(
+                                    proctored: schedule.proctored,
+                                    maxViolations: schedule.maxViolations,
+                                    onProctoredChanged: (value) => setState(
+                                      () => schedule.proctored = value,
+                                    ),
+                                    onMaxViolationsChanged: (value) =>
+                                        schedule.maxViolations = value,
+                                  ),
                                 ],
                               ),
                             ),
@@ -959,6 +1003,8 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
                             duration: entry.value.duration,
                             opensAt: entry.value.opensAt,
                             dueAt: entry.value.dueAt,
+                            proctored: entry.value.proctored,
+                            maxViolations: entry.value.maxViolations,
                           ),
                         )
                         .toList(),
@@ -998,6 +1044,8 @@ class _ScheduleDraft {
   int duration;
   DateTime opensAt;
   DateTime dueAt;
+  bool proctored = false;
+  int maxViolations = 2;
 }
 
 class _QuestionDraft {

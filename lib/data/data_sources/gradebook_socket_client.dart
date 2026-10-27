@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:eflutter/app/config/app_config.dart';
 import 'package:eflutter/core/base/local_data_base.dart';
 import 'package:eflutter/data/data_sources/attempt_socket_connector.dart';
+import 'package:eflutter/data/models/attempt_integrity.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 enum GradebookSocketStatus { disconnected, connecting, connected }
@@ -12,10 +13,14 @@ class GradebookSocketEvent {
   const GradebookSocketEvent({
     required this.classroomId,
     required this.assignmentId,
+    this.integrity,
   });
 
   final int classroomId;
   final int assignmentId;
+
+  /// Có khi là ATTEMPT_INTEGRITY_UPDATED (giám sát); null là GRADEBOOK_UPDATED.
+  final IntegrityUpdate? integrity;
 }
 
 abstract interface class GradebookSocketGateway {
@@ -83,12 +88,18 @@ class GradebookSocketClient implements GradebookSocketGateway {
   void _handleMessage(dynamic raw) {
     try {
       final data = jsonDecode(raw as String) as Map<String, dynamic>;
-      if (data['type'] != 'GRADEBOOK_UPDATED') return;
+      final type = data['type'];
+      if (type != 'GRADEBOOK_UPDATED' && type != 'ATTEMPT_INTEGRITY_UPDATED') {
+        return;
+      }
       final payload = data['payload'] as Map<String, dynamic>;
       _events.add(
         GradebookSocketEvent(
           classroomId: (payload['classroomId'] as num).toInt(),
           assignmentId: (payload['assignmentId'] as num).toInt(),
+          integrity: type == 'ATTEMPT_INTEGRITY_UPDATED'
+              ? IntegrityUpdate.fromJson(payload)
+              : null,
         ),
       );
     } catch (_) {

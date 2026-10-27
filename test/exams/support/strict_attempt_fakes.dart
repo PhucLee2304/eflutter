@@ -162,6 +162,9 @@ class FakeStrictSocket implements AttemptSocketGateway {
     return id;
   }
 
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+
   void reply(String requestId, {String? code, Map<String, dynamic>? payload}) =>
       eventController.add(
         AttemptSocketEvent(

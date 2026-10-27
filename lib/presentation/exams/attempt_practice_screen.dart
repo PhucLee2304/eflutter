@@ -1,3 +1,4 @@
+import 'package:eflutter/core/attempt_lock/attempt_integrity_reporter.dart';
 import 'package:eflutter/core/base/local_data_base.dart';
 import 'package:eflutter/core/base/remote_data_base.dart';
 import 'package:eflutter/core/di/injection.dart';
@@ -41,6 +42,7 @@ class _AttemptPracticeScreenState extends State<AttemptPracticeScreen> {
     _cubit = AttemptSessionCubit(
       ExamRepository(getIt<RemoteDataBase>()),
       AttemptSocketClient(getIt<LocalDataBase>()),
+      reporter: getIt<AttemptIntegrityReporter>(),
     )..load(widget.attemptId, initialAttempt: widget.initialAttempt);
   }
 

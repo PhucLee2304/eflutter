@@ -4,12 +4,27 @@ class AssignmentScheduleInput {
     required this.duration,
     required this.opensAt,
     required this.dueAt,
+    this.proctored = false,
+    this.maxViolations = 2,
   });
 
   final int classroomId;
   final int duration;
   final DateTime opensAt;
   final DateTime dueAt;
+
+  /// Giám sát (PLAN_ATTEMPT_INTEGRITY.md mục 1.1): số lần vi phạm được phép, ≥ 1.
+  final bool proctored;
+  final int maxViolations;
+
+  Map<String, dynamic> toJson() => {
+    'classroomId': classroomId,
+    'duration': duration,
+    'opensAt': opensAt.toUtc().toIso8601String(),
+    'dueAt': dueAt.toUtc().toIso8601String(),
+    'proctored': proctored,
+    if (proctored) 'maxViolations': maxViolations,
+  };
 }
 
 class CreateAssignmentQuestion {
@@ -129,6 +144,10 @@ class AssignmentSubmission {
     this.syncStatus = 'NOT_STARTED',
     this.student,
     this.score,
+    this.proctored = false,
+    this.violationCount = 0,
+    this.pendingViolations = 0,
+    this.integrityOutcome,
   });
 
   final int id;
@@ -138,6 +157,12 @@ class AssignmentSubmission {
   final String syncStatus;
   final ClassroomUser? student;
   final double? score;
+
+  // Giám sát (chỉ có khi attempt proctored).
+  final bool proctored;
+  final int violationCount;
+  final int pendingViolations;
+  final String? integrityOutcome;
 
   factory AssignmentSubmission.fromJson(Map<String, dynamic> json) =>
       AssignmentSubmission(
@@ -150,6 +175,10 @@ class AssignmentSubmission {
             ? ClassroomUser.fromJson(json['student'] as Map<String, dynamic>)
             : null,
         score: (json['score'] as num?)?.toDouble(),
+        proctored: json['proctored'] as bool? ?? false,
+        violationCount: (json['violationCount'] as num?)?.toInt() ?? 0,
+        pendingViolations: (json['pendingViolations'] as num?)?.toInt() ?? 0,
+        integrityOutcome: json['integrityOutcome'] as String?,
       );
 }
 
@@ -166,6 +195,8 @@ class ClassroomAssignment {
     this.description,
     this.submission,
     this.submissions = const [],
+    this.proctored = false,
+    this.maxViolations = 2,
   });
 
   final int id;
@@ -179,6 +210,10 @@ class ClassroomAssignment {
   final bool active;
   final AssignmentSubmission? submission;
   final List<AssignmentSubmission> submissions;
+
+  /// Có giám sát (PLAN_ATTEMPT_INTEGRITY.md mục 1.1): số lần vi phạm được phép.
+  final bool proctored;
+  final int maxViolations;
 
   factory ClassroomAssignment.fromJson(Map<String, dynamic> json) =>
       ClassroomAssignment(
@@ -202,6 +237,8 @@ class ClassroomAssignment {
                   AssignmentSubmission.fromJson(item as Map<String, dynamic>),
             )
             .toList(),
+        proctored: json['proctored'] as bool? ?? false,
+        maxViolations: (json['maxViolations'] as num?)?.toInt() ?? 2,
       );
 }
 

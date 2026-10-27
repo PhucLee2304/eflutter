@@ -3,6 +3,7 @@ import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/core/utils/extensions/toast_bar_extension.dart';
 import 'package:eflutter/generated/colors.gen.dart';
 import 'package:eflutter/presentation/app/navigation/app_routes.dart';
+import 'package:eflutter/presentation/exams/attempt/integrity_overlays.dart';
 import 'package:eflutter/presentation/exams/cubit/attempt_session_cubit.dart';
 import 'package:eflutter/presentation/exams/exam_history_refresh.dart';
 import 'package:flutter/material.dart';
@@ -12,6 +13,8 @@ import 'package:solar_icons/solar_icons.dart';
 
 /// Phần chung của mọi màn làm bài (L1): chặn rời màn khi đang làm, khóa/mở khóa
 /// AttemptLockNotifier, báo lỗi socket và chuyển sang lịch sử khi đã nộp/hủy.
+/// Bài có giám sát: cảnh báo vi phạm và che màn khi phiên ở nơi khác, bị đình chỉ
+/// hoặc bị reset (PLAN_ATTEMPT_INTEGRITY.md I3).
 class AttemptSessionScope extends StatelessWidget {
   const AttemptSessionScope({
     super.key,
@@ -34,7 +37,9 @@ class AttemptSessionScope extends StatelessWidget {
         bloc: cubit,
         listener: (context, state) {
           final attempt = state.attempt;
-          if (attempt != null &&
+          if (state.resetByTeacher) {
+            lock.unlock();
+          } else if (attempt != null &&
               attempt.status.toUpperCase() == 'ACTIVE' &&
               state.completedAttempt == null) {
             lock.lock(attempt.id);
@@ -47,15 +52,49 @@ class AttemptSessionScope extends StatelessWidget {
           if (completed != null) {
             notifyExamHistoryChanged();
             lock.unlock();
-            context.go(
-              attemptHistoryDetailPath(completed.id),
-              extra: completed,
-            );
+            // Bị đình chỉ: ở lại màn đình chỉ, học sinh tự bấm xem kết quả.
+            if (!state.terminated) _openResult(context, state);
           }
         },
-        child: child,
+        child: BlocConsumer<AttemptSessionCubit, AttemptSessionState>(
+          bloc: cubit,
+          listenWhen: (previous, current) =>
+              current.violationAlerts > previous.violationAlerts &&
+              !current.terminated,
+          listener: (context, state) {
+            final integrity = state.integrity;
+            if (integrity != null) showViolationWarning(context, integrity);
+          },
+          buildWhen: (previous, current) =>
+              IntegrityOverlay.covers(previous) !=
+                  IntegrityOverlay.covers(current) ||
+              (IntegrityOverlay.covers(current) &&
+                  (previous.sessionStatus != current.sessionStatus ||
+                      previous.completedAttempt != current.completedAttempt ||
+                      previous.sessionRetryAfter != current.sessionRetryAfter)),
+          builder: (context, state) => Stack(
+            children: [
+              child,
+              if (IntegrityOverlay.covers(state))
+                Positioned.fill(
+                  child: IntegrityOverlay(
+                    state: state,
+                    cubit: cubit,
+                    onViewResult: () => _openResult(context, state),
+                    onLeave: () => leaveAttempt(context),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
+  }
+
+  static void _openResult(BuildContext context, AttemptSessionState state) {
+    final completed = state.completedAttempt;
+    if (completed == null) return;
+    context.go(attemptHistoryDetailPath(completed.id), extra: completed);
   }
 
   /// Đang làm bài thì không có lối rời màn: chỉ nộp hoặc hủy bài.

@@ -13,6 +13,8 @@ import 'package:eflutter/presentation/app/cubit/app_cubit.dart';
 import 'package:eflutter/presentation/classrooms/classroom_assignments.dart';
 import 'package:eflutter/presentation/classrooms/classroom_calendar.dart';
 import 'package:eflutter/presentation/posts/post_list.dart';
+import 'package:eflutter/core/attempt_lock/integrity_consent.dart';
+import 'package:eflutter/presentation/classrooms/integrity_consent_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
@@ -222,12 +224,24 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
       return;
     }
 
+    // Bài có giám sát: phải đồng ý quy chế trước khi tạo attempt (mục 1.7).
+    if (assignment.proctored &&
+        !await showIntegrityConsentDialog(
+          context,
+          maxViolations: assignment.maxViolations,
+        )) {
+      return;
+    }
+    if (!mounted) return;
     setState(() => busy = true);
     final result = await examRepository.createExamAttempt(
       assignment.examId,
       CreateExamAttemptRequest(
         contextType: 'CLASSROOM_ASSIGNMENT',
         contextId: assignment.id,
+        integrityConsentVersion: assignment.proctored
+            ? integrityConsentVersion
+            : null,
       ),
     );
     if (!mounted) return;
@@ -476,6 +490,8 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
       duration: assignment.duration,
       opensAt: assignment.opensAt,
       dueAt: assignment.dueAt,
+      proctored: assignment.proctored,
+      maxViolations: assignment.maxViolations,
     );
     if (schedule == null || !mounted) return;
     setState(() => busy = true);
@@ -485,6 +501,8 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
       duration: schedule.duration,
       opensAt: schedule.opensAt,
       dueAt: schedule.dueAt,
+      proctored: schedule.proctored,
+      maxViolations: schedule.maxViolations,
     );
     if (result case Failure(code: 409) when mounted) {
       final confirmed = await showDialog<bool>(
@@ -514,6 +532,8 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
           duration: schedule.duration,
           opensAt: schedule.opensAt,
           dueAt: schedule.dueAt,
+          proctored: schedule.proctored,
+          maxViolations: schedule.maxViolations,
           confirm: true,
         );
       }
@@ -586,6 +606,8 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
       duration: assignment.duration,
       opensAt: assignment.opensAt,
       dueAt: assignment.dueAt,
+      proctored: assignment.proctored,
+      maxViolations: assignment.maxViolations,
       title: 'Schedule for ${selected.name}',
     );
     if (schedule == null || !mounted) return;

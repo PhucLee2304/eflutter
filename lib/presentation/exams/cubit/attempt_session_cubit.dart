@@ -1,5 +1,9 @@
 import 'dart:async';
 
+import 'package:eflutter/core/attempt_lock/attempt_integrity_reporter.dart';
+import 'package:eflutter/core/attempt_lock/integrity_away_tracker.dart';
+import 'package:eflutter/core/attempt_lock/integrity_monitor.dart';
+import 'package:eflutter/core/attempt_lock/integrity_session_store.dart';
 import 'package:eflutter/core/base/result.dart';
 import 'package:eflutter/data/data_sources/attempt_socket_client.dart';
 import 'package:eflutter/data/models/exam_attempt.dart';
@@ -7,89 +11,34 @@ import 'package:eflutter/data/models/exam_questions.dart';
 import 'package:eflutter/data/repositories/exam_repository.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-/// [rejected]: server từ chối vĩnh viễn (QUESTION_LOCKED), không gửi lại.
-enum AnswerSyncStatus { pending, synced, failed, rejected }
+part 'attempt_session_integrity.dart';
+part 'attempt_session_state.dart';
 
-class AttemptSessionState {
-  final ExamAttempt? attempt;
-  final Map<int, int?> selectedOptions;
-  final Map<int, AnswerSyncStatus> syncStatuses;
-  final AttemptSocketStatus socketStatus;
-  final Duration? remaining;
-  final bool isLoading;
-  final bool isSubmitting;
-  final bool isCancelling;
-  final bool isLocked;
-  final ExamAttempt? completedAttempt;
-  final Failure? failure;
-  final String? socketMessage;
-
-  const AttemptSessionState({
-    this.attempt,
-    this.selectedOptions = const {},
-    this.syncStatuses = const {},
-    this.socketStatus = AttemptSocketStatus.disconnected,
-    this.remaining,
-    this.isLoading = false,
-    this.isSubmitting = false,
-    this.isCancelling = false,
-    this.isLocked = false,
-    this.completedAttempt,
-    this.failure,
-    this.socketMessage,
-  });
-
-  int get answeredCount =>
-      selectedOptions.values.where((v) => v != null).length;
-
-  AttemptSessionState copyWith({
-    Object? attempt = _sentinel,
-    Map<int, int?>? selectedOptions,
-    Map<int, AnswerSyncStatus>? syncStatuses,
-    AttemptSocketStatus? socketStatus,
-    Object? remaining = _sentinel,
-    bool? isLoading,
-    bool? isSubmitting,
-    bool? isCancelling,
-    bool? isLocked,
-    Object? completedAttempt = _sentinel,
-    Object? failure = _sentinel,
-    Object? socketMessage = _sentinel,
-  }) => AttemptSessionState(
-    attempt: identical(attempt, _sentinel)
-        ? this.attempt
-        : attempt as ExamAttempt?,
-    selectedOptions: selectedOptions ?? this.selectedOptions,
-    syncStatuses: syncStatuses ?? this.syncStatuses,
-    socketStatus: socketStatus ?? this.socketStatus,
-    remaining: identical(remaining, _sentinel)
-        ? this.remaining
-        : remaining as Duration?,
-    isLoading: isLoading ?? this.isLoading,
-    isSubmitting: isSubmitting ?? this.isSubmitting,
-    isCancelling: isCancelling ?? this.isCancelling,
-    isLocked: isLocked ?? this.isLocked,
-    completedAttempt: identical(completedAttempt, _sentinel)
-        ? this.completedAttempt
-        : completedAttempt as ExamAttempt?,
-    failure: identical(failure, _sentinel) ? this.failure : failure as Failure?,
-    socketMessage: identical(socketMessage, _sentinel)
-        ? this.socketMessage
-        : socketMessage as String?,
-  );
-}
-
-const _sentinel = Object();
-
-class AttemptSessionCubit extends Cubit<AttemptSessionState> {
-  AttemptSessionCubit(this._repository, this._socket)
-    : super(const AttemptSessionState()) {
+class AttemptSessionCubit extends Cubit<AttemptSessionState>
+    with _AttemptIntegrity {
+  AttemptSessionCubit(
+    this._repository,
+    this._socket, {
+    AttemptIntegrityReporter? reporter,
+    IntegrityMonitor? monitor,
+    IntegritySessionStore? sessionStore,
+  }) : _reporter = reporter ?? SocketAttemptIntegrityReporter(),
+       _monitor = monitor ?? IntegrityMonitor(),
+       _sessionStore = sessionStore ?? IntegritySessionStore(),
+       super(const AttemptSessionState()) {
     _eventSubscription = _socket.events.listen(_handleSocketEvent);
     _statusSubscription = _socket.statuses.listen(_handleSocketStatus);
   }
 
   final ExamRepository _repository;
+  @override
   final AttemptSocketGateway _socket;
+  @override
+  final AttemptIntegrityReporter _reporter;
+  @override
+  final IntegrityMonitor _monitor;
+  @override
+  final IntegritySessionStore _sessionStore;
   final Map<String, int> _questionByRequest = {};
   final Map<int, String> _latestRequest = {};
   StreamSubscription<AttemptSocketEvent>? _eventSubscription;
@@ -97,6 +46,7 @@ class AttemptSessionCubit extends Cubit<AttemptSessionState> {
   Timer? _countdownTimer;
   Timer? _reconnectTimer;
   Timer? _completionPollTimer;
+  @override
   bool _closing = false;
 
   Future<void> load(int attemptId, {ExamAttempt? initialAttempt}) async {
@@ -118,6 +68,7 @@ class AttemptSessionCubit extends Cubit<AttemptSessionState> {
       return;
     }
     _hydrate(attempt);
+    _initIntegrity(attempt);
     if (attempt.status.toUpperCase() == 'ACTIVE') {
       _startCountdown(attempt.expiresAt);
       await _connect();
@@ -157,7 +108,12 @@ class AttemptSessionCubit extends Cubit<AttemptSessionState> {
   }
 
   void selectAnswer(int questionId, int? optionId) {
-    if (state.isLocked || state.isSubmitting || state.isCancelling) return;
+    if (state.isLocked ||
+        state.isSubmitting ||
+        state.isCancelling ||
+        state.sessionBlocked) {
+      return;
+    }
     final answers = Map<int, int?>.from(state.selectedOptions)
       ..[questionId] = optionId;
     final statuses = Map<int, AnswerSyncStatus>.from(state.syncStatuses)
@@ -168,7 +124,12 @@ class AttemptSessionCubit extends Cubit<AttemptSessionState> {
 
   Future<void> submit() async {
     final attempt = state.attempt;
-    if (attempt == null || state.isSubmitting || state.isCancelling) return;
+    if (attempt == null ||
+        state.isSubmitting ||
+        state.isCancelling ||
+        state.sessionBlocked) {
+      return;
+    }
     emit(state.copyWith(isSubmitting: true, isLocked: true, failure: null));
     final answers = state.selectedOptions.entries
         .map(
@@ -250,7 +211,8 @@ class AttemptSessionCubit extends Cubit<AttemptSessionState> {
   }
 
   void _sendLatest(int questionId) {
-    if (state.socketStatus != AttemptSocketStatus.connected) {
+    if (state.socketStatus != AttemptSocketStatus.connected ||
+        state.sessionStatus == AttemptSessionStatus.claiming) {
       _markSyncFailed(questionId);
       _scheduleReconnect();
       return;
@@ -276,6 +238,7 @@ class AttemptSessionCubit extends Cubit<AttemptSessionState> {
   }
 
   void _handleSocketEvent(AttemptSocketEvent event) {
+    if (_handleIntegrityEvent(event)) return;
     if (event.type == 'ATTEMPT_SUBMITTING' &&
         event.attemptId == state.attempt?.id) {
       _countdownTimer?.cancel();
@@ -318,14 +281,25 @@ class AttemptSessionCubit extends Cubit<AttemptSessionState> {
     emit(state.copyWith(socketStatus: status));
     if (status == AttemptSocketStatus.connected) {
       _reconnectTimer?.cancel();
-      for (final entry in state.syncStatuses.entries) {
-        if (entry.value == AnswerSyncStatus.pending ||
-            entry.value == AnswerSyncStatus.failed) {
-          _sendLatest(entry.key);
-        }
+      // Bài giám sát: đáp án gửi lại sau khi claim phiên thành công.
+      if (_isProctoredActive) {
+        _claimSession();
+      } else {
+        _resendPendingAnswers();
       }
     } else if (status == AttemptSocketStatus.disconnected) {
+      _onIntegrityDisconnected();
       _scheduleReconnect();
+    }
+  }
+
+  @override
+  void _resendPendingAnswers() {
+    for (final entry in state.syncStatuses.entries) {
+      if (entry.value == AnswerSyncStatus.pending ||
+          entry.value == AnswerSyncStatus.failed) {
+        _sendLatest(entry.key);
+      }
     }
   }
 
@@ -361,6 +335,7 @@ class AttemptSessionCubit extends Cubit<AttemptSessionState> {
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) => tick());
   }
 
+  @override
   void _waitForBackendSubmission() {
     if (_closing || _completionPollTimer?.isActive == true) return;
     final startedAt = DateTime.now();
@@ -409,8 +384,23 @@ class AttemptSessionCubit extends Cubit<AttemptSessionState> {
   }
 
   @override
+  void onChange(Change<AttemptSessionState> change) {
+    super.onChange(change);
+    final completed = change.nextState.completedAttempt;
+    if (completed != null && change.currentState.completedAttempt == null) {
+      _stopIntegrity(completed.id);
+    }
+  }
+
+  @override
   Future<void> close() async {
     _closing = true;
+    final attempt = state.attempt;
+    if (attempt != null) {
+      _monitor.stop();
+      _claimRetryTimer?.cancel();
+      _reporter.unbind(attempt.id);
+    }
     _countdownTimer?.cancel();
     _reconnectTimer?.cancel();
     _completionPollTimer?.cancel();
