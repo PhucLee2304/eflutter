@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:math';
+
 import 'package:dio/dio.dart';
 import 'package:eflutter/data/models/app_notification.dart';
 import 'package:eflutter/data/repositories/notification_repository.dart';
@@ -18,6 +21,13 @@ class NotificationController extends ChangeNotifier {
   String? _error;
   int _unreadCount = 0;
   NotificationFilter _filter = NotificationFilter.all;
+  int? _latestSeenID;
+  final _newNotifications = StreamController<List<AppNotification>>.broadcast();
+
+  /// Thông báo chưa đọc mới xuất hiện kể từ lần tải trước (không phát ở lần
+  /// tải đầu tiên để không bắn lại cả danh sách cũ).
+  Stream<List<AppNotification>> get newNotifications =>
+      _newNotifications.stream;
 
   List<AppNotification> get items => List.unmodifiable(_items);
   bool get loading => _loading;
@@ -73,6 +83,7 @@ class NotificationController extends ChangeNotifier {
         read: _readFilter,
       );
       _items.addAll(result.notifications);
+      if (_page == 0) _detectNew(result.notifications);
       _page = result.page;
       _pageCount = result.pageCount;
       _unreadCount = result.unreadCount;
@@ -82,6 +93,19 @@ class NotificationController extends ChangeNotifier {
       _loading = false;
       notifyListeners();
     }
+  }
+
+  void _detectNew(List<AppNotification> firstPage) {
+    if (firstPage.isEmpty) return;
+    final maxID = firstPage.map((item) => item.id).reduce(max);
+    final previous = _latestSeenID;
+    if (previous != null && maxID > previous) {
+      final fresh = firstPage
+          .where((item) => item.id > previous && !item.isRead)
+          .toList();
+      if (fresh.isNotEmpty) _newNotifications.add(fresh);
+    }
+    if (previous == null || maxID > previous) _latestSeenID = maxID;
   }
 
   Future<void> markRead(AppNotification notification) async {

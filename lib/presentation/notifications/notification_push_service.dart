@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:js_interop';
 import 'dart:math';
 
 import 'package:dio/dio.dart';
+import 'package:eflutter/data/models/app_notification.dart';
 import 'package:eflutter/data/repositories/notification_repository.dart';
 import 'package:eflutter/presentation/notifications/notification_controller.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -9,6 +11,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:injectable/injectable.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:web/web.dart' as web;
 
 @lazySingleton
 class NotificationPushService {
@@ -22,6 +25,7 @@ class NotificationPushService {
   static const _deviceIDKey = 'notificationDeviceID';
   StreamSubscription<RemoteMessage>? _messageSubscription;
   StreamSubscription<String>? _tokenSubscription;
+  StreamSubscription<List<AppNotification>>? _newSubscription;
   Timer? _fallbackTimer;
   AppLifecycleListener? _lifecycleListener;
 
@@ -34,6 +38,7 @@ class NotificationPushService {
     _messageSubscription ??= FirebaseMessaging.onMessage.listen((_) {
       unawaited(_controller.refresh());
     });
+    _newSubscription ??= _controller.newNotifications.listen(_showSystem);
     _fallbackTimer ??= Timer.periodic(
       _fallbackRefreshInterval,
       (_) => unawaited(_controller.refreshIfChanged()),
@@ -71,10 +76,35 @@ class NotificationPushService {
     );
   }
 
+  /// Hiện thông báo hệ thống (góc phải dưới trên Windows). Khi tab bị ẩn và
+  /// push đã bật, service worker của FCM tự hiện nên bỏ qua để không trùng.
+  void _showSystem(List<AppNotification> items) {
+    if (web.Notification.permission != 'granted') return;
+    final hidden = web.document.visibilityState == 'hidden';
+    if (hidden && _pushActive) return;
+    for (final item in items) {
+      final notification = web.Notification(
+        item.title,
+        web.NotificationOptions(
+          body: item.body,
+          tag: 'ego-${item.id}',
+          icon: 'icons/Icon-192.png',
+        ),
+      );
+      notification.onclick = (web.Event _) {
+        web.window.focus();
+        notification.close();
+      }.toJS;
+    }
+  }
+
+  bool _pushActive = false;
+
   Future<void> _registerToken(String token) async {
     final deviceID = await _getOrCreateDeviceID();
     await _repository.registerDeviceToken(token, deviceID, 'WEB');
     await _preferences.setString(_tokenKey, token);
+    _pushActive = true;
   }
 
   Future<String> _getOrCreateDeviceID() async {
@@ -100,6 +130,9 @@ class NotificationPushService {
     _fallbackTimer = null;
     _lifecycleListener?.dispose();
     _lifecycleListener = null;
+    await _newSubscription?.cancel();
+    _newSubscription = null;
+    _pushActive = false;
     final token = await _preferences.getString(_tokenKey);
     if (token == null || token.isEmpty) return;
     try {
