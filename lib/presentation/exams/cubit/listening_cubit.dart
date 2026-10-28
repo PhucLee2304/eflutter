@@ -135,8 +135,10 @@ class ListeningCubit extends Cubit<ListeningState> {
       _advance();
       return;
     }
+    // Tính theo đồng hồ thật: tab bị ẩn thì timer có thể bị trình duyệt gọi trễ.
+    final deadline = DateTime.now().add(gap);
     _gapTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      remaining -= const Duration(seconds: 1);
+      remaining = deadline.difference(DateTime.now());
       if (remaining <= Duration.zero) {
         timer.cancel();
         _advance();

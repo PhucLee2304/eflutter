@@ -7,19 +7,23 @@ import 'package:solar_icons/solar_icons.dart';
 /// Audio của trang nghe TOEIC_STRICT (PLAN_TOEIC_ATTEMPT.md T7): tự phát từ
 /// [startOffset] (elapsedMs của server), không tua, không dừng, không hiện điều khiển.
 /// Phát xong (hoặc không phát được, sau khi hết thời lượng) thì gọi [onCompleted].
-/// Trình duyệt chặn autoplay (sau F5) thì hiện lớp phủ "Nhấn để tiếp tục nghe".
+/// Trình duyệt chặn autoplay (sau F5) thì [blocked] bật, [ListeningResumeButton] hiện
+/// "Nhấn để tiếp tục nghe".
 ///
-/// Widget gắn key theo trang: đổi trang là tạo player mới. Audio trang sau được tải
-/// trước qua [ListeningAudioPreloader].
-class ListeningAudio extends StatefulWidget {
-  const ListeningAudio({
-    super.key,
+/// Không gắn vào vòng đời widget: Flutter web không build frame khi tab bị ẩn, nên
+/// player tạo trong initState sẽ không phát trang kế tiếp cho tới khi quay lại tab.
+/// Màn làm bài tạo một [ListeningPlayback] mỗi trang ngay khi [ListeningCubit] đổi
+/// trang. Audio trang sau được tải trước qua [ListeningAudioPreloader].
+class ListeningPlayback extends ChangeNotifier {
+  ListeningPlayback({
     required this.url,
     required this.durationMs,
     required this.startOffset,
     required this.onCompleted,
     required this.preloader,
-  });
+  }) {
+    _start();
+  }
 
   final String? url;
   final int? durationMs;
@@ -27,11 +31,6 @@ class ListeningAudio extends StatefulWidget {
   final VoidCallback onCompleted;
   final ListeningAudioPreloader preloader;
 
-  @override
-  State<ListeningAudio> createState() => _ListeningAudioState();
-}
-
-class _ListeningAudioState extends State<ListeningAudio> {
   final _clock = Stopwatch()..start();
   AudioPlayer? _player;
   StreamSubscription<PlayerState>? _stateSubscription;
@@ -39,28 +38,25 @@ class _ListeningAudioState extends State<ListeningAudio> {
   Timer? _blockedCheck;
   bool _blocked = false;
   bool _completed = false;
+  bool _disposed = false;
 
-  Duration get _duration => Duration(milliseconds: widget.durationMs ?? 0);
+  bool get blocked => _blocked;
+
+  Duration get _duration => Duration(milliseconds: durationMs ?? 0);
 
   /// Vị trí lẽ ra đang phát: offset lúc vào trang + thời gian đã trôi.
-  Duration get _expectedPosition => widget.startOffset + _clock.elapsed;
-
-  @override
-  void initState() {
-    super.initState();
-    _start();
-  }
+  Duration get _expectedPosition => startOffset + _clock.elapsed;
 
   Future<void> _start() async {
-    final url = widget.url;
+    final url = this.url;
     if (url == null || url.isEmpty) {
       _scheduleFallback();
       return;
     }
-    if (_duration > Duration.zero && widget.startOffset >= _duration) {
+    if (_duration > Duration.zero && startOffset >= _duration) {
       return; // Đã hết audio (F5 trong gap): ListeningCubit đang đếm gap.
     }
-    final player = widget.preloader.take(url) ?? AudioPlayer();
+    final player = preloader.take(url) ?? AudioPlayer();
     _player = player;
     _stateSubscription = player.playerStateStream.listen((state) {
       if (state.processingState == ProcessingState.completed) _complete();
@@ -71,7 +67,7 @@ class _ListeningAudioState extends State<ListeningAudio> {
       } else {
         await player.seek(_expectedPosition);
       }
-      if (!mounted) return;
+      if (_disposed) return;
       _play();
     } catch (_) {
       _scheduleFallback();
@@ -80,29 +76,31 @@ class _ListeningAudioState extends State<ListeningAudio> {
 
   void _play() {
     final player = _player;
-    if (player == null || _completed) return;
+    if (player == null || _completed || _disposed) return;
     // play() chỉ xong khi dừng/hết bài nên không await; lỗi (vd NotAllowedError) coi
     // như bị chặn autoplay.
     unawaited(player.play().catchError((_) => _markBlocked()));
     _blockedCheck?.cancel();
     final before = player.position;
     _blockedCheck = Timer(const Duration(milliseconds: 1500), () {
-      if (!mounted || _completed) return;
+      if (_disposed || _completed) return;
       if (!player.playing || player.position <= before) _markBlocked();
     });
   }
 
   void _markBlocked() {
-    if (!mounted || _completed || _blocked) return;
-    setState(() => _blocked = true);
+    if (_disposed || _completed || _blocked) return;
+    _blocked = true;
+    notifyListeners();
     // Không nhấn thì vẫn sang trang đúng giờ (server cũng tự tiến).
     _scheduleFallback();
   }
 
-  Future<void> _resume() async {
+  Future<void> resume() async {
     final player = _player;
-    if (player == null) return;
-    setState(() => _blocked = false);
+    if (player == null || _disposed) return;
+    _blocked = false;
+    notifyListeners();
     _fallbackTimer?.cancel();
     if (_duration > Duration.zero && _expectedPosition >= _duration) {
       _complete();
@@ -114,7 +112,7 @@ class _ListeningAudioState extends State<ListeningAudio> {
 
   /// Không phát được: gọi onCompleted khi lẽ ra audio đã hết.
   void _scheduleFallback() {
-    if (_completed || _fallbackTimer?.isActive == true) return;
+    if (_completed || _disposed || _fallbackTimer?.isActive == true) return;
     final remaining = _duration - _expectedPosition;
     _fallbackTimer = Timer(
       remaining > Duration.zero ? remaining : Duration.zero,
@@ -123,44 +121,52 @@ class _ListeningAudioState extends State<ListeningAudio> {
   }
 
   void _complete() {
-    if (_completed) return;
+    if (_completed || _disposed) return;
+    _completed = true;
     _fallbackTimer?.cancel();
     _blockedCheck?.cancel();
-    if (mounted) {
-      setState(() {
-        _completed = true;
-        _blocked = false;
-      });
-    } else {
-      _completed = true;
+    if (_blocked) {
+      _blocked = false;
+      notifyListeners();
     }
-    widget.onCompleted();
+    onCompleted();
   }
 
   @override
   void dispose() {
+    _disposed = true;
     _fallbackTimer?.cancel();
     _blockedCheck?.cancel();
     _stateSubscription?.cancel();
     _player?.dispose();
     super.dispose();
   }
+}
+
+/// Nút "Tap to continue listening" khi trình duyệt chặn autoplay của [playback].
+class ListeningResumeButton extends StatelessWidget {
+  const ListeningResumeButton({super.key, required this.playback});
+
+  final ListeningPlayback playback;
 
   @override
-  Widget build(BuildContext context) {
-    if (!_blocked) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Center(
-        child: FilledButton.icon(
-          key: const ValueKey('listening-resume'),
-          onPressed: _resume,
-          icon: const Icon(SolarIconsOutline.play),
-          label: const Text('Tap to continue listening'),
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: playback,
+    builder: (context, _) {
+      if (!playback.blocked) return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: Center(
+          child: FilledButton.icon(
+            key: const ValueKey('listening-resume'),
+            onPressed: playback.resume,
+            icon: const Icon(SolarIconsOutline.play),
+            label: const Text('Tap to continue listening'),
+          ),
         ),
-      ),
-    );
-  }
+      );
+    },
+  );
 }
 
 /// Tải trước audio trang nghe kế tiếp (`nextAudioUrl`) để sang trang không phải chờ.

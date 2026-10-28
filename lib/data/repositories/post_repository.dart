@@ -111,12 +111,27 @@ class PostRepository {
   Future<void> setPin(int classroomId, int id, bool value) => value
       ? _dio.post('$_base/classrooms/$classroomId/posts/$id/pin')
       : _dio.delete('$_base/classrooms/$classroomId/posts/$id/pin');
-  Future<List<PostCommentItem>> getComments(int postId) async {
-    final r = await _dio.get('$_base/posts/$postId/comments');
-    return ((r.data as Map<String, dynamic>)['comments'] as List<dynamic>? ??
-            const [])
-        .map((e) => PostCommentItem.fromJson(e as Map<String, dynamic>))
-        .toList();
+  Future<PostItem> getPost(int id) async {
+    final r = await _dio.get('$_base/posts/$id');
+    return PostItem.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  /// Một trang comment gốc (không có [parentId]) hoặc reply của comment gốc [parentId].
+  Future<PostCommentPage> getComments(
+    int postId, {
+    int? parentId,
+    int page = 1,
+    int? pageSize,
+  }) async {
+    final r = await _dio.get(
+      '$_base/posts/$postId/comments',
+      queryParameters: {
+        'page': page,
+        'pageSize': pageSize ?? (parentId == null ? 20 : 5),
+        'parentId': ?parentId,
+      },
+    );
+    return PostCommentPage.fromJson(r.data as Map<String, dynamic>);
   }
 
   Future<PostCommentItem> comment(

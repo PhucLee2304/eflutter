@@ -54,6 +54,28 @@ class PostItem {
   final DateTime createdAt;
   final PostUser? author;
   final List<PostAttachment> attachments;
+
+  /// Bản sao đã like/bỏ like, dùng để cập nhật giao diện ngay khi bấm.
+  PostItem withLike(bool value) => PostItem(
+    id: id,
+    authorId: authorId,
+    scope: scope,
+    content: content,
+    status: status,
+    pinned: pinned,
+    allowComments: allowComments,
+    likeCount: (likeCount + (value ? 1 : -1)).clamp(0, 1 << 31),
+    commentCount: commentCount,
+    liked: value,
+    canEdit: canEdit,
+    canDelete: canDelete,
+    canPin: canPin,
+    createdAt: createdAt,
+    classroomId: classroomId,
+    author: author,
+    attachments: attachments,
+  );
+
   factory PostItem.fromJson(Map<String, dynamic> json) => PostItem(
     id: (json['id'] as num).toInt(),
     authorId: json['authorId'].toString(),
@@ -172,12 +194,13 @@ class PostCommentItem {
     required this.canEdit,
     required this.canDelete,
     required this.createdAt,
+    this.replyCount = 0,
     this.parentId,
     this.replyToUserId,
     this.user,
     this.replyToUser,
   });
-  final int id, postId, likeCount;
+  final int id, postId, likeCount, replyCount;
   final String userId, content;
   final int? parentId;
   final String? replyToUserId;
@@ -192,6 +215,7 @@ class PostCommentItem {
     parentId: (j['parentId'] as num?)?.toInt(),
     replyToUserId: j['replyToUserId']?.toString(),
     likeCount: (j['likeCount'] as num?)?.toInt() ?? 0,
+    replyCount: (j['replyCount'] as num?)?.toInt() ?? 0,
     liked: j['liked'] as bool? ?? false,
     canEdit: j['canEdit'] as bool? ?? false,
     canDelete: j['canDelete'] as bool? ?? false,
@@ -202,5 +226,25 @@ class PostCommentItem {
     replyToUser: j['replyToUser'] is Map<String, dynamic>
         ? PostUser.fromJson(j['replyToUser'])
         : null,
+  );
+}
+
+class PostCommentPage {
+  const PostCommentPage({
+    required this.items,
+    required this.page,
+    required this.pageCount,
+    required this.total,
+  });
+  final List<PostCommentItem> items;
+  final int page, pageCount, total;
+  bool get hasMore => page < pageCount;
+  factory PostCommentPage.fromJson(Map<String, dynamic> j) => PostCommentPage(
+    items: (j['comments'] as List<dynamic>? ?? const [])
+        .map((e) => PostCommentItem.fromJson(e as Map<String, dynamic>))
+        .toList(),
+    page: (j['page'] as num?)?.toInt() ?? 1,
+    pageCount: (j['pageCount'] as num?)?.toInt() ?? 1,
+    total: (j['total'] as num?)?.toInt() ?? 0,
   );
 }

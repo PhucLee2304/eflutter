@@ -16,6 +16,7 @@ import 'package:eflutter/presentation/classrooms/class_gradebook_screen.dart';
 import 'package:eflutter/presentation/classrooms/student_progress_screen.dart';
 import 'package:eflutter/presentation/notifications/notification_screen.dart';
 import 'package:eflutter/presentation/classrooms/classroom_room_screen.dart';
+import 'package:eflutter/presentation/posts/post_detail_screen.dart';
 import 'package:eflutter/presentation/posts/post_list.dart';
 import 'package:eflutter/presentation/topics/cubit/lesson_detail_cubit.dart';
 import 'package:eflutter/presentation/topics/lesson_detail_screen.dart';
@@ -108,6 +109,14 @@ class NavigationItem {
     selectedIcon: SolarIconsBold.home2,
     route: AppRoutes.home,
     screen: CommunityPostsScreen(),
+    subRoutes: [
+      GoRoute(
+        path: AppRoutes.postDetail.path,
+        builder: (context, state) => PostDetailScreen(
+          postId: int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
+        ),
+      ),
+    ],
   );
 
   static final notificationItem = const NavigationItem(

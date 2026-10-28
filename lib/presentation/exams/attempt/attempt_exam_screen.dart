@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:eflutter/core/attempt_lock/attempt_integrity_reporter.dart';
 import 'package:eflutter/core/base/local_data_base.dart';
 import 'package:eflutter/core/base/remote_data_base.dart';
@@ -36,6 +38,12 @@ class _AttemptExamScreenState extends State<AttemptExamScreen> {
   late final AttemptNavigatorCubit _navigator;
   late final ListeningCubit _listening;
   final _preloader = ListeningAudioPreloader();
+  StreamSubscription<ListeningState>? _listeningSubscription;
+
+  /// Audio trang nghe hiện tại. Đổi theo stream của [ListeningCubit], không theo
+  /// build: tab bị ẩn thì Flutter web không build nhưng audio vẫn phải phát tiếp.
+  ListeningPlayback? _playback;
+  int? _playbackPage;
 
   /// Vừa nghe xong trong phiên này: hiện màn chuyển trước khi vào phần đọc.
   bool _readingIntro = false;
@@ -52,6 +60,7 @@ class _AttemptExamScreenState extends State<AttemptExamScreen> {
     )..load(widget.attempt.id, initialAttempt: widget.attempt);
     _navigator = AttemptNavigatorCubit(repository, _session, widget.attempt.id);
     _listening = ListeningCubit(repository, _socket, _navigator);
+    _listeningSubscription = _listening.stream.listen(_syncPlayback);
     _start();
   }
 
@@ -70,8 +79,36 @@ class _AttemptExamScreenState extends State<AttemptExamScreen> {
     if (index != null) await _navigator.openPage(index);
   }
 
+  void _syncPlayback(ListeningState listening) {
+    final page = listening.phase == ListeningPhase.playing
+        ? listening.page
+        : null;
+    if (page != null && page.index == _playbackPage) return;
+    // Hết audio (gap/advancing) thì giữ player tới khi sang trang mới.
+    if (page == null &&
+        listening.phase != ListeningPhase.loading &&
+        listening.phase != ListeningPhase.finished &&
+        listening.phase != ListeningPhase.idle) {
+      return;
+    }
+    _playback?.dispose();
+    _playback = null;
+    _playbackPage = page?.index;
+    if (page == null) return;
+    _preloader.preload(page.nextAudioUrl);
+    _playback = ListeningPlayback(
+      url: page.group?.audioUrl,
+      durationMs: page.group?.audioDurationMs,
+      startOffset: listening.startOffset,
+      onCompleted: _listening.audioCompleted,
+      preloader: _preloader,
+    );
+  }
+
   @override
   void dispose() {
+    _listeningSubscription?.cancel();
+    _playback?.dispose();
     _preloader.dispose();
     _listening.close();
     _navigator.close();
@@ -134,16 +171,12 @@ class _AttemptExamScreenState extends State<AttemptExamScreen> {
       !state.isLoading &&
       state.viewingPage == null;
 
-  Widget _listeningTop(ListeningState listening) {
-    final page = listening.page!;
-    _preloader.preload(page.nextAudioUrl);
-    return ListeningAudio(
-      key: ValueKey('audio-${page.index}'),
-      url: page.group?.audioUrl,
-      durationMs: page.group?.audioDurationMs,
-      startOffset: listening.startOffset,
-      onCompleted: _listening.audioCompleted,
-      preloader: _preloader,
+  Widget? _listeningTop() {
+    final playback = _playback;
+    if (playback == null) return null;
+    return ListeningResumeButton(
+      key: ValueKey('audio-$_playbackPage'),
+      playback: playback,
     );
   }
 
@@ -216,9 +249,7 @@ class _AttemptExamScreenState extends State<AttemptExamScreen> {
                   session: session,
                   locked: !navigator.isPageOpen(page.index),
                   onSelect: _session.selectAnswer,
-                  top: navigator.isListening && listening.page != null
-                      ? _listeningTop(listening)
-                      : null,
+                  top: navigator.isListening ? _listeningTop() : null,
                 ),
         ),
         if (!navigator.isListening &&

@@ -2,6 +2,7 @@ enum AppRoutes {
   login(path: '/login'),
   log(path: '/log'),
   home(path: '/'),
+  postDetail(path: 'posts/:id'),
   notifications(path: '/notifications'),
   topic(path: '/topic'),
   topicLesson(path: 'lessons/:id'),

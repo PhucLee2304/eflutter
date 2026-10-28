@@ -8,17 +8,17 @@ void main() {
   ) async {
     var completed = 0;
     final preloader = ListeningAudioPreloader();
+    final playback = ListeningPlayback(
+      url: null,
+      durationMs: 3000,
+      startOffset: const Duration(seconds: 1),
+      onCompleted: () => completed++,
+      preloader: preloader,
+    );
+    addTearDown(playback.dispose);
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(
-          body: ListeningAudio(
-            url: null,
-            durationMs: 3000,
-            startOffset: const Duration(seconds: 1),
-            onCompleted: () => completed++,
-            preloader: preloader,
-          ),
-        ),
+        home: Scaffold(body: ListeningResumeButton(playback: playback)),
       ),
     );
 
