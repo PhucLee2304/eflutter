@@ -5,6 +5,10 @@ import 'package:eflutter/core/utils/helpers/file_picker/local_picked_file.dart';
 class PostRepository {
   PostRepository(this._dio);
   final Dio _dio;
+
+  /// Dio không có interceptor: URL presigned đã chứa chữ ký, MinIO từ chối nếu
+  /// request còn kèm header Authorization của app.
+  static final _storageDio = Dio();
   static const _base = '/posts/api/v1';
   Future<PostPage> getPosts({
     required int page,
@@ -68,7 +72,7 @@ class PostRepository {
     final data = intent.data as Map<String, dynamic>;
     final id = (data['id'] as num).toInt();
     try {
-      await _dio.putUri(
+      await _storageDio.putUri(
         Uri.parse(data['uploadUrl'] as String),
         data: file.bytes,
         options: Options(headers: {'Content-Type': data['contentType']}),

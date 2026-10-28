@@ -22,12 +22,13 @@ class NotificationController extends ChangeNotifier {
   int _unreadCount = 0;
   NotificationFilter _filter = NotificationFilter.all;
   int? _latestSeenID;
+  // Tăng khi reset để bỏ kết quả của request bắt đầu trước khi đăng xuất.
+  int _generation = 0;
   final _newNotifications = StreamController<List<AppNotification>>.broadcast();
 
   /// Thông báo chưa đọc mới xuất hiện kể từ lần tải trước (không phát ở lần
   /// tải đầu tiên để không bắn lại cả danh sách cũ).
-  Stream<List<AppNotification>> get newNotifications =>
-      _newNotifications.stream;
+  Stream<List<AppNotification>> get newNotifications => _newNotifications.stream;
 
   List<AppNotification> get items => List.unmodifiable(_items);
   bool get loading => _loading;
@@ -42,27 +43,25 @@ class NotificationController extends ChangeNotifier {
     NotificationFilter.read => true,
   };
 
+  /// Xoá dữ liệu của tài khoản cũ khi đăng xuất.
+  void reset() {
+    _items.clear();
+    _page = 0;
+    _pageCount = 1;
+    _unreadCount = 0;
+    _error = null;
+    _latestSeenID = null;
+    _loading = false;
+    _generation++;
+    notifyListeners();
+  }
+
   Future<void> refresh() async {
     if (_loading) return;
     _items.clear();
     _page = 0;
     _pageCount = 1;
     await loadMore();
-  }
-
-  /// Dùng cho làm mới định kỳ: chỉ tải lại danh sách khi số chưa đọc đổi,
-  /// để không đẩy người đang cuộn danh sách về trang đầu.
-  Future<void> refreshIfChanged() async {
-    if (_loading) return;
-    try {
-      final result = await _repository.getNotifications(
-        page: 1,
-        read: _readFilter,
-      );
-      if (result.unreadCount != _unreadCount) await refresh();
-    } catch (_) {
-      // Lần làm mới sau sẽ thử lại.
-    }
   }
 
   Future<void> setFilter(NotificationFilter value) async {
@@ -77,21 +76,22 @@ class NotificationController extends ChangeNotifier {
     _loading = true;
     _error = null;
     notifyListeners();
+    final generation = _generation;
     try {
-      final result = await _repository.getNotifications(
-        page: _page + 1,
-        read: _readFilter,
-      );
+      final result = await _repository.getNotifications(page: _page + 1, read: _readFilter);
+      if (generation != _generation) return;
       _items.addAll(result.notifications);
       if (_page == 0) _detectNew(result.notifications);
       _page = result.page;
       _pageCount = result.pageCount;
       _unreadCount = result.unreadCount;
     } catch (_) {
-      _error = 'Unable to load notifications.';
+      if (generation == _generation) _error = 'Unable to load notifications.';
     } finally {
-      _loading = false;
-      notifyListeners();
+      if (generation == _generation) {
+        _loading = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -100,9 +100,7 @@ class NotificationController extends ChangeNotifier {
     final maxID = firstPage.map((item) => item.id).reduce(max);
     final previous = _latestSeenID;
     if (previous != null && maxID > previous) {
-      final fresh = firstPage
-          .where((item) => item.id > previous && !item.isRead)
-          .toList();
+      final fresh = firstPage.where((item) => item.id > previous && !item.isRead).toList();
       if (fresh.isNotEmpty) _newNotifications.add(fresh);
     }
     if (previous == null || maxID > previous) _latestSeenID = maxID;
@@ -151,9 +149,7 @@ class NotificationController extends ChangeNotifier {
     if (ids.isEmpty) return false;
     try {
       await _repository.deleteMany(ids.toList());
-      final unreadDeleted = _items
-          .where((item) => ids.contains(item.id) && !item.isRead)
-          .length;
+      final unreadDeleted = _items.where((item) => ids.contains(item.id) && !item.isRead).length;
       _items.removeWhere((item) => ids.contains(item.id));
       _unreadCount = (_unreadCount - unreadDeleted).clamp(0, 1 << 31);
       notifyListeners();

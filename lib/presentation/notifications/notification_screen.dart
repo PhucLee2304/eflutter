@@ -62,11 +62,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
       case 'COMMENT_REPLIED':
       case 'COMMENT_LIKED':
         final classroomId = int.tryParse(item.data['classroomId'] ?? '');
-        context.go(
-          classroomId == null
-              ? AppRoutes.home.path
-              : classroomPath(classroomId),
-        );
+        context.go(classroomId == null ? AppRoutes.home.path : classroomPath(classroomId));
       default:
         break;
     }
@@ -90,10 +86,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                         const Expanded(
                           child: Text(
                             'Notifications',
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.w600,
-                            ),
+                            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
                           ),
                         ),
                         if (_controller.unreadCount > 0)
@@ -115,22 +108,12 @@ class _NotificationScreenState extends State<NotificationScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: SegmentedButton<NotificationFilter>(
                       segments: const [
-                        ButtonSegment(
-                          value: NotificationFilter.all,
-                          label: Text('All'),
-                        ),
-                        ButtonSegment(
-                          value: NotificationFilter.unread,
-                          label: Text('Unread'),
-                        ),
-                        ButtonSegment(
-                          value: NotificationFilter.read,
-                          label: Text('Read'),
-                        ),
+                        ButtonSegment(value: NotificationFilter.all, label: Text('All')),
+                        ButtonSegment(value: NotificationFilter.unread, label: Text('Unread')),
+                        ButtonSegment(value: NotificationFilter.read, label: Text('Read')),
                       ],
                       selected: {_controller.filter},
-                      onSelectionChanged: (values) =>
-                          _controller.setFilter(values.first),
+                      onSelectionChanged: (values) => _controller.setFilter(values.first),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -168,10 +151,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
           final item = _controller.items[index];
           return ListTile(
             minTileHeight: 82,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 8,
-              vertical: 8,
-            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             leading: Checkbox(
               value: _selectedIDs.contains(item.id),
               onChanged: (selected) => setState(() {
@@ -184,17 +164,11 @@ class _NotificationScreenState extends State<NotificationScreen> {
             ),
             title: Text(
               item.title,
-              style: TextStyle(
-                fontWeight: item.isRead ? FontWeight.w500 : FontWeight.w700,
-              ),
+              style: TextStyle(fontWeight: item.isRead ? FontWeight.w500 : FontWeight.w700),
             ),
             subtitle: Padding(
               padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                item.body,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
+              child: Text(item.body, maxLines: 2, overflow: TextOverflow.ellipsis),
             ),
             trailing: Text(
               item.createdAt.toFormatString(pattern: 'dd/MM HH:mm'),

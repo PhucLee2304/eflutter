@@ -185,6 +185,7 @@ class _PostListState extends State<PostList> {
   Future<void> compose([PostItem? post]) async {
     final value = await showDialog<PostComposeResult>(
       context: context,
+      barrierDismissible: false,
       builder: (_) => PostComposerDialog(
         repository: repo,
         content: post?.content ?? '',

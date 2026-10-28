@@ -36,11 +36,15 @@ class _PostComposerDialogState extends State<PostComposerDialog> {
   );
   late bool allowComments = widget.allowComments;
   final files = <LocalPickedFile>[];
-  final progress = <int, double>{};
+  final progress = <LocalPickedFile, double>{};
   final uploadedIds = <LocalPickedFile, int>{};
+  final failed = <LocalPickedFile>{};
+  final tokens = <LocalPickedFile, CancelToken>{};
   PostUploadLimits? limits;
-  CancelToken? cancelToken;
   bool saving = false;
+
+  bool get uploading =>
+      files.any((f) => !uploadedIds.containsKey(f) && !failed.contains(f));
   String? error;
 
   @override
@@ -110,162 +114,181 @@ class _PostComposerDialogState extends State<PostComposerDialog> {
         ..addAll(combined);
       error = null;
     });
+    for (final file in picked) {
+      unawaited(_upload(file));
+    }
   }
 
-  Future<void> _save() async {
+  /// Tải file lên ngay khi chọn (presign + PUT + complete), để lúc bấm Save
+  /// chỉ còn gửi danh sách id.
+  Future<void> _upload(LocalPickedFile file) async {
+    final token = CancelToken();
+    tokens[file] = token;
+    setState(() {
+      failed.remove(file);
+      progress[file] = 0;
+    });
+    try {
+      final id = await widget.repository.uploadAttachment(
+        file,
+        cancelToken: token,
+        onProgress: (value) {
+          if (mounted) setState(() => progress[file] = value);
+        },
+      );
+      if (mounted) setState(() => uploadedIds[file] = id);
+    } catch (e) {
+      if (!mounted || token.isCancelled) return;
+      setState(() {
+        failed.add(file);
+        error = 'Upload of ${file.name} failed. Tap retry.';
+      });
+    } finally {
+      if (tokens[file] == token) tokens.remove(file);
+    }
+  }
+
+  void _remove(LocalPickedFile file) {
+    tokens.remove(file)?.cancel();
+    setState(() {
+      files.remove(file);
+      progress.remove(file);
+      uploadedIds.remove(file);
+      failed.remove(file);
+    });
+  }
+
+  void _save() {
     if (text.text.trim().isEmpty && files.isEmpty) {
       setState(() => error = 'Write something or attach a file.');
       return;
     }
-    setState(() {
-      saving = true;
-      error = null;
-      progress.clear();
-    });
-    cancelToken = CancelToken();
-    try {
-      final ids = <int>[];
-      for (var i = 0; i < files.length; i++) {
-        final existing = uploadedIds[files[i]];
-        if (existing != null) {
-          ids.add(existing);
-          continue;
-        }
-        final id = await widget.repository.uploadAttachment(
-          files[i],
-          cancelToken: cancelToken!,
-          onProgress: (value) {
-            if (mounted) setState(() => progress[i] = value);
-          },
-        );
-        uploadedIds[files[i]] = id;
-        ids.add(id);
-      }
-      if (mounted) {
-        Navigator.pop(context, (
-          content: text.text.trim(),
-          allowComments: allowComments,
-          attachmentIds: ids,
-        ));
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          saving = false;
-          error = e is DioException && CancelToken.isCancel(e)
-              ? 'Upload cancelled.'
-              : 'Upload failed. Check your connection and retry.';
-        });
-      }
-    }
+    if (uploading || failed.isNotEmpty) return;
+    setState(() => saving = true);
+    Navigator.pop(context, (
+      content: text.text.trim(),
+      allowComments: allowComments,
+      attachmentIds: [for (final f in files) uploadedIds[f]!],
+    ));
   }
 
   @override
   void dispose() {
-    cancelToken?.cancel();
+    for (final token in tokens.values) {
+      token.cancel();
+    }
     text.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: Text(widget.editing ? 'Edit post' : 'Create post'),
-    content: SizedBox(
-      width: 560,
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: text,
-              minLines: 4,
-              maxLines: 10,
-              autofocus: true,
-              decoration: const InputDecoration(
-                labelText: 'Content',
-                alignLabelWithHint: true,
-              ),
-            ),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Allow comments'),
-              value: allowComments,
-              onChanged: saving
-                  ? null
-                  : (v) => setState(() => allowComments = v),
-            ),
-            if (!widget.editing)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: OutlinedButton.icon(
-                  onPressed: saving || limits == null ? null : _pick,
-                  icon: const Icon(Icons.attach_file),
-                  label: const Text('Add photos or documents'),
+  Widget build(BuildContext context) => PopScope(
+    // Chỉ đóng bằng nút Cancel, không đóng bằng Esc/bấm ra ngoài.
+    canPop: false,
+    child: AlertDialog(
+      title: Text(widget.editing ? 'Edit post' : 'Create post'),
+      content: SizedBox(
+        width: 560,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: text,
+                minLines: 4,
+                maxLines: 10,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'Content',
+                  alignLabelWithHint: true,
                 ),
               ),
-            ...files.asMap().entries.map(
-              (entry) => ListTile(
+              SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: Icon(
-                  entry.value.contentType.startsWith('image/')
-                      ? Icons.image_outlined
-                      : entry.value.contentType.startsWith('video/')
-                      ? Icons.videocam_outlined
-                      : Icons.description_outlined,
-                ),
-                title: Text(
-                  entry.value.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                subtitle: progress[entry.key] == null
-                    ? Text(_size(entry.value.bytes.length))
-                    : LinearProgressIndicator(value: progress[entry.key]),
-                trailing: saving
+                title: const Text('Allow comments'),
+                value: allowComments,
+                onChanged: saving
                     ? null
-                    : IconButton(
+                    : (v) => setState(() => allowComments = v),
+              ),
+              if (!widget.editing)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: saving || limits == null ? null : _pick,
+                    icon: const Icon(Icons.attach_file),
+                    label: const Text('Add photos or documents'),
+                  ),
+                ),
+              ...files.map(
+                (file) => ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    file.contentType.startsWith('image/')
+                        ? Icons.image_outlined
+                        : file.contentType.startsWith('video/')
+                        ? Icons.videocam_outlined
+                        : Icons.description_outlined,
+                  ),
+                  title: Text(
+                    file.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle:
+                      uploadedIds.containsKey(file) || failed.contains(file)
+                      ? Text(
+                          failed.contains(file)
+                              ? 'Upload failed'
+                              : _size(file.bytes.length),
+                        )
+                      : LinearProgressIndicator(value: progress[file]),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (failed.contains(file))
+                        IconButton(
+                          tooltip: 'Retry',
+                          icon: const Icon(Icons.refresh),
+                          onPressed: () => _upload(file),
+                        ),
+                      IconButton(
                         tooltip: 'Remove',
                         icon: const Icon(Icons.close),
-                        onPressed: () =>
-                            setState(() => files.removeAt(entry.key)),
+                        onPressed: () => _remove(file),
                       ),
-              ),
-            ),
-            if (error != null)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(
-                    error!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
+                    ],
                   ),
                 ),
               ),
-          ],
+              if (error != null)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      error!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(uploading ? 'Cancel upload' : 'Cancel'),
+        ),
+        FilledButton(
+          onPressed: saving || uploading || failed.isNotEmpty ? null : _save,
+          child: const Text('Save'),
+        ),
+      ],
     ),
-    actions: [
-      TextButton(
-        onPressed: () {
-          if (saving) {
-            cancelToken?.cancel();
-          } else {
-            Navigator.pop(context);
-          }
-        },
-        child: Text(saving ? 'Cancel upload' : 'Cancel'),
-      ),
-      FilledButton(
-        onPressed: saving ? null : _save,
-        child: Text(
-          error?.startsWith('Upload failed') == true ? 'Retry' : 'Save',
-        ),
-      ),
-    ],
   );
 }
 

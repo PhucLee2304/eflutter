@@ -79,18 +79,19 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i744.LeaveGuard>(),
       ),
     );
-    gh.lazySingleton<_i695.AuthRepository>(
-      () => _i695.AuthRepository(
-        gh<_i942.LocalDataBase>(),
-        gh<_i207.Talker>(),
-        gh<_i90.RemoteDataBase>(),
-      ),
-    );
     gh.lazySingleton<_i339.NotificationPushService>(
       () => _i339.NotificationPushService(
         gh<_i361.Dio>(),
         gh<_i834.NotificationController>(),
         gh<_i460.SharedPreferencesAsync>(),
+        gh<_i942.LocalDataBase>(),
+      ),
+    );
+    gh.lazySingleton<_i695.AuthRepository>(
+      () => _i695.AuthRepository(
+        gh<_i942.LocalDataBase>(),
+        gh<_i207.Talker>(),
+        gh<_i90.RemoteDataBase>(),
       ),
     );
     gh.lazySingleton<_i441.TopicRepository>(
