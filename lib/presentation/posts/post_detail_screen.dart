@@ -7,13 +7,17 @@ import 'package:eflutter/presentation/posts/post_card.dart';
 import 'package:eflutter/presentation/posts/post_comments.dart';
 import 'package:eflutter/presentation/posts/post_composer_dialog.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 /// Trang chi tiết: tải đầy đủ nội dung, toàn bộ file đính kèm, rồi comment
 /// phân trang.
 class PostDetailScreen extends StatefulWidget {
-  const PostDetailScreen({super.key, required this.postId});
+  const PostDetailScreen({super.key, required this.postId, this.commentId});
   final int postId;
+
+  /// Comment cần mở tới, từ `?comment=` (thông báo comment/reply/like comment).
+  final int? commentId;
 
   @override
   State<PostDetailScreen> createState() => _PostDetailScreenState();
@@ -30,6 +34,16 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   void initState() {
     super.initState();
     _load();
+    // Bỏ ?comment= khỏi thanh địa chỉ (chỉ dùng để service worker truyền comment).
+    final uri = Uri.base;
+    if (uri.queryParameters.containsKey('comment')) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        SystemNavigator.routeInformationUpdated(
+          uri: Uri.parse(uri.path),
+          replace: true,
+        );
+      });
+    }
   }
 
   @override
@@ -89,6 +103,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         repository: repo,
         content: p.content,
         allowComments: p.allowComments,
+        attachments: p.attachments,
+        author: p.author,
         editing: true,
       ),
     );
@@ -98,6 +114,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         p.id,
         value.content,
         allowComments: value.allowComments,
+        attachmentIds: value.attachmentIds,
       );
       await _load();
     } catch (_) {
@@ -157,6 +174,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                         readOnly: false,
                         focus: commentFocus,
                         onCommentAdded: _load,
+                        focusCommentId: widget.commentId,
                       ),
                     )
                   else if (error != null)

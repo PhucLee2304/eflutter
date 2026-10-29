@@ -677,7 +677,9 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
                   initialValue: description,
                   onChanged: (value) => description = value,
                   keyboardType: TextInputType.multiline,
-                  maxLines: null,
+                  minLines: 1,
+                  // Không giới hạn nội dung; ô cao tối đa 6 dòng rồi cuộn bên trong.
+                  maxLines: 6,
                   decoration: const InputDecoration(labelText: 'Description'),
                 ),
               ],

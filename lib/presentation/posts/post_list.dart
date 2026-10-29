@@ -198,6 +198,8 @@ class _PostListState extends State<PostList> {
         repository: repo,
         content: post?.content ?? '',
         allowComments: post?.allowComments ?? true,
+        attachments: post?.attachments ?? const [],
+        author: post?.author,
         editing: post != null,
       ),
     );
@@ -215,6 +217,7 @@ class _PostListState extends State<PostList> {
           post.id,
           value.content,
           allowComments: value.allowComments,
+          attachmentIds: value.attachmentIds,
         );
       }
       await load();
@@ -223,10 +226,23 @@ class _PostListState extends State<PostList> {
     }
   }
 
-  /// Mở trang chi tiết; quay lại thì tải lại để cập nhật số like/comment.
+  /// Mở trang chi tiết; quay lại thì chỉ tải lại bài đó và thay tại chỗ để
+  /// giữ nguyên vị trí cuộn (bài bị xóa ở trang chi tiết thì bỏ khỏi list).
   Future<void> open(PostItem p) async {
     await context.push('/posts/${p.id}');
-    if (mounted) await load();
+    if (!mounted) return;
+    try {
+      final fresh = await repo.getPost(p.id);
+      if (mounted) {
+        setState(
+          () => items = [for (final i in items) i.id == p.id ? fresh : i],
+        );
+      }
+    } on DioException catch (e) {
+      if (mounted && e.response?.statusCode == 404) {
+        setState(() => items = items.where((i) => i.id != p.id).toList());
+      }
+    } catch (_) {}
   }
 
   void _message(String value) {

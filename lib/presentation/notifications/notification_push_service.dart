@@ -7,6 +7,8 @@ import 'package:eflutter/core/base/local_data_base.dart';
 import 'package:eflutter/data/data_sources/notification_socket_client.dart';
 import 'package:eflutter/data/models/app_notification.dart';
 import 'package:eflutter/data/repositories/notification_repository.dart';
+import 'package:eflutter/presentation/app/navigation/app_router.dart';
+import 'package:eflutter/presentation/app/navigation/app_routes.dart';
 import 'package:eflutter/presentation/notifications/notification_controller.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
@@ -96,6 +98,14 @@ class NotificationPushService {
       notification.onclick = (web.Event _) {
         web.window.focus();
         notification.close();
+        final path = notificationPath(item.data);
+        // Bài viết mở chồng lên để Back quay lại; các trang khác vẫn đi thẳng như cũ.
+        if (path == null) return;
+        if (path.startsWith('/posts/')) {
+          unawaited(AppRouter.router.push(path, extra: int.tryParse(item.data['commentId'] ?? '')));
+        } else {
+          AppRouter.router.go(path);
+        }
       }.toJS;
     }
   }

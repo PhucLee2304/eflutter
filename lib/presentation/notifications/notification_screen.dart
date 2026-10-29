@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:eflutter/core/utils/extensions/date_time_extension.dart';
 import 'package:eflutter/core/di/injection.dart';
@@ -47,25 +49,13 @@ class _NotificationScreenState extends State<NotificationScreen> {
   Future<void> _open(AppNotification item) async {
     await _controller.markRead(item);
     if (!mounted) return;
-    final id = int.tryParse(item.data['id'] ?? '');
-    switch (item.data['type']) {
-      case 'CLASSROOM':
-        if (id != null) context.go(classroomPath(id));
-      case 'ASSIGNMENT':
-        final classroomId = int.tryParse(item.data['classroomId'] ?? '');
-        if (classroomId != null) context.go(classroomPath(classroomId));
-      case 'ATTEMPT':
-        if (id != null) context.go(attemptHistoryDetailPath(id));
-      case 'CLASSROOM_POST':
-      case 'CLASSROOM_POST_PINNED':
-      case 'POST_LIKED':
-      case 'POST_COMMENTED':
-      case 'COMMENT_REPLIED':
-      case 'COMMENT_LIKED':
-        final classroomId = int.tryParse(item.data['classroomId'] ?? '');
-        context.go(classroomId == null ? AppRoutes.home.path : classroomPath(classroomId));
-      default:
-        break;
+    final path = notificationPath(item.data);
+    // Bài viết mở chồng lên để Back quay lại; các trang khác vẫn đi thẳng như cũ.
+    if (path == null) return;
+    if (path.startsWith('/posts/')) {
+      unawaited(context.push(path, extra: int.tryParse(item.data['commentId'] ?? '')));
+    } else {
+      context.go(path);
     }
   }
 
@@ -144,10 +134,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
         separatorBuilder: (_, _) => const Divider(height: 1),
         itemBuilder: (context, index) {
           if (index == _controller.items.length) {
-            return const Padding(
-              padding: EdgeInsets.all(20),
-              child: AppLoader(),
-            );
+            return const Padding(padding: EdgeInsets.all(20), child: AppLoader());
           }
           final item = _controller.items[index];
           return ListTile(

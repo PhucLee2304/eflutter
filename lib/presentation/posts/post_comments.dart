@@ -16,12 +16,17 @@ class PostComments extends StatefulWidget {
     required this.readOnly,
     required this.focus,
     this.onCommentAdded,
+    this.focusCommentId,
   });
   final PostRepository repo;
   final PostItem post;
   final bool readOnly;
   final FocusNode focus;
   final VoidCallback? onCommentAdded;
+
+  /// Comment cần mở tới (từ thông báo): đưa thread của nó lên đầu, cuộn tới
+  /// và tô nổi vài giây.
+  final int? focusCommentId;
 
   @override
   State<PostComments> createState() => _PostCommentsState();
@@ -45,13 +50,46 @@ class _PostCommentsState extends State<PostComments> {
   String? error;
   PostCommentItem? reply;
   bool sending = false;
+  final _focusKey = GlobalKey();
+  int? highlighted;
 
   int get postId => widget.post.id;
 
   @override
   void initState() {
     super.initState();
-    _loadRoots();
+    final id = widget.focusCommentId;
+    id == null ? _loadRoots() : _openFocused(id);
+  }
+
+  Future<void> _openFocused(int id) async {
+    try {
+      final target = await widget.repo.getComment(id);
+      final parentId = target.parentId;
+      final root = parentId == null
+          ? target
+          : await widget.repo.getComment(parentId);
+      final thread = _Thread(root);
+      if (parentId != null) thread.replies.add(target);
+      threads.insert(0, thread);
+      if (mounted) setState(() => highlighted = target.id);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final ctx = _focusKey.currentContext;
+        if (ctx != null) {
+          Scrollable.ensureVisible(
+            ctx,
+            alignment: 0.3,
+            duration: const Duration(milliseconds: 300),
+          );
+        }
+      });
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted) setState(() => highlighted = null);
+      });
+    } catch (_) {
+      // Comment đã bị xóa hoặc không xem được: chỉ hiện danh sách như bình thường.
+    }
+    await _loadRoots();
   }
 
   @override
@@ -212,10 +250,7 @@ class _PostCommentsState extends State<PostComments> {
               ),
           ],
           if (loading)
-            const Padding(
-              padding: EdgeInsets.all(8),
-              child: AppLoader(),
-            )
+            const Padding(padding: EdgeInsets.all(8), child: AppLoader())
           else if (error != null)
             Center(
               child: TextButton.icon(
@@ -251,7 +286,9 @@ class _PostCommentsState extends State<PostComments> {
   ) {
     final theme = Theme.of(context);
     final small = comment.parentId != null;
+    final focused = comment.id == highlighted;
     return Padding(
+      key: focused ? _focusKey : null,
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -262,10 +299,13 @@ class _PostCommentsState extends State<PostComments> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 400),
                   padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
                   decoration: BoxDecoration(
-                    color: postBubbleColor(context),
+                    color: focused
+                        ? theme.colorScheme.primary.withValues(alpha: 0.15)
+                        : postBubbleColor(context),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Column(

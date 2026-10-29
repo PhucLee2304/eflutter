@@ -96,10 +96,15 @@ class PostRepository {
     int id,
     String content, {
     required bool allowComments,
+    List<int>? attachmentIds,
   }) async {
     final r = await _dio.patch(
       '$_base/posts/$id',
-      data: {'content': content, 'allowComments': allowComments},
+      data: {
+        'content': content,
+        'allowComments': allowComments,
+        'attachmentIds': ?attachmentIds,
+      },
     );
     return PostItem.fromJson(r.data as Map<String, dynamic>);
   }
@@ -114,6 +119,11 @@ class PostRepository {
   Future<PostItem> getPost(int id) async {
     final r = await _dio.get('$_base/posts/$id');
     return PostItem.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  Future<PostCommentItem> getComment(int id) async {
+    final r = await _dio.get('$_base/comments/$id');
+    return PostCommentItem.fromJson(r.data as Map<String, dynamic>);
   }
 
   /// Một trang comment gốc (không có [parentId]) hoặc reply của comment gốc [parentId].
@@ -146,7 +156,6 @@ class PostRepository {
     return PostCommentItem.fromJson(r.data as Map<String, dynamic>);
   }
 
-  Future<void> deleteComment(int id) => _dio.delete('$_base/comments/$id');
   Future<void> setCommentLike(int id, bool value) => value
       ? _dio.post('$_base/comments/$id/like')
       : _dio.delete('$_base/comments/$id/like');

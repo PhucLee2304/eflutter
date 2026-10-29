@@ -114,6 +114,11 @@ class NavigationItem {
         path: AppRoutes.postDetail.path,
         builder: (context, state) => PostDetailScreen(
           postId: int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
+          // Từ thông báo trong app: qua extra. Từ push nền (service worker): qua
+          // ?comment=, màn chi tiết sẽ tự xóa khỏi URL.
+          commentId: state.extra is int
+              ? state.extra! as int
+              : int.tryParse(state.uri.queryParameters['comment'] ?? ''),
         ),
       ),
     ],

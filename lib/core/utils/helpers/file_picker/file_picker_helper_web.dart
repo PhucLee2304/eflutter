@@ -82,12 +82,16 @@ Future<LocalPickedFile?> pickImageFile() async {
   });
 }
 
-Future<List<LocalPickedFile>> pickPostAttachments() async {
+const postMediaAccept =
+    'image/jpeg,image/png,image/webp,video/mp4,video/quicktime';
+const postDocumentAccept = '.pdf,.txt,.doc,.docx,.xls,.xlsx,.ppt,.pptx';
+
+/// [accept] giới hạn loại file trong hộp chọn; mặc định cho chọn cả ảnh/video lẫn tài liệu.
+Future<List<LocalPickedFile>> pickPostAttachments({String? accept}) async {
   final input = web.HTMLInputElement()
     ..type = 'file'
     ..multiple = true
-    ..accept =
-        'image/jpeg,image/png,image/webp,video/mp4,video/quicktime,.pdf,.txt,.doc,.docx,.xls,.xlsx,.ppt,.pptx'
+    ..accept = accept ?? '$postMediaAccept,$postDocumentAccept'
     ..style.display = 'none';
   web.document.body?.append(input);
   final completer = Completer<List<LocalPickedFile>>();
