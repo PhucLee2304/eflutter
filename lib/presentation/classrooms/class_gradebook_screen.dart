@@ -101,12 +101,8 @@ class _ClassGradebookScreenState extends State<ClassGradebookScreen> {
                   spacing: 24,
                   runSpacing: 8,
                   children: [
-                    Text(
-                      'Average score: ${gradebook!.averageScore?.toStringAsFixed(2) ?? '-'}',
-                    ),
-                    Text(
-                      'Completion: ${gradebook!.completionRate.toStringAsFixed(1)}%',
-                    ),
+                    Text('Average score: ${gradebook!.averageScore?.toStringAsFixed(2) ?? '-'}'),
+                    Text('Completion: ${gradebook!.completionRate.toStringAsFixed(1)}%'),
                   ],
                 ),
                 const SizedBox(height: 20),
@@ -132,19 +128,11 @@ class _ClassGradebookScreenState extends State<ClassGradebookScreen> {
                         .map(
                           (student) => DataRow(
                             onSelectChanged: (_) => context.go(
-                              studentProgressPath(
-                                widget.classroomId,
-                                student.student.id,
-                              ),
+                              studentProgressPath(widget.classroomId, student.student.id),
                             ),
                             cells: [
                               DataCell(Text(student.student.name)),
-                              DataCell(
-                                Text(
-                                  student.averageScore?.toStringAsFixed(2) ??
-                                      '-',
-                                ),
-                              ),
+                              DataCell(Text(student.averageScore?.toStringAsFixed(2) ?? '-')),
                               ...student.assignments.map(
                                 (item) => DataCell(
                                   Text(

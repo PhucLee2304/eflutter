@@ -1,22 +1,18 @@
 import 'package:eflutter/presentation/classrooms/room_participants.dart';
 import 'package:flutter/material.dart';
-import 'package:livekit_client/livekit_client.dart'
-    show VideoTrack, VideoTrackRenderer;
+import 'package:livekit_client/livekit_client.dart' show VideoTrack, VideoTrackRenderer;
 
 const _tileBackground = Color(0xff303134);
 const _panelBackground = Color(0xff202124);
 
 String roomParticipantLabel(RoomParticipantView participant) =>
-    participant.isLocal
-    ? '${participant.displayName} (You)'
-    : participant.displayName;
+    participant.isLocal ? '${participant.displayName} (You)' : participant.displayName;
 
-String? roomConnectionLabel(RoomParticipantConnection connection) =>
-    switch (connection) {
-      RoomParticipantConnection.good => null,
-      RoomParticipantConnection.weak => 'Weak connection',
-      RoomParticipantConnection.reconnecting => 'Reconnecting',
-    };
+String? roomConnectionLabel(RoomParticipantConnection connection) => switch (connection) {
+  RoomParticipantConnection.good => null,
+  RoomParticipantConnection.weak => 'Weak connection',
+  RoomParticipantConnection.reconnecting => 'Reconnecting',
+};
 
 class RoomParticipantTile extends StatelessWidget {
   const RoomParticipantTile({super.key, required this.participant, this.video});
@@ -61,27 +57,19 @@ class RoomParticipantTile extends StatelessWidget {
                   if (video != null && participant.cameraOn)
                     VideoTrackRenderer(video!)
                   else
-                    Center(
-                      child: _Avatar(participant: participant, radius: 32),
-                    ),
+                    Center(child: _Avatar(participant: participant, radius: 32)),
                   if (participant.handRaisedAt != null)
                     const Positioned(
                       top: 8,
                       right: 8,
-                      child: _StatusChip(
-                        icon: Icons.back_hand,
-                        label: 'Hand raised',
-                        dense: true,
-                      ),
+                      child: _StatusChip(icon: Icons.back_hand, label: 'Hand raised', dense: true),
                     ),
                   if (connectionLabel != null)
                     Positioned(
                       top: 8,
                       left: 8,
                       child: _StatusChip(
-                        icon:
-                            participant.connection ==
-                                RoomParticipantConnection.reconnecting
+                        icon: participant.connection == RoomParticipantConnection.reconnecting
                             ? Icons.sync
                             : Icons.signal_cellular_alt_1_bar,
                         label: connectionLabel,
@@ -92,21 +80,14 @@ class RoomParticipantTile extends StatelessWidget {
                     right: 0,
                     bottom: 0,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       color: Colors.black54,
                       child: Row(
                         children: [
                           if (!participant.microphoneOn)
                             const Padding(
                               padding: EdgeInsets.only(right: 6),
-                              child: Icon(
-                                Icons.mic_off,
-                                size: 16,
-                                color: Colors.white,
-                              ),
+                              child: Icon(Icons.mic_off, size: 16, color: Colors.white),
                             ),
                           Expanded(
                             child: Text(
@@ -116,8 +97,7 @@ class RoomParticipantTile extends StatelessWidget {
                               style: const TextStyle(color: Colors.white),
                             ),
                           ),
-                          if (participant.isHost)
-                            const _StatusChip(label: 'Teacher', dense: true),
+                          if (participant.isHost) const _StatusChip(label: 'Teacher', dense: true),
                         ],
                       ),
                     ),
@@ -151,8 +131,7 @@ class RoomParticipantPanel extends StatefulWidget {
   final VoidCallback? onLowerAllHands;
 
   /// Thao tác quản trị chỉ có ở giáo viên.
-  final void Function(String identity, RoomParticipantAction action)?
-  onModerate;
+  final void Function(String identity, RoomParticipantAction action)? onModerate;
   final VoidCallback? onMuteAll;
 
   @override
@@ -238,10 +217,7 @@ class _RoomParticipantPanelState extends State<RoomParticipantPanel> {
             Expanded(
               child: visible.isEmpty
                   ? const Center(
-                      child: Text(
-                        'No participants found',
-                        style: TextStyle(color: Colors.white70),
-                      ),
+                      child: Text('No participants found', style: TextStyle(color: Colors.white70)),
                     )
                   : ListView(
                       children: [
@@ -275,8 +251,7 @@ class _RoomParticipantPanelState extends State<RoomParticipantPanel> {
 
 extension on _RoomParticipantPanelState {
   List<Widget> get _bulkActions => [
-    if (widget.onLowerAllHands != null &&
-        widget.participants.any((p) => p.handRaisedAt != null))
+    if (widget.onLowerAllHands != null && widget.participants.any((p) => p.handRaisedAt != null))
       TextButton.icon(
         onPressed: widget.onLowerAllHands,
         style: TextButton.styleFrom(foregroundColor: const Color(0xfffdd663)),
@@ -284,9 +259,7 @@ extension on _RoomParticipantPanelState {
         label: const Text('Lower all'),
       ),
     if (widget.onMuteAll != null &&
-        widget.participants.any(
-          (p) => !p.isHost && !p.isLocal && p.microphoneAllowed,
-        ))
+        widget.participants.any((p) => !p.isHost && !p.isLocal && p.microphoneAllowed))
       TextButton.icon(
         onPressed: widget.onMuteAll,
         style: TextButton.styleFrom(foregroundColor: Colors.white),
@@ -307,24 +280,17 @@ class _SectionHeader extends StatelessWidget {
       header: true,
       child: Text(
         title,
-        style: Theme.of(
-          context,
-        ).textTheme.labelLarge?.copyWith(color: Colors.white70),
+        style: Theme.of(context).textTheme.labelLarge?.copyWith(color: Colors.white70),
       ),
     ),
   );
 }
 
 class _ParticipantRow extends StatelessWidget {
-  const _ParticipantRow({
-    required this.participant,
-    this.onLowerHand,
-    this.onModerate,
-  });
+  const _ParticipantRow({required this.participant, this.onLowerHand, this.onModerate});
   final RoomParticipantView participant;
   final ValueChanged<String>? onLowerHand;
-  final void Function(String identity, RoomParticipantAction action)?
-  onModerate;
+  final void Function(String identity, RoomParticipantAction action)? onModerate;
 
   @override
   Widget build(BuildContext context) {
@@ -340,8 +306,7 @@ class _ParticipantRow extends StatelessWidget {
       ?connectionLabel,
     ].join(' · ');
     final moderate = onModerate;
-    final canModerate =
-        moderate != null && !participant.isHost && !participant.isLocal;
+    final canModerate = moderate != null && !participant.isHost && !participant.isLocal;
     return ListTile(
       dense: true,
       leading: _Avatar(participant: participant, radius: 18),
@@ -371,23 +336,13 @@ class _ParticipantRow extends StatelessWidget {
               tooltip: 'Lower ${participant.displayName}\'s hand',
               visualDensity: VisualDensity.compact,
               onPressed: () => onLowerHand!(participant.identity),
-              icon: const Icon(
-                Icons.back_hand,
-                size: 18,
-                color: Color(0xfffdd663),
-              ),
+              icon: const Icon(Icons.back_hand, size: 18, color: Color(0xfffdd663)),
             )
           else if (participant.handRaisedAt != null)
-            const _StateIcon(
-              icon: Icons.back_hand,
-              label: 'Hand raised',
-              color: Color(0xfffdd663),
-            ),
+            const _StateIcon(icon: Icons.back_hand, label: 'Hand raised', color: Color(0xfffdd663)),
           _StateIcon(
             icon: participant.microphoneOn ? Icons.mic : Icons.mic_off,
-            label: participant.microphoneOn
-                ? 'Microphone on'
-                : 'Microphone off',
+            label: participant.microphoneOn ? 'Microphone on' : 'Microphone off',
           ),
           _StateIcon(
             icon: participant.cameraOn ? Icons.videocam : Icons.videocam_off,
@@ -420,10 +375,7 @@ class _ParticipantRow extends StatelessWidget {
                 const PopupMenuDivider(),
                 const PopupMenuItem(
                   value: RoomParticipantAction.remove,
-                  child: Text(
-                    'Remove from session',
-                    style: TextStyle(color: Colors.redAccent),
-                  ),
+                  child: Text('Remove from session', style: TextStyle(color: Colors.redAccent)),
                 ),
               ],
             ),
@@ -444,12 +396,7 @@ class _StateIcon extends StatelessWidget {
     message: label,
     child: Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Icon(
-        icon,
-        size: 18,
-        color: color ?? Colors.white70,
-        semanticLabel: label,
-      ),
+      child: Icon(icon, size: 18, color: color ?? Colors.white70, semanticLabel: label),
     ),
   );
 }
@@ -463,10 +410,7 @@ class _StatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     padding: EdgeInsets.symmetric(horizontal: dense ? 6 : 8, vertical: 3),
-    decoration: BoxDecoration(
-      color: Colors.black87,
-      borderRadius: BorderRadius.circular(12),
-    ),
+    decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(12)),
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [

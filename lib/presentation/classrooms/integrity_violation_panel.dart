@@ -161,9 +161,7 @@ class _ViolationCard extends StatelessWidget {
                 // Bài đã nộp/đình chỉ thì không Cấm được nữa (server trả 409).
                 if (active)
                   FilledButton(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: ColorName.red,
-                    ),
+                    style: FilledButton.styleFrom(backgroundColor: ColorName.red),
                     onPressed: busy ? null : onBan,
                     child: const Text('Ban'),
                   ),
@@ -209,18 +207,14 @@ class IntegrityStatusCell extends StatelessWidget {
               '${submission.violationCount}/$maxViolations',
               style: TextStyle(
                 fontWeight: FontWeight.w700,
-                color: submission.violationCount >= maxViolations
-                    ? ColorName.red
-                    : null,
+                color: submission.violationCount >= maxViolations ? ColorName.red : null,
               ),
             ),
             if (submission.pendingViolations > 0)
               const Icon(Icons.circle, size: 10, color: ColorName.red),
             if (away) const _Chip(label: 'Away', color: ColorName.orange),
-            if (outcome == 'TERMINATED')
-              const _Chip(label: 'Suspended', color: ColorName.red),
-            if (outcome == 'REINSTATED')
-              const _Chip(label: 'Reinstated', color: ColorName.green),
+            if (outcome == 'TERMINATED') const _Chip(label: 'Suspended', color: ColorName.red),
+            if (outcome == 'REINSTATED') const _Chip(label: 'Reinstated', color: ColorName.green),
           ],
         ),
       ),

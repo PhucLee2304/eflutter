@@ -5,14 +5,10 @@ import 'package:solar_icons/solar_icons.dart';
 
 /// Hộp đồng ý quy chế giám sát (PLAN_ATTEMPT_INTEGRITY.md mục 1.7). Trả true khi
 /// học sinh tích ô và bấm Bắt đầu.
-Future<bool> showIntegrityConsentDialog(
-  BuildContext context, {
-  required int maxViolations,
-}) async =>
+Future<bool> showIntegrityConsentDialog(BuildContext context, {required int maxViolations}) async =>
     await showDialog<bool>(
       context: context,
-      builder: (context) =>
-          _IntegrityConsentDialog(maxViolations: maxViolations),
+      builder: (context) => _IntegrityConsentDialog(maxViolations: maxViolations),
     ) ??
     false;
 
@@ -22,8 +18,7 @@ class _IntegrityConsentDialog extends StatefulWidget {
   final int maxViolations;
 
   @override
-  State<_IntegrityConsentDialog> createState() =>
-      _IntegrityConsentDialogState();
+  State<_IntegrityConsentDialog> createState() => _IntegrityConsentDialogState();
 }
 
 class _IntegrityConsentDialogState extends State<_IntegrityConsentDialog> {
@@ -31,11 +26,7 @@ class _IntegrityConsentDialogState extends State<_IntegrityConsentDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    icon: const Icon(
-      SolarIconsOutline.shieldCheck,
-      color: ColorName.primary,
-      size: 36,
-    ),
+    icon: const Icon(SolarIconsOutline.shieldCheck, color: ColorName.primary, size: 36),
     title: const Text('Proctored assignment'),
     content: ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 480),
@@ -61,19 +52,14 @@ class _IntegrityConsentDialogState extends State<_IntegrityConsentDialog> {
               contentPadding: EdgeInsets.zero,
               controlAffinity: ListTileControlAffinity.leading,
               onChanged: (value) => setState(() => _accepted = value ?? false),
-              title: const Text(
-                'I have read and agree to the proctoring rules',
-              ),
+              title: const Text('I have read and agree to the proctoring rules'),
             ),
           ],
         ),
       ),
     ),
     actions: [
-      TextButton(
-        onPressed: () => Navigator.of(context).pop(false),
-        child: const Text('Back'),
-      ),
+      TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Back')),
       FilledButton(
         onPressed: _accepted ? () => Navigator.of(context).pop(true) : null,
         child: const Text('Start'),

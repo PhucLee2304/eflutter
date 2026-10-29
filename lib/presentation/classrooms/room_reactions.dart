@@ -42,10 +42,7 @@ RoomReaction? decodeRoomReaction(List<int> data) {
 /// Giới hạn kiểu cửa sổ trượt: tối đa [maxEvents] trong [window] cho mỗi key.
 /// Dùng ở cả phía gửi lẫn phía nhận để một client lỗi không làm rối phòng.
 class RoomReactionLimiter {
-  RoomReactionLimiter({
-    this.maxEvents = 3,
-    this.window = const Duration(seconds: 3),
-  });
+  RoomReactionLimiter({this.maxEvents = 3, this.window = const Duration(seconds: 3)});
 
   final int maxEvents;
   final Duration window;
@@ -61,11 +58,7 @@ class RoomReactionLimiter {
 }
 
 class RoomReactionBubble {
-  const RoomReactionBubble({
-    required this.id,
-    required this.reaction,
-    required this.senderName,
-  });
+  const RoomReactionBubble({required this.id, required this.reaction, required this.senderName});
 
   final int id;
   final RoomReaction reaction;
@@ -93,8 +86,7 @@ class RoomReactionOverlay extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (final bubble in bubbles)
-          _ReactionBubble(key: ValueKey(bubble.id), bubble: bubble),
+        for (final bubble in bubbles) _ReactionBubble(key: ValueKey(bubble.id), bubble: bubble),
       ],
     ),
   );
@@ -115,10 +107,7 @@ class _ReactionBubble extends StatelessWidget {
         duration: roomReactionDisplayDuration,
         builder: (context, progress, child) => Opacity(
           opacity: progress < 0.75 ? 1 : (1 - progress) * 4,
-          child: Transform.translate(
-            offset: Offset(0, -24 * progress),
-            child: child,
-          ),
+          child: Transform.translate(offset: Offset(0, -24 * progress), child: child),
         ),
         child: Padding(
           padding: const EdgeInsets.only(top: 6),
@@ -131,10 +120,7 @@ class _ReactionBubble extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  bubble.reaction.emoji,
-                  style: const TextStyle(fontSize: 24),
-                ),
+                Text(bubble.reaction.emoji, style: const TextStyle(fontSize: 24)),
                 const SizedBox(width: 6),
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 160),

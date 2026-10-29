@@ -22,18 +22,12 @@ class RoomJoinControl extends StatelessWidget {
       if (error != null)
         Padding(
           padding: const EdgeInsets.only(bottom: 16),
-          child: Text(
-            error!,
-            style: TextStyle(color: Theme.of(context).colorScheme.error),
-          ),
+          child: Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
         ),
       FilledButton.icon(
         onPressed: connecting || status != 'LIVE' ? null : onJoin,
         icon: connecting
-            ? const SizedBox.square(
-                dimension: 18,
-                child: AppLoader(),
-              )
+            ? const SizedBox.square(dimension: 18, child: AppLoader())
             : const Icon(Icons.login),
         label: Text(
           status == 'LIVE'

@@ -27,16 +27,13 @@ RoomScreenShareControl roomScreenShareControl({
 /// Yêu cầu đang chờ giáo viên duyệt, cũ nhất trước.
 List<RoomParticipantState> pendingScreenShareRequests(RoomActivity? activity) {
   final pending = [
-    for (final state
-        in activity?.participants ?? const <RoomParticipantState>[])
+    for (final state in activity?.participants ?? const <RoomParticipantState>[])
       if (state.screenShareRequestedAt != null &&
           state.screenShareApprovedAt == null &&
           state.removedAt == null)
         state,
   ];
-  pending.sort(
-    (a, b) => a.screenShareRequestedAt!.compareTo(b.screenShareRequestedAt!),
-  );
+  pending.sort((a, b) => a.screenShareRequestedAt!.compareTo(b.screenShareRequestedAt!));
   return pending;
 }
 
@@ -69,9 +66,7 @@ class RoomScreenShareStage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = isLocal
-        ? 'You are presenting'
-        : '$presenterName is presenting';
+    final label = isLocal ? 'You are presenting' : '$presenterName is presenting';
     return Semantics(
       container: true,
       label: label,
@@ -89,11 +84,7 @@ class RoomScreenShareStage extends StatelessWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
-                        Icons.present_to_all,
-                        size: 56,
-                        color: Colors.white70,
-                      ),
+                      Icon(Icons.present_to_all, size: 56, color: Colors.white70),
                       SizedBox(height: 12),
                       Text(
                         'Everyone in the class can see your screen.',
@@ -104,9 +95,7 @@ class RoomScreenShareStage extends StatelessWidget {
                   ),
                 )
               else if (track != null)
-                ExcludeSemantics(
-                  child: VideoTrackRenderer(track!, fit: VideoViewFit.contain),
-                )
+                ExcludeSemantics(child: VideoTrackRenderer(track!, fit: VideoViewFit.contain))
               else
                 const AppLoader(),
               Positioned(
@@ -117,10 +106,7 @@ class RoomScreenShareStage extends StatelessWidget {
                   children: [
                     Flexible(
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
                           color: Colors.black87,
                           borderRadius: BorderRadius.circular(16),
@@ -128,11 +114,7 @@ class RoomScreenShareStage extends StatelessWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(
-                              Icons.present_to_all,
-                              size: 16,
-                              color: Colors.white,
-                            ),
+                            const Icon(Icons.present_to_all, size: 16, color: Colors.white),
                             const SizedBox(width: 6),
                             Flexible(
                               child: Text(
@@ -215,9 +197,7 @@ class RoomScreenShareRequests extends StatelessWidget {
                     onPressed: reviewing.contains(request.userId)
                         ? null
                         : () => onReview(request.userId, false),
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.white70,
-                    ),
+                    style: TextButton.styleFrom(foregroundColor: Colors.white70),
                     child: const Text('Decline'),
                   ),
                   FilledButton(

@@ -28,11 +28,7 @@ import 'package:eflutter/presentation/classrooms/room_screen_share.dart';
 import 'package:eflutter/presentation/classrooms/room_shortcuts.dart';
 
 class ClassroomRoomScreen extends StatefulWidget {
-  const ClassroomRoomScreen({
-    super.key,
-    required this.classroomId,
-    required this.roomId,
-  });
+  const ClassroomRoomScreen({super.key, required this.classroomId, required this.roomId});
   final int classroomId;
   final int roomId;
 
@@ -63,9 +59,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
   static const _sidePanelWidth = 320.0;
 
   late final ClassroomRepository repository = ClassroomRepository(getIt<Dio>());
-  late final RoomSocketClient roomSocket = RoomSocketClient(
-    getIt<LocalDataBase>(),
-  );
+  late final RoomSocketClient roomSocket = RoomSocketClient(getIt<LocalDataBase>());
   late final RoomDevicePreferences devicePreferences = RoomDevicePreferences(
     getIt<SharedPreferencesAsync>(),
   );
@@ -157,15 +151,12 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
       camera = preferredRoomDevice(savedDevices.cameraId, cameras);
       // Danh sách camera chỉ có sau khi được cấp quyền nên preview đầu tiên
       // dùng camera mặc định; mở lại nếu camera đã lưu là thiết bị khác.
-      if (previewTrack != null &&
-          camera != null &&
-          _previewDeviceId() != camera!.deviceId) {
+      if (previewTrack != null && camera != null && _previewDeviceId() != camera!.deviceId) {
         await _startPreview();
       }
     } catch (_) {
       cameraEnabled = false;
-      deviceWarning =
-          'Camera permission was denied. You can still join with the camera off.';
+      deviceWarning = 'Camera permission was denied. You can still join with the camera off.';
     }
     try {
       final audioTrack = await LocalAudioTrack.create();
@@ -232,8 +223,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
 
   String? _previewDeviceId() {
     try {
-      return previewTrack?.mediaStreamTrack.getSettings()['deviceId']
-          as String?;
+      return previewTrack?.mediaStreamTrack.getSettings()['deviceId'] as String?;
     } catch (_) {
       return null;
     }
@@ -277,15 +267,9 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
         // lại camera/mic hoặc reconnect vẫn dùng đúng thiết bị.
         final mediaRoom = Room(
           roomOptions: RoomOptions(
-            defaultCameraCaptureOptions: CameraCaptureOptions(
-              deviceId: camera?.deviceId,
-            ),
-            defaultAudioCaptureOptions: AudioCaptureOptions(
-              deviceId: microphone?.deviceId,
-            ),
-            defaultAudioOutputOptions: AudioOutputOptions(
-              deviceId: speaker?.deviceId,
-            ),
+            defaultCameraCaptureOptions: CameraCaptureOptions(deviceId: camera?.deviceId),
+            defaultAudioCaptureOptions: AudioCaptureOptions(deviceId: microphone?.deviceId),
+            defaultAudioOutputOptions: AudioOutputOptions(deviceId: speaker?.deviceId),
           ),
         );
         final listener = mediaRoom.createListener()
@@ -379,15 +363,11 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
     try {
       await local.setMicrophoneEnabled(
         microphoneEnabled,
-        audioCaptureOptions: AudioCaptureOptions(
-          deviceId: microphone?.deviceId,
-        ),
+        audioCaptureOptions: AudioCaptureOptions(deviceId: microphone?.deviceId),
       );
     } catch (_) {
       microphoneEnabled = false;
-      warnings.add(
-        'Microphone is unavailable, joined with the microphone off.',
-      );
+      warnings.add('Microphone is unavailable, joined with the microphone off.');
     }
     return warnings;
   }
@@ -456,8 +436,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
         await _refreshActivity();
         await _applyRecoveryAction(
           decideRoomConnectionRecovery(
-            mediaConnected:
-                liveRoom?.connectionState == ConnectionState.connected,
+            mediaConnected: liveRoom?.connectionState == ConnectionState.connected,
             roomRequestSucceeded: true,
             roomStatus: room.status,
           ),
@@ -466,8 +445,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
       case Cancelled():
         await _applyRecoveryAction(
           decideRoomConnectionRecovery(
-            mediaConnected:
-                liveRoom?.connectionState == ConnectionState.connected,
+            mediaConnected: liveRoom?.connectionState == ConnectionState.connected,
             roomRequestSucceeded: false,
           ),
         );
@@ -475,10 +453,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
   }
 
   Future<void> _refreshActivity() async {
-    final result = await repository.getRoomActivity(
-      widget.classroomId,
-      widget.roomId,
-    );
+    final result = await repository.getRoomActivity(widget.classroomId, widget.roomId);
     if (!mounted) return;
     if (result case Success(data: final activity)) {
       final before = _ownActivityState;
@@ -493,10 +468,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
   /// Áp dụng quyền giáo viên đặt cho chính mình: thiết bị bị tắt thì tắt ở
   /// client (LiveKit đã chặn ở server), được cho phép lại thì chỉ báo để học
   /// sinh tự bật.
-  void _applyOwnPermissions(
-    RoomParticipantState? before,
-    RoomParticipantState? after,
-  ) {
+  void _applyOwnPermissions(RoomParticipantState? before, RoomParticipantState? after) {
     if (after == null || roomInfo?.isHost == true) return;
     if (after.removedAt != null) {
       unawaited(_exitRemoved());
@@ -547,10 +519,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
   /// LiveKit ngắt kết nối với lý do bị xóa: hỏi backend xem là bị xóa khỏi
   /// phòng (không được vào lại) hay đã không còn là thành viên của lớp.
   Future<void> _handleMediaRemoval() async {
-    final result = await repository.getRoomActivity(
-      widget.classroomId,
-      widget.roomId,
-    );
+    final result = await repository.getRoomActivity(widget.classroomId, widget.roomId);
     if (!mounted) return;
     switch (result) {
       case Success(data: final activity):
@@ -563,8 +532,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
         _scheduleConnectionRecovery(Duration.zero);
       case Failure():
         await _exitRemoved(
-          notice:
-              'You can no longer join this session. You may have been removed from the class.',
+          notice: 'You can no longer join this session. You may have been removed from the class.',
         );
       case Cancelled():
         mediaRemovalPending = false;
@@ -632,14 +600,10 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
       case Success():
         _showRoomMessage(switch (action) {
           RoomParticipantAction.mute => '$name was muted.',
-          RoomParticipantAction.allowMicrophone =>
-            '$name can turn on their microphone again.',
-          RoomParticipantAction.disableCamera =>
-            "$name's camera was turned off.",
-          RoomParticipantAction.allowCamera =>
-            '$name can turn on their camera again.',
-          RoomParticipantAction.remove =>
-            '$name was removed from this session.',
+          RoomParticipantAction.allowMicrophone => '$name can turn on their microphone again.',
+          RoomParticipantAction.disableCamera => "$name's camera was turned off.",
+          RoomParticipantAction.allowCamera => '$name can turn on their camera again.',
+          RoomParticipantAction.remove => '$name was removed from this session.',
         });
       case Failure(message: final message):
         _showRoomMessage(message ?? 'Could not update $name.');
@@ -650,10 +614,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
   }
 
   Future<void> _muteAll() async {
-    final result = await repository.muteAllParticipants(
-      widget.classroomId,
-      widget.roomId,
-    );
+    final result = await repository.muteAllParticipants(widget.classroomId, widget.roomId);
     if (!mounted) return;
     switch (result) {
       case Success(data: final userIds):
@@ -709,10 +670,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
 
   Future<void> _leave({bool end = false}) async {
     if (end) {
-      final result = await repository.endRoom(
-        widget.classroomId,
-        widget.roomId,
-      );
+      final result = await repository.endRoom(widget.classroomId, widget.roomId);
       if (result case Failure(message: final message)) {
         if (mounted) {
           setState(() => error = message ?? 'Could not end the room');
@@ -737,9 +695,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
     try {
       await local.setMicrophoneEnabled(
         enable,
-        audioCaptureOptions: AudioCaptureOptions(
-          deviceId: microphone?.deviceId,
-        ),
+        audioCaptureOptions: AudioCaptureOptions(deviceId: microphone?.deviceId),
       );
     } catch (_) {
       _showRoomMessage(
@@ -779,10 +735,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
   // không tạo track mới; khi thiết bị đang tắt chỉ cập nhật roomOptions.
   // Chỉ lựa chọn của người dùng được ghi nhớ; chuyển tự động khi rút thiết bị
   // thì không, để lần sau cắm lại vẫn chọn thiết bị cũ.
-  Future<void> _selectMicrophone(
-    MediaDevice device, {
-    bool remember = true,
-  }) async {
+  Future<void> _selectMicrophone(MediaDevice device, {bool remember = true}) async {
     microphone = device;
     _syncDeviceOptions();
     if (remember) {
@@ -815,10 +768,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
     if (mounted) setState(() {});
   }
 
-  Future<void> _selectSpeaker(
-    MediaDevice device, {
-    bool remember = true,
-  }) async {
+  Future<void> _selectSpeaker(MediaDevice device, {bool remember = true}) async {
     speaker = device;
     _syncDeviceOptions();
     if (remember) {
@@ -839,29 +789,22 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
   /// mất thì chuyển sang thiết bị khả dụng đầu tiên và báo cho người dùng.
   Future<void> _devicesChanged(List<MediaDevice> devices) async {
     if (!mounted || leavingRoom) return;
-    final nextMicrophones = devices
-        .where((d) => d.kind == 'audioinput')
-        .toList();
+    final nextMicrophones = devices.where((d) => d.kind == 'audioinput').toList();
     final nextCameras = devices.where((d) => d.kind == 'videoinput').toList();
     final nextSpeakers = devices.where((d) => d.kind == 'audiooutput').toList();
     final nextMicrophone = resolveRoomDevice(microphone, nextMicrophones);
     final nextCamera = resolveRoomDevice(camera, nextCameras);
     final nextSpeaker = resolveRoomDevice(speaker, nextSpeakers);
-    final microphoneLost =
-        microphone != null && nextMicrophone?.deviceId != microphone!.deviceId;
-    final cameraLost =
-        camera != null && nextCamera?.deviceId != camera!.deviceId;
-    final speakerLost =
-        speaker != null && nextSpeaker?.deviceId != speaker!.deviceId;
+    final microphoneLost = microphone != null && nextMicrophone?.deviceId != microphone!.deviceId;
+    final cameraLost = camera != null && nextCamera?.deviceId != camera!.deviceId;
+    final speakerLost = speaker != null && nextSpeaker?.deviceId != speaker!.deviceId;
     microphones = nextMicrophones;
     cameras = nextCameras;
     speakers = nextSpeakers;
     final messages = <String>[];
 
     if (microphoneLost && nextMicrophone != null) {
-      messages.add(
-        'Microphone disconnected. Switched to ${_deviceName(nextMicrophone)}.',
-      );
+      messages.add('Microphone disconnected. Switched to ${_deviceName(nextMicrophone)}.');
       await _selectMicrophone(nextMicrophone, remember: false);
     } else {
       microphone = nextMicrophone;
@@ -875,9 +818,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
     }
 
     if (cameraLost && nextCamera != null) {
-      messages.add(
-        'Camera disconnected. Switched to ${_deviceName(nextCamera)}.',
-      );
+      messages.add('Camera disconnected. Switched to ${_deviceName(nextCamera)}.');
       await _selectCamera(nextCamera, remember: false);
     } else {
       camera = nextCamera;
@@ -892,9 +833,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
     }
 
     if (speakerLost && nextSpeaker != null) {
-      messages.add(
-        'Speaker disconnected. Switched to ${_deviceName(nextSpeaker)}.',
-      );
+      messages.add('Speaker disconnected. Switched to ${_deviceName(nextSpeaker)}.');
       await _selectSpeaker(nextSpeaker, remember: false);
     } else {
       speaker = nextSpeaker;
@@ -972,10 +911,8 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
     });
   }
 
-  bool get _appleKeyboard => const {
-    TargetPlatform.macOS,
-    TargetPlatform.iOS,
-  }.contains(defaultTargetPlatform);
+  bool get _appleKeyboard =>
+      const {TargetPlatform.macOS, TargetPlatform.iOS}.contains(defaultTargetPlatform);
 
   String _withShortcut(String label, RoomShortcut shortcut) =>
       '$label (${roomShortcutLabel(shortcut, apple: _appleKeyboard)})';
@@ -1065,12 +1002,9 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
 
   String _participantName(String identity) {
     final room = liveRoom;
-    final Participant? participant =
-        room?.localParticipant?.identity == identity
+    final Participant? participant = room?.localParticipant?.identity == identity
         ? room?.localParticipant
-        : room?.remoteParticipants.values
-              .where((p) => p.identity == identity)
-              .firstOrNull;
+        : room?.remoteParticipants.values.where((p) => p.identity == identity).firstOrNull;
     final name = participant?.name.trim() ?? '';
     return name.isEmpty ? 'A student' : name;
   }
@@ -1123,21 +1057,14 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
       handBusy = true;
       loweringOwnHand = !raise;
     });
-    final result = await repository.setHandRaised(
-      widget.classroomId,
-      widget.roomId,
-      raised: raise,
-    );
+    final result = await repository.setHandRaised(widget.classroomId, widget.roomId, raised: raise);
     if (!mounted) return;
     switch (result) {
       case Success(data: final state):
         _replaceOwnState(state);
       case Failure(message: final message):
         _showRoomMessage(
-          message ??
-              (raise
-                  ? 'Could not raise your hand.'
-                  : 'Could not lower your hand.'),
+          message ?? (raise ? 'Could not raise your hand.' : 'Could not lower your hand.'),
         );
       case Cancelled():
         break;
@@ -1149,11 +1076,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
   }
 
   Future<void> _lowerHands({String? userId}) async {
-    final result = await repository.lowerHands(
-      widget.classroomId,
-      widget.roomId,
-      userId: userId,
-    );
+    final result = await repository.lowerHands(widget.classroomId, widget.roomId, userId: userId);
     if (result case Failure(message: final message)) {
       _showRoomMessage(message ?? 'Could not lower hands.');
     }
@@ -1197,9 +1120,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
       reaction: reaction,
       senderName: senderName,
     );
-    setState(
-      () => reactionBubbles = addRoomReactionBubble(reactionBubbles, bubble),
-    );
+    setState(() => reactionBubbles = addRoomReactionBubble(reactionBubbles, bubble));
     late final Timer timer;
     timer = Timer(roomReactionDisplayDuration, () {
       reactionTimers.remove(timer);
@@ -1217,16 +1138,11 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
   Future<void> _requestScreenShare() async {
     if (screenShareBusy) return;
     setState(() => screenShareBusy = true);
-    final result = await repository.requestScreenShare(
-      widget.classroomId,
-      widget.roomId,
-    );
+    final result = await repository.requestScreenShare(widget.classroomId, widget.roomId);
     if (!mounted) return;
     switch (result) {
       case Success():
-        _showRoomMessage(
-          'Request sent. You can present after the teacher allows it.',
-        );
+        _showRoomMessage('Request sent. You can present after the teacher allows it.');
       case Failure(message: final message):
         _showRoomMessage(message ?? 'Could not send the request to present.');
       case Cancelled():
@@ -1247,24 +1163,18 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
       await _unpublishOwnScreenShare();
       final LocalVideoTrack track;
       try {
-        track = await LocalVideoTrack.createScreenShareTrack(
-          const ScreenShareCaptureOptions(),
-        );
+        track = await LocalVideoTrack.createScreenShareTrack(const ScreenShareCaptureOptions());
       } catch (_) {
         _showRoomMessage(
           'Screen sharing was cancelled or blocked. To present, allow screen sharing in your browser or system settings and try again.',
         );
         return;
       }
-      final result = await repository.startScreenShare(
-        widget.classroomId,
-        widget.roomId,
-      );
+      final result = await repository.startScreenShare(widget.classroomId, widget.roomId);
       if (result is! Success) {
         await track.stop();
         _showRoomMessage(
-          (result is Failure ? result.message : null) ??
-              'Could not start presenting.',
+          (result is Failure ? result.message : null) ?? 'Could not start presenting.',
         );
         unawaited(_refreshActivity());
         return;
@@ -1277,9 +1187,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
         await local.publishVideoTrack(track);
       } catch (_) {
         await track.stop();
-        _showRoomMessage(
-          'Could not start presenting. Ask the teacher to allow it again.',
-        );
+        _showRoomMessage('Could not start presenting. Ask the teacher to allow it again.');
         unawaited(_refreshActivity());
       }
     } finally {
@@ -1289,8 +1197,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
 
   Future<void> _unpublishOwnScreenShare() async {
     final local = liveRoom?.localParticipant;
-    if (local?.getTrackPublicationBySource(TrackSource.screenShareVideo) ==
-        null) {
+    if (local?.getTrackPublicationBySource(TrackSource.screenShareVideo) == null) {
       return;
     }
     try {
@@ -1302,20 +1209,12 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
     final identity = liveRoom?.localParticipant?.identity;
     if (mounted) setState(() {});
     if (identity == null || leavingRoom) return;
-    await repository.stopScreenShare(
-      widget.classroomId,
-      widget.roomId,
-      identity,
-    );
+    await repository.stopScreenShare(widget.classroomId, widget.roomId, identity);
     await _refreshActivity();
   }
 
   Future<void> _stopStudentScreenShare(String userId) async {
-    final result = await repository.stopScreenShare(
-      widget.classroomId,
-      widget.roomId,
-      userId,
-    );
+    final result = await repository.stopScreenShare(widget.classroomId, widget.roomId, userId);
     if (result case Failure(message: final message)) {
       _showRoomMessage(message ?? 'Could not stop the presentation.');
     }
@@ -1383,11 +1282,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.block,
-                size: 56,
-                color: Theme.of(context).colorScheme.error,
-              ),
+              Icon(Icons.block, size: 56, color: Theme.of(context).colorScheme.error),
               const SizedBox(height: 16),
               Text(
                 removedNotice!,
@@ -1395,10 +1290,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 24),
-              FilledButton(
-                onPressed: () => context.pop(),
-                child: const Text('Back to class'),
-              ),
+              FilledButton(onPressed: () => context.pop(), child: const Text('Back to class')),
             ],
           ),
         ),
@@ -1418,10 +1310,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  'Ready to join?',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
+                Text('Ready to join?', style: Theme.of(context).textTheme.headlineSmall),
                 const SizedBox(height: 24),
                 AspectRatio(
                   aspectRatio: 16 / 9,
@@ -1447,9 +1336,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
                     padding: const EdgeInsets.only(top: 12),
                     child: Text(
                       deviceWarning!,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
-                      ),
+                      style: TextStyle(color: Theme.of(context).colorScheme.error),
                     ),
                   ),
                 const SizedBox(height: 12),
@@ -1486,9 +1373,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
                     onChanged: (value) {
                       if (value != null) _selectCamera(value);
                     },
-                    decoration: const InputDecoration(
-                      labelText: 'Camera device',
-                    ),
+                    decoration: const InputDecoration(labelText: 'Camera device'),
                   ),
                 SwitchListTile(
                   value: microphoneEnabled,
@@ -1511,9 +1396,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
                           (device) => DropdownMenuItem(
                             value: device,
                             child: Text(
-                              device.label.isEmpty
-                                  ? 'Microphone'
-                                  : device.label,
+                              device.label.isEmpty ? 'Microphone' : device.label,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -1522,9 +1405,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
                     onChanged: (value) {
                       if (value != null) _selectMicrophone(value);
                     },
-                    decoration: const InputDecoration(
-                      labelText: 'Microphone device',
-                    ),
+                    decoration: const InputDecoration(labelText: 'Microphone device'),
                   ),
                 const SizedBox(height: 24),
                 RoomJoinControl(
@@ -1543,8 +1424,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
 
   List<_RoomEntry> _participantEntries(Room room) {
     final states = {
-      for (final state
-          in roomActivity?.participants ?? const <RoomParticipantState>[])
+      for (final state in roomActivity?.participants ?? const <RoomParticipantState>[])
         state.userId: state,
     };
     final reconnecting = room.connectionState == ConnectionState.reconnecting;
@@ -1559,15 +1439,13 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
             participant,
             isLocal: isLocal,
             isHost:
-                participant.metadata == roomHostMetadata ||
-                (isLocal && roomInfo?.isHost == true),
+                participant.metadata == roomHostMetadata || (isLocal && roomInfo?.isHost == true),
             roomReconnecting: reconnecting,
             handRaisedAt: states[participant.identity]?.handRaisedAt,
             screenShareRequested:
                 states[participant.identity]?.screenShareRequestedAt != null &&
                 states[participant.identity]?.screenShareApprovedAt == null,
-            microphoneAllowed:
-                states[participant.identity]?.microphoneAllowed ?? true,
+            microphoneAllowed: states[participant.identity]?.microphoneAllowed ?? true,
             cameraAllowed: states[participant.identity]?.cameraAllowed ?? true,
           ),
           _cameraTrack(participant),
@@ -1585,30 +1463,22 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
   /// chuyển bố cục khi share bắt đầu, kết thúc hoặc người chia sẻ mất mạng.
   _Presenter? _presenter(Room room) {
     final presenters = <_Presenter>[
-      if (room.localParticipant case final local?
-          when local.isScreenShareEnabled())
+      if (room.localParticipant case final local? when local.isScreenShareEnabled())
         _Presenter(local, isLocal: true),
       for (final remote in room.remoteParticipants.values)
-        if (remote.getTrackPublicationBySource(TrackSource.screenShareVideo)
-            case final publication? when !publication.muted)
+        if (remote.getTrackPublicationBySource(TrackSource.screenShareVideo) case final publication?
+            when !publication.muted)
           _Presenter(
             remote,
             isLocal: false,
-            track: publication.track is VideoTrack
-                ? publication.track as VideoTrack
-                : null,
+            track: publication.track is VideoTrack ? publication.track as VideoTrack : null,
           ),
     ];
-    return pickRoomPresenter(
-      presenters,
-      (presenter) => _isHostParticipant(presenter.participant),
-    );
+    return pickRoomPresenter(presenters, (presenter) => _isHostParticipant(presenter.participant));
   }
 
   VideoTrack? _cameraTrack(Participant participant) {
-    final publication = participant.getTrackPublicationBySource(
-      TrackSource.camera,
-    );
+    final publication = participant.getTrackPublicationBySource(TrackSource.camera);
     final track = publication?.track;
     if (publication == null || publication.muted || track is! VideoTrack) {
       return null;
@@ -1626,9 +1496,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
         ? pendingScreenShareRequests(roomActivity)
         : const <RoomParticipantState>[];
     final showControls =
-        controlsVisible ||
-        participantsOpen ||
-        room.connectionState != ConnectionState.connected;
+        controlsVisible || participantsOpen || room.connectionState != ConnectionState.connected;
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     final barHeight = _controlBarHeight + bottomInset;
     return Scaffold(
@@ -1640,9 +1508,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
         actions: [
           IconButton(
             tooltip: roomInfo?.isHost == true ? 'Attendance' : 'My attendance',
-            onPressed: () => context.push(
-              roomAttendancePath(widget.classroomId, widget.roomId),
-            ),
+            onPressed: () => context.push(roomAttendancePath(widget.classroomId, widget.roomId)),
             icon: const Icon(Icons.fact_check_outlined),
           ),
           if (roomInfo?.isHost == true)
@@ -1661,16 +1527,12 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
           onPointerDown: (_) => _showControls(),
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final sidePanel =
-                  participantsOpen &&
-                  constraints.maxWidth >= _sidePanelBreakpoint;
+              final sidePanel = participantsOpen && constraints.maxWidth >= _sidePanelBreakpoint;
               final panel = participantsOpen
                   ? RoomParticipantPanel(
                       participants: views,
                       onClose: _toggleParticipants,
-                      onLowerHand: isHost
-                          ? (userId) => _lowerHands(userId: userId)
-                          : null,
+                      onLowerHand: isHost ? (userId) => _lowerHands(userId: userId) : null,
                       onLowerAllHands: isHost ? _lowerHands : null,
                       onModerate: isHost ? _moderate : null,
                       onMuteAll: isHost ? _muteAll : null,
@@ -1681,9 +1543,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
                   Positioned.fill(
                     child: AnimatedPadding(
                       duration: _controlsAnimation,
-                      padding: EdgeInsets.only(
-                        bottom: showControls ? barHeight : 0,
-                      ),
+                      padding: EdgeInsets.only(bottom: showControls ? barHeight : 0),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -1696,8 +1556,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
                                     canStop: presenter.isLocal || isHost,
                                   ),
                           ),
-                          if (sidePanel)
-                            SizedBox(width: _sidePanelWidth, child: panel),
+                          if (sidePanel) SizedBox(width: _sidePanelWidth, child: panel),
                         ],
                       ),
                     ),
@@ -1709,9 +1568,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
                   ),
                   if (requests.isNotEmpty)
                     Positioned(
-                      top: room.connectionState == ConnectionState.reconnecting
-                          ? 56
-                          : 12,
+                      top: room.connectionState == ConnectionState.reconnecting ? 56 : 12,
                       left: 12,
                       right: sidePanel ? _sidePanelWidth + 12 : 12,
                       child: Align(
@@ -1730,13 +1587,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
                   // Trên màn hình hẹp panel phủ vùng video nhưng dừng phía trên
                   // thanh điều khiển để không che các nút.
                   if (panel != null && !sidePanel)
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      top: 0,
-                      bottom: barHeight,
-                      child: panel,
-                    ),
+                    Positioned(left: 0, right: 0, top: 0, bottom: barHeight, child: panel),
                   if (room.connectionState == ConnectionState.reconnecting)
                     const Positioned(
                       top: 12,
@@ -1744,10 +1595,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
                       right: 0,
                       child: Center(
                         child: Chip(
-                          avatar: SizedBox.square(
-                            dimension: 14,
-                            child: AppLoader(),
-                          ),
+                          avatar: SizedBox.square(dimension: 14, child: AppLoader()),
                           label: Text('Reconnecting...'),
                         ),
                       ),
@@ -1849,10 +1697,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
                   SizedBox.fromSize(
                     key: ValueKey(entry.view.identity),
                     size: tile,
-                    child: RoomParticipantTile(
-                      participant: entry.view,
-                      video: entry.video,
-                    ),
+                    child: RoomParticipantTile(participant: entry.view, video: entry.video),
                   ),
               ],
             ),
@@ -1879,8 +1724,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
     );
     // Thiết bị bị giáo viên tắt: khóa nút bật, nhưng vẫn cho tắt nếu đang bật.
     final ownState = _ownActivityState;
-    final microphoneLocked =
-        ownState?.microphoneAllowed == false && !microphoneOn;
+    final microphoneLocked = ownState?.microphoneAllowed == false && !microphoneOn;
     final cameraLocked = ownState?.cameraAllowed == false && !cameraOn;
     final onStyle = IconButton.styleFrom(
       backgroundColor: const Color(0xff3c4043),
@@ -1931,9 +1775,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
                     builder: (context, constraints) => SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: ConstrainedBox(
-                        constraints: BoxConstraints(
-                          minWidth: constraints.maxWidth,
-                        ),
+                        constraints: BoxConstraints(minWidth: constraints.maxWidth),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -1942,15 +1784,11 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
                               tooltip: microphoneLocked
                                   ? 'The teacher turned off your microphone'
                                   : _withShortcut(
-                                      microphoneOn
-                                          ? 'Turn off microphone'
-                                          : 'Turn on microphone',
+                                      microphoneOn ? 'Turn off microphone' : 'Turn on microphone',
                                       RoomShortcut.toggleMicrophone,
                                     ),
                               style: microphoneOn ? onStyle : offStyle,
-                              onPressed: microphoneLocked
-                                  ? null
-                                  : _toggleMicrophone,
+                              onPressed: microphoneLocked ? null : _toggleMicrophone,
                               icon: const Icon(Icons.mic_off),
                               selectedIcon: const Icon(Icons.mic),
                             ),
@@ -1960,9 +1798,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
                               tooltip: cameraLocked
                                   ? 'The teacher turned off your camera'
                                   : _withShortcut(
-                                      cameraOn
-                                          ? 'Turn off camera'
-                                          : 'Turn on camera',
+                                      cameraOn ? 'Turn off camera' : 'Turn on camera',
                                       RoomShortcut.toggleCamera,
                                     ),
                               style: cameraOn ? onStyle : offStyle,
@@ -1971,8 +1807,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
                               selectedIcon: const Icon(Icons.videocam),
                             ),
                             gapBox,
-                            if (shareControl !=
-                                RoomScreenShareControl.unavailable) ...[
+                            if (shareControl != RoomScreenShareControl.unavailable) ...[
                               _screenShareButton(shareControl, onStyle),
                               gapBox,
                             ],
@@ -1985,9 +1820,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
                                 ),
                                 style: handRaised
                                     ? IconButton.styleFrom(
-                                        backgroundColor: const Color(
-                                          0xfffdd663,
-                                        ),
+                                        backgroundColor: const Color(0xfffdd663),
                                         foregroundColor: Colors.black,
                                       )
                                     : onStyle,
@@ -2052,18 +1885,14 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
       for (final reaction in RoomReaction.values)
         MenuItemButton(
           onPressed: () => _sendReaction(reaction),
-          leadingIcon: Text(
-            reaction.emoji,
-            style: const TextStyle(fontSize: 20),
-          ),
+          leadingIcon: Text(reaction.emoji, style: const TextStyle(fontSize: 20)),
           child: Text(reaction.label),
         ),
     ],
     builder: (context, controller, _) => IconButton.filled(
       tooltip: 'Send a reaction',
       style: style,
-      onPressed: () =>
-          controller.isOpen ? controller.close() : controller.open(),
+      onPressed: () => controller.isOpen ? controller.close() : controller.open(),
       icon: const Icon(Icons.add_reaction_outlined),
     ),
   );
@@ -2109,8 +1938,7 @@ class _RemoveParticipantDialog extends StatefulWidget {
   final String name;
 
   @override
-  State<_RemoveParticipantDialog> createState() =>
-      _RemoveParticipantDialogState();
+  State<_RemoveParticipantDialog> createState() => _RemoveParticipantDialogState();
 }
 
 /// Trả về lý do (có thể rỗng) khi xác nhận, null khi hủy.
@@ -2148,10 +1976,7 @@ class _RemoveParticipantDialogState extends State<_RemoveParticipantDialog> {
       ),
     ),
     actions: [
-      TextButton(
-        onPressed: () => Navigator.of(context).pop(),
-        child: const Text('Cancel'),
-      ),
+      TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
       FilledButton(
         style: FilledButton.styleFrom(
           backgroundColor: Theme.of(context).colorScheme.error,
@@ -2165,11 +1990,7 @@ class _RemoveParticipantDialogState extends State<_RemoveParticipantDialog> {
 }
 
 class RoomAttendanceScreen extends StatefulWidget {
-  const RoomAttendanceScreen({
-    super.key,
-    required this.classroomId,
-    required this.roomId,
-  });
+  const RoomAttendanceScreen({super.key, required this.classroomId, required this.roomId});
   final int classroomId;
   final int roomId;
 
@@ -2189,10 +2010,7 @@ class _RoomAttendanceScreenState extends State<RoomAttendanceScreen> {
   }
 
   Future<void> _load() async {
-    final result = await repository.getRoomAttendance(
-      widget.classroomId,
-      widget.roomId,
-    );
+    final result = await repository.getRoomAttendance(widget.classroomId, widget.roomId);
     if (!mounted) return;
     switch (result) {
       case Success(data: final value):
@@ -2218,11 +2036,7 @@ class _RoomAttendanceScreenState extends State<RoomAttendanceScreen> {
       appBar: AppBar(
         title: const Text('Attendance'),
         actions: [
-          IconButton(
-            tooltip: 'Refresh',
-            onPressed: _load,
-            icon: const Icon(Icons.refresh),
-          ),
+          IconButton(tooltip: 'Refresh', onPressed: _load, icon: const Icon(Icons.refresh)),
         ],
       ),
       body: error != null
@@ -2241,9 +2055,7 @@ class _RoomAttendanceScreenState extends State<RoomAttendanceScreen> {
                 final first = userSessions.first;
                 final name = first.user?.name ?? 'Unknown user';
                 return ExpansionTile(
-                  leading: CircleAvatar(
-                    child: Text(name.characters.first.toUpperCase()),
-                  ),
+                  leading: CircleAvatar(child: Text(name.characters.first.toUpperCase())),
                   title: Text(name),
                   subtitle: Text(
                     '${userSessions.length} session${userSessions.length == 1 ? '' : 's'}',
@@ -2254,11 +2066,7 @@ class _RoomAttendanceScreenState extends State<RoomAttendanceScreen> {
                         (session) => ListTile(
                           dense: true,
                           leading: const Icon(Icons.login, size: 18),
-                          title: Text(
-                            DateFormat(
-                              'MMM d, HH:mm:ss',
-                            ).format(session.joinedAt),
-                          ),
+                          title: Text(DateFormat('MMM d, HH:mm:ss').format(session.joinedAt)),
                           trailing: Text(
                             session.leftAt == null
                                 ? 'Present'

@@ -15,6 +15,7 @@ import 'package:eflutter/presentation/app/cubit/app_cubit.dart';
 import 'package:eflutter/presentation/auth/cubit/auth_cubit.dart';
 import 'package:eflutter/presentation/profile/cubit/profile_cubit.dart';
 import 'package:eflutter/presentation/posts/post_list.dart';
+import 'package:eflutter/presentation/app/theme/app_button_styles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:solar_icons/solar_icons.dart';
@@ -41,8 +42,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late final Future<_ProfileStats> _stats = _loadStats();
 
   bool get _hasChanges =>
-      _nameController.text.trim() != _initialName.trim() ||
-      _draftAvatarFile != null;
+      _nameController.text.trim() != _initialName.trim() || _draftAvatarFile != null;
 
   bool get _canCancel => _isEditingName || _hasChanges;
 
@@ -70,13 +70,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<_ProfileStats> _loadStats() async {
     final dio = getIt<Dio>();
     final (posts, classrooms, exams) = await (
-      PostRepository(dio)
-          .getPosts(page: 1, mine: true)
-          .then<int?>((p) => p.total, onError: (_) => null),
+      PostRepository(
+        dio,
+      ).getPosts(page: 1, mine: true).then<int?>((p) => p.total, onError: (_) => null),
       ClassroomRepository(dio).getMine().then((r) => r.dataOrNull?.total),
-      ExamRepository(getIt<RemoteDataBase>())
-          .getAttempts(status: 'SUBMITTED', page: 1, pageSize: 1)
-          .then((r) => r.dataOrNull?.total),
+      ExamRepository(
+        getIt<RemoteDataBase>(),
+      ).getAttempts(status: 'SUBMITTED', page: 1, pageSize: 1).then((r) => r.dataOrNull?.total),
     ).wait;
     return (posts: posts, classrooms: classrooms, exams: exams);
   }
@@ -93,9 +93,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final currentAvatar = user.avatar ?? '';
     final isNewUser = _syncedUserId != user.id;
-    if (!isNewUser &&
-        _initialName == user.name &&
-        _initialAvatar == currentAvatar) {
+    if (!isNewUser && _initialName == user.name && _initialAvatar == currentAvatar) {
       return;
     }
 
@@ -193,9 +191,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         onSave: () {
                           if (!_formKey.currentState!.validate()) return;
                           context.read<ProfileCubit>().saveProfile(
-                            name:
-                                _nameController.text.trim() !=
-                                    _initialName.trim()
+                            name: _nameController.text.trim() != _initialName.trim()
                                 ? _nameController.text
                                 : null,
                             avatarFile: _draftAvatarFile,
@@ -261,9 +257,7 @@ class _ProfileCard extends StatelessWidget {
                 Container(
                   height: 110,
                   decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [ColorName.primary, ColorName.cyan],
-                    ),
+                    gradient: LinearGradient(colors: [ColorName.primary, ColorName.cyan]),
                   ),
                 ),
                 Positioned(
@@ -289,8 +283,7 @@ class _ProfileCard extends StatelessWidget {
                     controller: nameController,
                     autofocus: true,
                     textInputAction: TextInputAction.done,
-                    onFieldSubmitted: (_) =>
-                        canSave && !isBusy ? onSave() : null,
+                    onFieldSubmitted: (_) => canSave && !isBusy ? onSave() : null,
                     decoration: const InputDecoration(
                       isDense: true,
                       labelText: 'Display name',
@@ -309,10 +302,7 @@ class _ProfileCard extends StatelessWidget {
                     textAlign: TextAlign.center,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
                   ),
                 Text(
                   email,
@@ -328,21 +318,13 @@ class _ProfileCard extends StatelessWidget {
                     final data = snapshot.data;
                     return Row(
                       children: [
-                        _Stat(
-                          value: data?.posts,
-                          label: 'Posts',
-                          loaded: snapshot.hasData,
-                        ),
+                        _Stat(value: data?.posts, label: 'Posts', loaded: snapshot.hasData),
                         _Stat(
                           value: data?.classrooms,
                           label: 'Classrooms',
                           loaded: snapshot.hasData,
                         ),
-                        _Stat(
-                          value: data?.exams,
-                          label: 'Exams taken',
-                          loaded: snapshot.hasData,
-                        ),
+                        _Stat(value: data?.exams, label: 'Exams taken', loaded: snapshot.hasData),
                       ],
                     );
                   },
@@ -353,35 +335,27 @@ class _ProfileCard extends StatelessWidget {
                     spacing: 12,
                     children: [
                       Expanded(
-                        child: OutlinedButton(
+                        child: FilledButton(
                           onPressed: isBusy ? null : onCancel,
+                          style: AppButtonStyles.secondary,
                           child: const Text('Cancel'),
                         ),
                       ),
                       Expanded(
                         child: FilledButton(
                           onPressed: canSave && !isBusy ? onSave : null,
+                          style: AppButtonStyles.primary,
                           child: isBusy
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: AppLoader(),
-                                )
+                              ? const SizedBox(width: 18, height: 18, child: AppLoader())
                               : const Text('Save changes'),
                         ),
                       ),
                     ],
                   )
                 else
-                  FilledButton.tonalIcon(
+                  FilledButton.icon(
                     onPressed: onEdit,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: ColorName.gray6,
-                      foregroundColor: ColorName.labelPrimary,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
+                    style: AppButtonStyles.secondary,
                     icon: const Icon(SolarIconsOutline.pen, size: 18),
                     label: const Text(
                       'Edit profile',
@@ -392,18 +366,11 @@ class _ProfileCard extends StatelessWidget {
                   onPressed: onSignOut,
                   style: OutlinedButton.styleFrom(
                     foregroundColor: ColorName.red,
-                    side: BorderSide(
-                      color: ColorName.red.withValues(alpha: 0.35),
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+                    side: BorderSide(color: ColorName.red.withValues(alpha: 0.35)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                   icon: const Icon(SolarIconsOutline.exit, size: 18),
-                  label: const Text(
-                    'Sign out',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
+                  label: const Text('Sign out', style: TextStyle(fontWeight: FontWeight.w600)),
                 ),
               ],
             ),
@@ -433,10 +400,7 @@ class _Stat extends StatelessWidget {
             loaded ? (value?.toString() ?? '–') : '…',
             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
           ),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 12, color: ColorName.gray1),
-          ),
+          Text(label, style: const TextStyle(fontSize: 12, color: ColorName.gray1)),
         ],
       ),
     );
@@ -480,11 +444,7 @@ class _EditableAvatar extends StatelessWidget {
                   backgroundColor: ColorName.primary.withValues(alpha: 0.12),
                   foregroundImage: imageProvider,
                   child: imageProvider == null
-                      ? const Icon(
-                          SolarIconsBold.user,
-                          color: ColorName.primary,
-                          size: 44,
-                        )
+                      ? const Icon(SolarIconsBold.user, color: ColorName.primary, size: 44)
                       : null,
                 ),
               );
@@ -501,11 +461,7 @@ class _EditableAvatar extends StatelessWidget {
                 onPressed: isBusy ? null : onPressed,
                 padding: EdgeInsets.zero,
                 icon: isBusy
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: AppLoader(),
-                      )
+                    ? const SizedBox(width: 16, height: 16, child: AppLoader())
                     : const Icon(SolarIconsOutline.camera, size: 18),
               ),
             ),

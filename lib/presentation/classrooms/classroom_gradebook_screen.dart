@@ -33,8 +33,7 @@ class ClassroomGradebookScreen extends StatefulWidget {
   final GradebookSocketGateway? socket;
 
   @override
-  State<ClassroomGradebookScreen> createState() =>
-      _ClassroomGradebookScreenState();
+  State<ClassroomGradebookScreen> createState() => _ClassroomGradebookScreenState();
 }
 
 class _ClassroomGradebookScreenState extends State<ClassroomGradebookScreen>
@@ -70,16 +69,12 @@ class _ClassroomGradebookScreenState extends State<ClassroomGradebookScreen>
   }
 
   void handleSocketEvent(GradebookSocketEvent event) {
-    if (event.classroomId != widget.classroomId ||
-        event.assignmentId != widget.assignmentId) {
+    if (event.classroomId != widget.classroomId || event.assignmentId != widget.assignmentId) {
       return;
     }
     if (event.integrity case final update?) applyIntegrityUpdate(update);
     refreshDebounce?.cancel();
-    refreshDebounce = Timer(
-      const Duration(milliseconds: 250),
-      () => load(showLoading: false),
-    );
+    refreshDebounce = Timer(const Duration(milliseconds: 250), () => load(showLoading: false));
   }
 
   @override
@@ -90,10 +85,7 @@ class _ClassroomGradebookScreenState extends State<ClassroomGradebookScreen>
         error = null;
       });
     }
-    final result = await repository.getGradebook(
-      widget.classroomId,
-      widget.assignmentId,
-    );
+    final result = await repository.getGradebook(widget.classroomId, widget.assignmentId);
     final analyticsResult = await repository.getAssignmentAnalytics(
       widget.classroomId,
       widget.assignmentId,
@@ -140,10 +132,7 @@ class _ClassroomGradebookScreenState extends State<ClassroomGradebookScreen>
           'The current answers, score, and history will be removed.',
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Reset attempt'),
@@ -162,9 +151,9 @@ class _ClassroomGradebookScreenState extends State<ClassroomGradebookScreen>
       case Success():
         await load();
       case Failure(message: final message):
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message ?? 'Could not reset the attempt')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message ?? 'Could not reset the attempt')));
       case Cancelled():
         break;
     }
@@ -178,15 +167,15 @@ class _ClassroomGradebookScreenState extends State<ClassroomGradebookScreen>
     if (!mounted) return;
     switch (result) {
       case Success(data: final count):
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$count submission updates queued')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$count submission updates queued')));
         await Future<void>.delayed(const Duration(seconds: 2));
         await load();
       case Failure(message: final message):
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message ?? 'Could not reconcile gradebook')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message ?? 'Could not reconcile gradebook')));
       case Cancelled():
         break;
     }
@@ -210,11 +199,7 @@ class _ClassroomGradebookScreenState extends State<ClassroomGradebookScreen>
                 : Icons.cloud_off_outlined,
           ),
         ),
-        IconButton(
-          tooltip: 'Retry grade sync',
-          onPressed: reconcile,
-          icon: const Icon(Icons.sync),
-        ),
+        IconButton(tooltip: 'Retry grade sync', onPressed: reconcile, icon: const Icon(Icons.sync)),
       ],
       leading: IconButton(
         tooltip: 'Back to classroom',
@@ -311,15 +296,9 @@ class _GradebookViewState extends State<GradebookView> {
   @override
   Widget build(BuildContext context) {
     final submissions = widget.assignment.submissions;
-    final submitted = submissions
-        .where((item) => item.status == 'SUBMITTED')
-        .length;
-    final inProgress = submissions
-        .where((item) => item.status == 'IN_PROGRESS')
-        .length;
-    final notStarted = submissions
-        .where((item) => item.status == 'NOT_STARTED')
-        .length;
+    final submitted = submissions.where((item) => item.status == 'SUBMITTED').length;
+    final inProgress = submissions.where((item) => item.status == 'IN_PROGRESS').length;
+    final notStarted = submissions.where((item) => item.status == 'NOT_STARTED').length;
     final late = submissions.where((item) => item.status == 'LATE').length;
     final scores = submissions
         .where((item) => item.score != null)
@@ -329,15 +308,14 @@ class _GradebookViewState extends State<GradebookView> {
         ? null
         : scores.reduce((left, right) => left + right) / scores.length;
     final visible = visibleSubmissions;
-    Widget integrityCell(AssignmentSubmission submission) =>
-        IntegrityStatusCell(
-          submission: submission,
-          maxViolations: widget.assignment.maxViolations,
-          away: widget.awayStudents.contains(submission.student?.id),
-          onTap: widget.onOpenIntegrity == null || submission.attemptId == 0
-              ? null
-              : () => widget.onOpenIntegrity!(submission),
-        );
+    Widget integrityCell(AssignmentSubmission submission) => IntegrityStatusCell(
+      submission: submission,
+      maxViolations: widget.assignment.maxViolations,
+      away: widget.awayStudents.contains(submission.student?.id),
+      onTap: widget.onOpenIntegrity == null || submission.attemptId == 0
+          ? null
+          : () => widget.onOpenIntegrity!(submission),
+    );
 
     final content = ListView(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
@@ -348,10 +326,7 @@ class _GradebookViewState extends State<GradebookView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  widget.assignment.title,
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
+                Text(widget.assignment.title, style: Theme.of(context).textTheme.headlineSmall),
                 const SizedBox(height: 6),
                 Text(
                   'Due ${DateFormat('MMM d, yyyy • HH:mm').format(widget.assignment.dueAt)}',
@@ -369,9 +344,7 @@ class _GradebookViewState extends State<GradebookView> {
                     _Metric(label: 'Late', value: '$late'),
                     _Metric(
                       label: 'Average',
-                      value: average == null
-                          ? '—'
-                          : '${average.toStringAsFixed(2)}/10',
+                      value: average == null ? '—' : '${average.toStringAsFixed(2)}/10',
                     ),
                     if (widget.analytics != null) ...[
                       const SizedBox(height: 16),
@@ -399,9 +372,8 @@ class _GradebookViewState extends State<GradebookView> {
                           'Questions with the highest wrong rate',
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
-                        ...([...widget.analytics!.questions]..sort(
-                              (a, b) => b.wrongRate.compareTo(a.wrongRate),
-                            ))
+                        ...([...widget.analytics!.questions]
+                              ..sort((a, b) => b.wrongRate.compareTo(a.wrongRate)))
                             .take(5)
                             .map(
                               (question) => ListTile(
@@ -411,9 +383,7 @@ class _GradebookViewState extends State<GradebookView> {
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                 ),
-                                trailing: Text(
-                                  '${question.wrongRate.toStringAsFixed(1)}%',
-                                ),
+                                trailing: Text('${question.wrongRate.toStringAsFixed(1)}%'),
                               ),
                             ),
                       ],
@@ -421,10 +391,7 @@ class _GradebookViewState extends State<GradebookView> {
                   ],
                 ),
                 const Divider(height: 32),
-                if (widget.integrityPanel case final panel?) ...[
-                  panel,
-                  const SizedBox(height: 16),
-                ],
+                if (widget.integrityPanel case final panel?) ...[panel, const SizedBox(height: 16)],
                 _GradebookToolbar(
                   status: status,
                   sort: sort,
@@ -440,8 +407,7 @@ class _GradebookViewState extends State<GradebookView> {
                   )
                 else
                   LayoutBuilder(
-                    builder: (context, constraints) =>
-                        constraints.maxWidth < 700
+                    builder: (context, constraints) => constraints.maxWidth < 700
                         ? _GradebookList(
                             submissions: visible,
                             onResetAttempt: widget.onResetAttempt,
@@ -532,14 +498,8 @@ class _GradebookToolbar extends StatelessWidget {
         onSelected: onSortChanged,
         itemBuilder: (context) => const [
           PopupMenuItem(value: GradebookSort.name, child: Text('Sort by name')),
-          PopupMenuItem(
-            value: GradebookSort.status,
-            child: Text('Sort by status'),
-          ),
-          PopupMenuItem(
-            value: GradebookSort.score,
-            child: Text('Sort by score'),
-          ),
+          PopupMenuItem(value: GradebookSort.status, child: Text('Sort by status')),
+          PopupMenuItem(value: GradebookSort.score, child: Text('Sort by score')),
         ],
         icon: const Icon(Icons.sort),
       ),
@@ -548,11 +508,7 @@ class _GradebookToolbar extends StatelessWidget {
 }
 
 class _GradebookTable extends StatelessWidget {
-  const _GradebookTable({
-    required this.submissions,
-    this.onResetAttempt,
-    required this.integrity,
-  });
+  const _GradebookTable({required this.submissions, this.onResetAttempt, required this.integrity});
   final List<AssignmentSubmission> submissions;
   final ValueChanged<AssignmentSubmission>? onResetAttempt;
   final Widget Function(AssignmentSubmission) integrity;
@@ -585,8 +541,7 @@ class _GradebookTable extends StatelessWidget {
                 DataCell(
                   IconButton(
                     tooltip: 'Reset attempt',
-                    onPressed:
-                        submission.attemptId > 0 && onResetAttempt != null
+                    onPressed: submission.attemptId > 0 && onResetAttempt != null
                         ? () => onResetAttempt!(submission)
                         : null,
                     icon: const Icon(Icons.restart_alt),
@@ -601,11 +556,7 @@ class _GradebookTable extends StatelessWidget {
 }
 
 class _GradebookList extends StatelessWidget {
-  const _GradebookList({
-    required this.submissions,
-    this.onResetAttempt,
-    required this.integrity,
-  });
+  const _GradebookList({required this.submissions, this.onResetAttempt, required this.integrity});
   final List<AssignmentSubmission> submissions;
   final ValueChanged<AssignmentSubmission>? onResetAttempt;
   final Widget Function(AssignmentSubmission) integrity;
@@ -620,9 +571,7 @@ class _GradebookList extends StatelessWidget {
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '${submission.student?.email ?? ''}\n${_statusLabel(submission.status)}',
-                ),
+                Text('${submission.student?.email ?? ''}\n${_statusLabel(submission.status)}'),
                 if (submission.proctored) integrity(submission),
               ],
             ),
@@ -647,16 +596,9 @@ class _GradebookList extends StatelessWidget {
 }
 
 String _statusLabel(String status) {
-  final words = status
-      .trim()
-      .split('_')
-      .where((word) => word.isNotEmpty)
-      .toList();
+  final words = status.trim().split('_').where((word) => word.isNotEmpty).toList();
   if (words.isEmpty) return '-';
-  return words
-      .map((word) => '${word[0]}${word.substring(1).toLowerCase()}')
-      .join(' ');
+  return words.map((word) => '${word[0]}${word.substring(1).toLowerCase()}').join(' ');
 }
 
-String _scoreLabel(double? score) =>
-    score == null ? '—' : '${score.toStringAsFixed(2)}/10';
+String _scoreLabel(double? score) => score == null ? '—' : '${score.toStringAsFixed(2)}/10';

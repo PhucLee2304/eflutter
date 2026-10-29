@@ -9,6 +9,7 @@ import 'package:eflutter/generated/colors.gen.dart';
 import 'package:eflutter/presentation/app/cubit/app_cubit.dart';
 import 'package:eflutter/presentation/posts/post_media.dart';
 import 'package:flutter/gestures.dart';
+import 'package:eflutter/presentation/app/theme/app_button_styles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -243,10 +244,10 @@ class _PostComposerDialogState extends State<PostComposerDialog> {
                         style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                       ),
                     ),
-                    IconButton.filledTonal(
+                    IconButton(
                       tooltip: 'Close',
                       onPressed: () => Navigator.pop(context),
-                      style: IconButton.styleFrom(backgroundColor: const Color(0xFFE4E6EB)),
+                      style: AppButtonStyles.close,
                       icon: const Icon(Icons.close, size: 20),
                     ),
                   ],
@@ -310,13 +311,15 @@ class _PostComposerDialogState extends State<PostComposerDialog> {
                         style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
                       ),
                     ),
-                    TextButton(
+                    FilledButton(
                       onPressed: () => Navigator.pop(context),
+                      style: AppButtonStyles.secondary,
                       child: Text(uploading ? 'Cancel upload' : 'Cancel'),
                     ),
                     const SizedBox(width: 8),
                     FilledButton(
                       onPressed: saving || uploading || failed.isNotEmpty ? null : _save,
+                      style: AppButtonStyles.primary,
                       child: Text(widget.editing ? 'Save' : 'Post'),
                     ),
                   ],

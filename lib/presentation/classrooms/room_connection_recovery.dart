@@ -29,10 +29,7 @@ Size roomTileSize(
   final count = math.max(1, participantCount);
   final columns = roomGridColumnCount(area.width, participantCount: count);
   final rows = (count / columns).ceil();
-  final maxWidth = math.max(
-    0.0,
-    (area.width - spacing * (columns - 1)) / columns,
-  );
+  final maxWidth = math.max(0.0, (area.width - spacing * (columns - 1)) / columns);
   var width = maxWidth;
   final maxHeight = (area.height - spacing * (rows - 1)) / rows;
   if (width / aspectRatio > maxHeight) width = maxHeight * aspectRatio;

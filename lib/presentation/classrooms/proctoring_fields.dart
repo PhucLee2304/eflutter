@@ -33,9 +33,7 @@ class ProctoringFields extends StatelessWidget {
         onChanged: (value) => onProctoredChanged(value ?? false),
         secondary: const Icon(Icons.shield_outlined),
         title: const Text('Proctored'),
-        subtitle: const Text(
-          'Record when students leave the exam tab; you see it live',
-        ),
+        subtitle: const Text('Record when students leave the exam tab; you see it live'),
       ),
       if (proctored)
         TextFormField(

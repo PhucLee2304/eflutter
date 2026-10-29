@@ -18,14 +18,8 @@ enum RoomShortcutDecision {
 }
 
 const _letters = {
-  RoomShortcut.toggleMicrophone: (
-    LogicalKeyboardKey.keyD,
-    PhysicalKeyboardKey.keyD,
-  ),
-  RoomShortcut.toggleCamera: (
-    LogicalKeyboardKey.keyE,
-    PhysicalKeyboardKey.keyE,
-  ),
+  RoomShortcut.toggleMicrophone: (LogicalKeyboardKey.keyD, PhysicalKeyboardKey.keyD),
+  RoomShortcut.toggleCamera: (LogicalKeyboardKey.keyE, PhysicalKeyboardKey.keyE),
   RoomShortcut.toggleHand: (LogicalKeyboardKey.keyH, PhysicalKeyboardKey.keyH),
 };
 
@@ -44,9 +38,7 @@ RoomShortcut? roomShortcutFor({
   final primary = apple ? meta : control;
   final other = apple ? control : meta;
   if (!primary || other || shift) return null;
-  RoomShortcut? match(
-    bool Function(LogicalKeyboardKey, PhysicalKeyboardKey) test,
-  ) {
+  RoomShortcut? match(bool Function(LogicalKeyboardKey, PhysicalKeyboardKey) test) {
     for (final entry in _letters.entries) {
       final wantsAlt = entry.key == RoomShortcut.toggleHand;
       if (alt == wantsAlt && test(entry.value.$1, entry.value.$2)) {
@@ -76,15 +68,10 @@ RoomShortcutDecision roomShortcutDecision(
   return switch (shortcut) {
     // Bị khóa chỉ chặn bật; đang bật thì vẫn cho tắt.
     RoomShortcut.toggleMicrophone =>
-      !microphoneOn && !microphoneAllowed
-          ? RoomShortcutDecision.locked
-          : RoomShortcutDecision.run,
+      !microphoneOn && !microphoneAllowed ? RoomShortcutDecision.locked : RoomShortcutDecision.run,
     RoomShortcut.toggleCamera =>
-      !cameraOn && !cameraAllowed
-          ? RoomShortcutDecision.locked
-          : RoomShortcutDecision.run,
-    RoomShortcut.toggleHand =>
-      isHost ? RoomShortcutDecision.ignore : RoomShortcutDecision.run,
+      !cameraOn && !cameraAllowed ? RoomShortcutDecision.locked : RoomShortcutDecision.run,
+    RoomShortcut.toggleHand => isHost ? RoomShortcutDecision.ignore : RoomShortcutDecision.run,
   };
 }
 
@@ -100,6 +87,5 @@ String roomShortcutLabel(RoomShortcut shortcut, {required bool apple}) {
 /// Focus nằm trong một ô nhập liệu (TextField, ô tìm kiếm, ô lý do remove):
 /// phím tắt phải nhường cho việc gõ chữ.
 bool roomTextInputFocused() =>
-    FocusManager.instance.primaryFocus?.context
-        ?.findAncestorStateOfType<EditableTextState>() !=
+    FocusManager.instance.primaryFocus?.context?.findAncestorStateOfType<EditableTextState>() !=
     null;

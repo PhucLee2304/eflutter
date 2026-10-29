@@ -6,6 +6,7 @@ import 'package:eflutter/data/repositories/post_repository.dart';
 import 'package:eflutter/presentation/posts/post_card.dart';
 import 'package:eflutter/presentation/posts/post_comments.dart';
 import 'package:eflutter/presentation/posts/post_composer_dialog.dart';
+import 'package:eflutter/presentation/app/theme/app_button_styles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -38,10 +39,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     final uri = Uri.base;
     if (uri.queryParameters.containsKey('comment')) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        SystemNavigator.routeInformationUpdated(
-          uri: Uri.parse(uri.path),
-          replace: true,
-        );
+        SystemNavigator.routeInformationUpdated(uri: Uri.parse(uri.path), replace: true);
       });
     }
   }
@@ -63,9 +61,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
 
   void _snack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _like() async {
@@ -179,7 +175,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                     )
                   else if (error != null)
                     Center(
-                      child: FilledButton.tonalIcon(
+                      child: FilledButton.icon(
+                        style: AppButtonStyles.secondary,
                         onPressed: () {
                           setState(() => error = null);
                           _load();
@@ -189,10 +186,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                       ),
                     )
                   else
-                    const Padding(
-                      padding: EdgeInsets.all(48),
-                      child: AppLoader(),
-                    ),
+                    const Padding(padding: EdgeInsets.all(48), child: AppLoader()),
                 ],
               ),
             ),

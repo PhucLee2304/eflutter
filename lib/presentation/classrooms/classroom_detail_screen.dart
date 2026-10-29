@@ -30,9 +30,7 @@ class ClassroomDetailScreen extends StatefulWidget {
 
 class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
   late final ClassroomRepository repository = ClassroomRepository(getIt<Dio>());
-  late final ExamRepository examRepository = ExamRepository(
-    getIt<RemoteDataBase>(),
-  );
+  late final ExamRepository examRepository = ExamRepository(getIt<RemoteDataBase>());
   Classroom? classroom;
   List<ClassroomMember> requests = [];
   List<ClassroomAssignment> assignments = [];
@@ -49,15 +47,13 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
   StreamSubscription<AppState>? userSubscription;
 
   bool get isTeacher =>
-      classroom?.teacher?.id ==
-      context.read<AppCubit>().state.user?.id.toString();
+      classroom?.teacher?.id == context.read<AppCubit>().state.user?.id.toString();
 
   @override
   void initState() {
     super.initState();
     userSubscription = context.read<AppCubit>().stream.listen((state) {
-      if (classroom?.active == true &&
-          classroom?.teacher?.id == state.user?.id.toString()) {
+      if (classroom?.active == true && classroom?.teacher?.id == state.user?.id.toString()) {
         loadRequests();
       }
     });
@@ -122,9 +118,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
   }
 
   Future<void> loadMoreAssignments() async {
-    if (assignmentsLoading ||
-        assignmentsLoadingMore ||
-        assignmentsPage >= assignmentPageCounts) {
+    if (assignmentsLoading || assignmentsLoadingMore || assignmentsPage >= assignmentPageCounts) {
       return;
     }
     setState(() {
@@ -132,10 +126,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
       assignmentsLoadMoreError = null;
     });
     final nextPage = assignmentsPage + 1;
-    final result = await repository.getAssignments(
-      widget.classroomId,
-      page: nextPage,
-    );
+    final result = await repository.getAssignments(widget.classroomId, page: nextPage);
     if (!mounted) return;
     switch (result) {
       case Success(data: final value):
@@ -147,8 +138,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
         });
       case Failure(message: final message):
         setState(() {
-          assignmentsLoadMoreError =
-              message ?? 'Could not load more assignments';
+          assignmentsLoadMoreError = message ?? 'Could not load more assignments';
           assignmentsLoadingMore = false;
         });
       case Cancelled():
@@ -157,9 +147,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
   }
 
   bool onPageScroll(ScrollNotification notification) {
-    if (tab == 1 &&
-        notification.metrics.extentAfter < 320 &&
-        !assignmentsLoadingMore) {
+    if (tab == 1 && notification.metrics.extentAfter < 320 && !assignmentsLoadingMore) {
       unawaited(loadMoreAssignments());
     }
     return false;
@@ -177,9 +165,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
           pageCounts = value.pageCounts;
           final userID = context.read<AppCubit>().state.user?.id.toString();
           teacherClassrooms.addAll(
-            value.items.where(
-              (item) => item.active && item.teacher?.id == userID,
-            ),
+            value.items.where((item) => item.active && item.teacher?.id == userID),
           );
         case Failure(message: final message):
           showMessage(message ?? 'Could not load your classrooms');
@@ -227,10 +213,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
 
     // Bài có giám sát: phải đồng ý quy chế trước khi tạo attempt (mục 1.7).
     if (assignment.proctored &&
-        !await showIntegrityConsentDialog(
-          context,
-          maxViolations: assignment.maxViolations,
-        )) {
+        !await showIntegrityConsentDialog(context, maxViolations: assignment.maxViolations)) {
       return;
     }
     if (!mounted) return;
@@ -240,9 +223,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
       CreateExamAttemptRequest(
         contextType: 'CLASSROOM_ASSIGNMENT',
         contextId: assignment.id,
-        integrityConsentVersion: assignment.proctored
-            ? integrityConsentVersion
-            : null,
+        integrityConsentVersion: assignment.proctored ? integrityConsentVersion : null,
       ),
     );
     if (!mounted) return;
@@ -264,10 +245,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
                 .firstOrNull;
             final activeAttempt = matching ?? page.attempts.firstOrNull;
             if (activeAttempt != null) {
-              context.go(
-                attemptPracticePath(activeAttempt.id),
-                extra: activeAttempt,
-              );
+              context.go(attemptPracticePath(activeAttempt.id), extra: activeAttempt);
               return;
             }
           case Failure():
@@ -289,10 +267,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
       return;
     }
     setState(() => busy = true);
-    final result = await repository.getAssignment(
-      widget.classroomId,
-      assignmentId,
-    );
+    final result = await repository.getAssignment(widget.classroomId, assignmentId);
     if (!mounted) return;
     setState(() => busy = false);
     switch (result) {
@@ -305,10 +280,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
     }
   }
 
-  Future<void> setAssignmentActive(
-    ClassroomAssignment assignment,
-    bool active,
-  ) async {
+  Future<void> setAssignmentActive(ClassroomAssignment assignment, bool active) async {
     if (!active) {
       final confirmed = await showDialog<bool>(
         context: context,
@@ -319,10 +291,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
             'will be submitted and graded using their saved answers.',
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
             FilledButton(
               onPressed: () => Navigator.pop(context, true),
               child: const Text('Pause and submit'),
@@ -333,11 +302,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
       if (confirmed != true || !mounted) return;
     }
     setState(() => busy = true);
-    final result = await repository.setAssignmentActive(
-      widget.classroomId,
-      assignment.id,
-      active,
-    );
+    final result = await repository.setAssignmentActive(widget.classroomId, assignment.id, active);
     if (!mounted) return;
     setState(() => busy = false);
     switch (result) {
@@ -368,16 +333,15 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
     final input = await showEditAssignmentDialog(context, editable);
     if (input == null || !mounted) return;
 
-    Future<Result<EditableAssignment>> save(bool confirm) =>
-        repository.updateAssignmentContent(
-          classroomId: widget.classroomId,
-          assignmentId: assignment.id,
-          title: input.title,
-          description: input.description,
-          questions: input.questions,
-          confirm: confirm,
-          reason: '',
-        );
+    Future<Result<EditableAssignment>> save(bool confirm) => repository.updateAssignmentContent(
+      classroomId: widget.classroomId,
+      assignmentId: assignment.id,
+      title: input.title,
+      description: input.description,
+      questions: input.questions,
+      confirm: confirm,
+      reason: '',
+    );
 
     setState(() => busy = true);
     var result = await save(false);
@@ -414,18 +378,13 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
               const SizedBox(height: 12),
               TextField(
                 controller: reasonController,
-                decoration: const InputDecoration(
-                  labelText: 'Reason for correction',
-                ),
+                decoration: const InputDecoration(labelText: 'Reason for correction'),
                 maxLines: 2,
               ),
             ],
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
             FilledButton(
               onPressed: () => Navigator.pop(context, true),
               child: const Text('Pause and save'),
@@ -515,14 +474,8 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
             'schedule may end active attempts sooner.',
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Apply'),
-            ),
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Apply')),
           ],
         ),
       );
@@ -563,10 +516,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
           pageCounts = value.pageCounts;
           classes.addAll(
             value.items.where(
-              (item) =>
-                  item.active &&
-                  item.id != widget.classroomId &&
-                  item.teacher?.id == userID,
+              (item) => item.active && item.id != widget.classroomId && item.teacher?.id == userID,
             ),
           );
         case Failure(message: final message):
@@ -591,10 +541,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
             .map(
               (item) => SimpleDialogOption(
                 onPressed: () => Navigator.pop(context, item),
-                child: ListTile(
-                  title: Text(item.name),
-                  subtitle: Text(item.code),
-                ),
+                child: ListTile(title: Text(item.name), subtitle: Text(item.code)),
               ),
             )
             .toList(),
@@ -666,12 +613,8 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
                 TextFormField(
                   initialValue: name,
                   onChanged: (value) => name = value,
-                  decoration: const InputDecoration(
-                    labelText: 'Classroom name',
-                  ),
-                  validator: (v) => v == null || v.trim().isEmpty
-                      ? 'Enter a classroom name'
-                      : null,
+                  decoration: const InputDecoration(labelText: 'Classroom name'),
+                  validator: (v) => v == null || v.trim().isEmpty ? 'Enter a classroom name' : null,
                 ),
                 TextFormField(
                   initialValue: description,
@@ -687,10 +630,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           FilledButton(
             onPressed: () {
               if (form.currentState!.validate()) {
@@ -704,11 +644,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
     );
     if (values == null || !mounted) return;
     setState(() => busy = true);
-    final result = await repository.update(
-      current.id,
-      name: values.$1,
-      description: values.$2,
-    );
+    final result = await repository.update(current.id, name: values.$1, description: values.$2);
     if (!mounted) return;
     setState(() => busy = false);
     switch (result) {
@@ -726,18 +662,10 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Archive classroom?'),
-        content: const Text(
-          'The classroom will no longer accept join requests.',
-        ),
+        content: const Text('The classroom will no longer accept join requests.'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Archive'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Archive')),
         ],
       ),
     );
@@ -782,14 +710,8 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
         title: const Text('Remove student?'),
         content: Text(member.user?.name ?? ''),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Remove'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Remove')),
         ],
       ),
     );
@@ -828,8 +750,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
             IconButton(
               tooltip: 'Class gradebook',
               icon: const Icon(Icons.table_chart_outlined),
-              onPressed: () =>
-                  context.go(classGradebookPath(widget.classroomId)),
+              onPressed: () => context.go(classGradebookPath(widget.classroomId)),
             ),
           if (item != null && isTeacher && item.active) ...[
             IconButton(
@@ -873,18 +794,14 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
                           Center(
                             child: TabsBar(
                               selected: tab,
-                              onSelected: (value) =>
-                                  setState(() => tab = value),
+                              onSelected: (value) => setState(() => tab = value),
                             ),
                           ),
                           Center(
                             child: ConstrainedBox(
                               constraints: const BoxConstraints(maxWidth: 940),
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 20,
-                                ),
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                                 child: switch (tab) {
                                   0 => ClassroomPostsView(
                                     classroomId: widget.classroomId,
@@ -897,8 +814,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
                                     loadingMore: assignmentsLoadingMore,
                                     error: assignmentsError,
                                     loadMoreError: assignmentsLoadMoreError,
-                                    hasMore:
-                                        assignmentsPage < assignmentPageCounts,
+                                    hasMore: assignmentsPage < assignmentPageCounts,
                                     isTeacher: isTeacher,
                                     classroomActive: item.active,
                                     onReload: loadAssignments,
@@ -920,51 +836,34 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
                                     onOpenAssignment: openAssignmentById,
                                   ),
                                   _ => Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         'Teacher',
-                                        style: Theme.of(
-                                          context,
-                                        ).textTheme.titleMedium,
+                                        style: Theme.of(context).textTheme.titleMedium,
                                       ),
                                       ListTile(
                                         title: Text(
-                                          item.teacher?.name ??
-                                              'Information unavailable',
+                                          item.teacher?.name ?? 'Information unavailable',
                                         ),
-                                        subtitle: Text(
-                                          item.teacher?.email ?? '',
-                                        ),
+                                        subtitle: Text(item.teacher?.email ?? ''),
                                       ),
                                       const Divider(),
                                       Text(
                                         'Students (${item.members.length})',
-                                        style: Theme.of(
-                                          context,
-                                        ).textTheme.titleMedium,
+                                        style: Theme.of(context).textTheme.titleMedium,
                                       ),
                                       ...item.members.map(
                                         (member) => ListTile(
                                           title: Text(
-                                            member.user?.name ??
-                                                'User no longer available',
+                                            member.user?.name ?? 'User no longer available',
                                           ),
-                                          subtitle: Text(
-                                            member.user?.email ?? '',
-                                          ),
+                                          subtitle: Text(member.user?.email ?? ''),
                                           trailing: isTeacher && item.active
                                               ? IconButton(
-                                                  tooltip:
-                                                      'Remove from classroom',
-                                                  onPressed: busy
-                                                      ? null
-                                                      : () => remove(member),
-                                                  icon: const Icon(
-                                                    Icons
-                                                        .person_remove_outlined,
-                                                  ),
+                                                  tooltip: 'Remove from classroom',
+                                                  onPressed: busy ? null : () => remove(member),
+                                                  icon: const Icon(Icons.person_remove_outlined),
                                                 )
                                               : null,
                                         ),
@@ -973,18 +872,12 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
                                         const Divider(),
                                         Text(
                                           'Pending requests (${requests.length})',
-                                          style: Theme.of(
-                                            context,
-                                          ).textTheme.titleMedium,
+                                          style: Theme.of(context).textTheme.titleMedium,
                                         ),
                                         ...requests.map(
                                           (member) => ListTile(
-                                            title: Text(
-                                              member.user?.name ?? 'Student',
-                                            ),
-                                            subtitle: Text(
-                                              member.user?.email ?? '',
-                                            ),
+                                            title: Text(member.user?.name ?? 'Student'),
+                                            subtitle: Text(member.user?.email ?? ''),
                                             trailing: Row(
                                               mainAxisSize: MainAxisSize.min,
                                               children: [
@@ -992,20 +885,14 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
                                                   tooltip: 'Reject',
                                                   onPressed: busy
                                                       ? null
-                                                      : () => review(
-                                                          member,
-                                                          false,
-                                                        ),
+                                                      : () => review(member, false),
                                                   icon: const Icon(Icons.close),
                                                 ),
                                                 IconButton(
                                                   tooltip: 'Approve',
                                                   onPressed: busy
                                                       ? null
-                                                      : () => review(
-                                                          member,
-                                                          true,
-                                                        ),
+                                                      : () => review(member, true),
                                                   icon: const Icon(Icons.check),
                                                 ),
                                               ],
@@ -1036,8 +923,7 @@ class ClassroomOverviewHeader extends StatefulWidget {
   final Classroom classroom;
 
   @override
-  State<ClassroomOverviewHeader> createState() =>
-      _ClassroomOverviewHeaderState();
+  State<ClassroomOverviewHeader> createState() => _ClassroomOverviewHeaderState();
 }
 
 class _ClassroomOverviewHeaderState extends State<ClassroomOverviewHeader> {
@@ -1079,10 +965,7 @@ class _ClassroomOverviewHeaderState extends State<ClassroomOverviewHeader> {
                           ? NetworkImage(avatar)
                           : null,
                       child: avatar == null || avatar.isEmpty
-                          ? const Icon(
-                              Icons.school_outlined,
-                              color: Color(0xFF1D6A63),
-                            )
+                          ? const Icon(Icons.school_outlined, color: Color(0xFF1D6A63))
                           : null,
                     ),
                     const SizedBox(width: 16),
@@ -1100,8 +983,7 @@ class _ClassroomOverviewHeaderState extends State<ClassroomOverviewHeader> {
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            widget.classroom.teacher?.name ??
-                                'Teacher unavailable',
+                            widget.classroom.teacher?.name ?? 'Teacher unavailable',
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
@@ -1113,10 +995,7 @@ class _ClassroomOverviewHeaderState extends State<ClassroomOverviewHeader> {
                       const SizedBox(width: 8),
                       const Tooltip(
                         message: 'Archived classroom',
-                        child: Icon(
-                          Icons.archive_outlined,
-                          color: Color(0xFF8A625B),
-                        ),
+                        child: Icon(Icons.archive_outlined, color: Color(0xFF8A625B)),
                       ),
                     ],
                   ],
@@ -1135,21 +1014,14 @@ class _ClassroomOverviewHeaderState extends State<ClassroomOverviewHeader> {
                     ),
                     SelectableText(
                       widget.classroom.code,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
                     ),
                     IconButton(
                       tooltip: _copied ? 'Copied' : 'Copy class code',
                       visualDensity: VisualDensity.compact,
-                      icon: Icon(
-                        _copied ? Icons.check : Icons.copy_outlined,
-                        size: 18,
-                      ),
+                      icon: Icon(_copied ? Icons.check : Icons.copy_outlined, size: 18),
                       onPressed: () async {
-                        await Clipboard.setData(
-                          ClipboardData(text: widget.classroom.code),
-                        );
+                        await Clipboard.setData(ClipboardData(text: widget.classroom.code));
                         if (!mounted) return;
                         _copyResetTimer?.cancel();
                         setState(() => _copied = true);

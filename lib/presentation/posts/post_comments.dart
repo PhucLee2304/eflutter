@@ -66,9 +66,7 @@ class _PostCommentsState extends State<PostComments> {
     try {
       final target = await widget.repo.getComment(id);
       final parentId = target.parentId;
-      final root = parentId == null
-          ? target
-          : await widget.repo.getComment(parentId);
+      final root = parentId == null ? target : await widget.repo.getComment(parentId);
       final thread = _Thread(root);
       if (parentId != null) thread.replies.add(target);
       threads.insert(0, thread);
@@ -107,9 +105,7 @@ class _PostCommentsState extends State<PostComments> {
     try {
       final result = await widget.repo.getComments(postId, page: page + 1);
       final known = threads.map((t) => t.root.id).toSet();
-      threads.addAll(
-        result.items.where((c) => !known.contains(c.id)).map(_Thread.new),
-      );
+      threads.addAll(result.items.where((c) => !known.contains(c.id)).map(_Thread.new));
       page = result.page;
       pageCount = result.pageCount;
       total = result.total;
@@ -145,11 +141,7 @@ class _PostCommentsState extends State<PostComments> {
     if (value.isEmpty || sending) return;
     setState(() => sending = true);
     try {
-      final created = await widget.repo.comment(
-        postId,
-        value,
-        replyToCommentId: reply?.id,
-      );
+      final created = await widget.repo.comment(postId, value, replyToCommentId: reply?.id);
       input.clear();
       reply = null;
       final parentId = created.parentId;
@@ -160,10 +152,7 @@ class _PostCommentsState extends State<PostComments> {
         final thread = threads.where((t) => t.root.id == parentId).firstOrNull;
         if (thread != null) {
           thread.replies.add(created);
-          thread.root = _withReplyCount(
-            thread.root,
-            thread.root.replyCount + 1,
-          );
+          thread.root = _withReplyCount(thread.root, thread.root.replyCount + 1);
         }
       }
       widget.onCommentAdded?.call();
@@ -201,9 +190,7 @@ class _PostCommentsState extends State<PostComments> {
 
   void _snack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -230,13 +217,9 @@ class _PostCommentsState extends State<PostComments> {
                     if (thread.loading)
                       const Padding(
                         padding: EdgeInsets.all(6),
-                        child: SizedBox.square(
-                          dimension: 18,
-                          child: AppLoader(),
-                        ),
+                        child: SizedBox.square(dimension: 18, child: AppLoader()),
                       )
-                    else if (thread.remaining > 0 &&
-                        (thread.page == 0 || thread.hasMore))
+                    else if (thread.remaining > 0 && (thread.page == 0 || thread.hasMore))
                       _LinkButton(
                         icon: Icons.subdirectory_arrow_right,
                         label: thread.page == 0
@@ -279,11 +262,7 @@ class _PostCommentsState extends State<PostComments> {
     );
   }
 
-  Widget _comment(
-    BuildContext context,
-    PostCommentItem comment,
-    TextStyle? muted,
-  ) {
+  Widget _comment(BuildContext context, PostCommentItem comment, TextStyle? muted) {
     final theme = Theme.of(context);
     final small = comment.parentId != null;
     final focused = comment.id == highlighted;
@@ -313,10 +292,7 @@ class _PostCommentsState extends State<PostComments> {
                     children: [
                       Text(
                         comment.user?.name ?? 'User',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                        ),
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                       ),
                       Text.rich(
                         TextSpan(
@@ -344,16 +320,12 @@ class _PostCommentsState extends State<PostComments> {
                     children: [
                       Text(relativeTime(comment.createdAt), style: muted),
                       InkWell(
-                        onTap: widget.readOnly
-                            ? null
-                            : () => _toggleLike(comment),
+                        onTap: widget.readOnly ? null : () => _toggleLike(comment),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              comment.liked
-                                  ? Icons.favorite
-                                  : Icons.favorite_border,
+                              comment.liked ? Icons.favorite : Icons.favorite_border,
                               size: 14,
                               color: comment.liked ? Colors.red : muted?.color,
                             ),
@@ -370,10 +342,7 @@ class _PostCommentsState extends State<PostComments> {
                             setState(() => reply = comment);
                             widget.focus.requestFocus();
                           },
-                          child: Text(
-                            'Reply',
-                            style: muted?.copyWith(fontWeight: FontWeight.w700),
-                          ),
+                          child: Text('Reply', style: muted?.copyWith(fontWeight: FontWeight.w700)),
                         ),
                     ],
                   ),
@@ -413,10 +382,7 @@ class _PostCommentsState extends State<PostComments> {
               hintText: reply == null
                   ? 'Write a comment...'
                   : 'Reply to ${reply!.user?.name ?? 'user'}...',
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 10,
-              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               border: noBorder,
               enabledBorder: noBorder,
               focusedBorder: noBorder,
@@ -430,11 +396,7 @@ class _PostCommentsState extends State<PostComments> {
               suffixIcon: IconButton(
                 tooltip: 'Send',
                 onPressed: sending ? null : _send,
-                icon: Icon(
-                  Icons.send,
-                  color: theme.colorScheme.primary,
-                  size: 20,
-                ),
+                icon: Icon(Icons.send, color: theme.colorScheme.primary, size: 20),
               ),
             ),
           ),
@@ -445,12 +407,7 @@ class _PostCommentsState extends State<PostComments> {
 }
 
 class _LinkButton extends StatelessWidget {
-  const _LinkButton({
-    required this.label,
-    required this.onTap,
-    this.style,
-    this.icon,
-  });
+  const _LinkButton({required this.label, required this.onTap, this.style, this.icon});
   final String label;
   final VoidCallback onTap;
   final TextStyle? style;
@@ -478,33 +435,26 @@ class _LinkButton extends StatelessWidget {
   );
 }
 
-PostCommentItem _withLike(PostCommentItem c, bool liked) => _copy(
-  c,
-  liked: liked,
-  likeCount: (c.likeCount + (liked ? 1 : -1)).clamp(0, 1 << 31),
-);
+PostCommentItem _withLike(PostCommentItem c, bool liked) =>
+    _copy(c, liked: liked, likeCount: (c.likeCount + (liked ? 1 : -1)).clamp(0, 1 << 31));
 
 PostCommentItem _withReplyCount(PostCommentItem c, int replyCount) =>
     _copy(c, replyCount: replyCount);
 
-PostCommentItem _copy(
-  PostCommentItem c, {
-  bool? liked,
-  int? likeCount,
-  int? replyCount,
-}) => PostCommentItem(
-  id: c.id,
-  postId: c.postId,
-  userId: c.userId,
-  content: c.content,
-  likeCount: likeCount ?? c.likeCount,
-  liked: liked ?? c.liked,
-  canEdit: c.canEdit,
-  canDelete: c.canDelete,
-  createdAt: c.createdAt,
-  replyCount: replyCount ?? c.replyCount,
-  parentId: c.parentId,
-  replyToUserId: c.replyToUserId,
-  user: c.user,
-  replyToUser: c.replyToUser,
-);
+PostCommentItem _copy(PostCommentItem c, {bool? liked, int? likeCount, int? replyCount}) =>
+    PostCommentItem(
+      id: c.id,
+      postId: c.postId,
+      userId: c.userId,
+      content: c.content,
+      likeCount: likeCount ?? c.likeCount,
+      liked: liked ?? c.liked,
+      canEdit: c.canEdit,
+      canDelete: c.canDelete,
+      createdAt: c.createdAt,
+      replyCount: replyCount ?? c.replyCount,
+      parentId: c.parentId,
+      replyToUserId: c.replyToUserId,
+      user: c.user,
+      replyToUser: c.replyToUser,
+    );

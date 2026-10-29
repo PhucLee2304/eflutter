@@ -9,11 +9,7 @@ class ClassroomRepository {
   final Dio _dio;
   static const _base = '/classrooms/api/v1/classrooms';
 
-  Future<Result<ClassroomPage>> getMine({
-    int page = 1,
-    String query = '',
-    bool? active,
-  }) => _dio
+  Future<Result<ClassroomPage>> getMine({int page = 1, String query = '', bool? active}) => _dio
       .get(
         '$_base/me',
         queryParameters: {
@@ -36,28 +32,23 @@ class ClassroomRepository {
       .then((r) => Classroom.fromJson(r.data as Map<String, dynamic>))
       .safeResult();
 
-  Future<Result<Classroom>> create(String name, {String? description}) => _dio
+  /// [avatar] là tên file đã upload vào thư mục `avatars`; backend đổi thành URL công khai.
+  Future<Result<Classroom>> create(String name, {String? description, String? avatar}) => _dio
       .post(
         _base,
         data: {
           'name': name.trim(),
           if (description != null) 'description': description.trim(),
+          'avatar': ?avatar,
         },
       )
       .then((r) => Classroom.fromJson(r.data as Map<String, dynamic>))
       .safeResult();
 
-  Future<Result<Classroom>> update(
-    int id, {
-    required String name,
-    String? description,
-  }) => _dio
+  Future<Result<Classroom>> update(int id, {required String name, String? description}) => _dio
       .patch(
         '$_base/$id',
-        data: {
-          'name': name.trim(),
-          if (description != null) 'description': description.trim(),
-        },
+        data: {'name': name.trim(), if (description != null) 'description': description.trim()},
       )
       .then((r) => Classroom.fromJson(r.data as Map<String, dynamic>))
       .safeResult();
@@ -81,14 +72,13 @@ class ClassroomRepository {
       )
       .safeResult();
 
-  Future<Result<ClassroomMember>> review(int id, String userId, bool approve) =>
-      _dio
-          .post(
-            '$_base/$id/members/${Uri.encodeComponent(userId)}/'
-            '${approve ? 'approve' : 'reject'}',
-          )
-          .then((r) => ClassroomMember.fromJson(r.data as Map<String, dynamic>))
-          .safeResult();
+  Future<Result<ClassroomMember>> review(int id, String userId, bool approve) => _dio
+      .post(
+        '$_base/$id/members/${Uri.encodeComponent(userId)}/'
+        '${approve ? 'approve' : 'reject'}',
+      )
+      .then((r) => ClassroomMember.fromJson(r.data as Map<String, dynamic>))
+      .safeResult();
 
   Future<Result<void>> remove(int id, String userId) => _dio
       .delete<void>('$_base/$id/members/${Uri.encodeComponent(userId)}')
@@ -100,37 +90,18 @@ class ClassroomRepository {
     int page = 1,
     int pageSize = 20,
   }) => _dio
-      .get(
-        '$_base/$classroomId/assignments',
-        queryParameters: {'page': page, 'pageSize': pageSize},
-      )
-      .then(
-        (response) => ClassroomAssignmentPage.fromJson(
-          response.data as Map<String, dynamic>,
-        ),
-      )
+      .get('$_base/$classroomId/assignments', queryParameters: {'page': page, 'pageSize': pageSize})
+      .then((response) => ClassroomAssignmentPage.fromJson(response.data as Map<String, dynamic>))
       .safeResult();
 
-  Future<Result<ClassroomAssignment>> getAssignment(
-    int classroomId,
-    int assignmentId,
-  ) => _dio
+  Future<Result<ClassroomAssignment>> getAssignment(int classroomId, int assignmentId) => _dio
       .get('$_base/$classroomId/assignments/$assignmentId')
-      .then(
-        (response) =>
-            ClassroomAssignment.fromJson(response.data as Map<String, dynamic>),
-      )
+      .then((response) => ClassroomAssignment.fromJson(response.data as Map<String, dynamic>))
       .safeResult();
 
-  Future<Result<ClassroomAssignment>> getGradebook(
-    int classroomId,
-    int assignmentId,
-  ) => _dio
+  Future<Result<ClassroomAssignment>> getGradebook(int classroomId, int assignmentId) => _dio
       .get('$_base/$classroomId/assignments/$assignmentId/gradebook')
-      .then(
-        (response) =>
-            ClassroomAssignment.fromJson(response.data as Map<String, dynamic>),
-      )
+      .then((response) => ClassroomAssignment.fromJson(response.data as Map<String, dynamic>))
       .safeResult();
 
   Future<Result<ClassGradebook>> getClassGradebook(
@@ -145,35 +116,19 @@ class ClassroomRepository {
           if (to != null) 'to': to.toUtc().toIso8601String(),
         },
       )
-      .then(
-        (response) =>
-            ClassGradebook.fromJson(response.data as Map<String, dynamic>),
-      )
+      .then((response) => ClassGradebook.fromJson(response.data as Map<String, dynamic>))
       .safeResult();
 
-  Future<Result<StudentProgress>> getStudentProgress(
-    int classroomId,
-    String studentId,
-  ) => _dio
-      .get(
-        '$_base/$classroomId/students/${Uri.encodeComponent(studentId)}/progress',
-      )
-      .then(
-        (response) =>
-            StudentProgress.fromJson(response.data as Map<String, dynamic>),
-      )
+  Future<Result<StudentProgress>> getStudentProgress(int classroomId, String studentId) => _dio
+      .get('$_base/$classroomId/students/${Uri.encodeComponent(studentId)}/progress')
+      .then((response) => StudentProgress.fromJson(response.data as Map<String, dynamic>))
       .safeResult();
 
-  Future<Result<AssignmentAnalytics>> getAssignmentAnalytics(
-    int classroomId,
-    int assignmentId,
-  ) => _dio
-      .get('$_base/$classroomId/assignments/$assignmentId/analytics')
-      .then(
-        (response) =>
-            AssignmentAnalytics.fromJson(response.data as Map<String, dynamic>),
-      )
-      .safeResult();
+  Future<Result<AssignmentAnalytics>> getAssignmentAnalytics(int classroomId, int assignmentId) =>
+      _dio
+          .get('$_base/$classroomId/assignments/$assignmentId/analytics')
+          .then((response) => AssignmentAnalytics.fromJson(response.data as Map<String, dynamic>))
+          .safeResult();
 
   Future<Result<void>> resetAssignmentAttempt({
     required int classroomId,
@@ -208,10 +163,7 @@ class ClassroomRepository {
           'pageSize': pageSize,
         },
       )
-      .then(
-        (response) =>
-            IntegrityEventPage.fromJson(response.data as Map<String, dynamic>),
-      )
+      .then((response) => IntegrityEventPage.fromJson(response.data as Map<String, dynamic>))
       .safeResult();
 
   Future<Result<void>> reviewIntegrityEvent({
@@ -233,34 +185,22 @@ class ClassroomRepository {
     required int assignmentId,
     required String studentId,
     String? note,
-  }) => _studentAttemptAction(classroomId, assignmentId, studentId, 'ban', {
-    'note': ?note,
-  });
+  }) => _studentAttemptAction(classroomId, assignmentId, studentId, 'ban', {'note': ?note});
 
   Future<Result<void>> releaseAttemptSession({
     required int classroomId,
     required int assignmentId,
     required String studentId,
-  }) => _studentAttemptAction(
-    classroomId,
-    assignmentId,
-    studentId,
-    'release-session',
-    const {},
-  );
+  }) => _studentAttemptAction(classroomId, assignmentId, studentId, 'release-session', const {});
 
   Future<Result<void>> reinstateAttempt({
     required int classroomId,
     required int assignmentId,
     required String studentId,
     required String note,
-  }) => _studentAttemptAction(
-    classroomId,
-    assignmentId,
-    studentId,
-    'reinstate',
-    {'note': note.trim()},
-  );
+  }) => _studentAttemptAction(classroomId, assignmentId, studentId, 'reinstate', {
+    'note': note.trim(),
+  });
 
   Future<Result<void>> _studentAttemptAction(
     int classroomId,
@@ -277,15 +217,11 @@ class ClassroomRepository {
       .then((_) {})
       .safeResult();
 
-  Future<Result<int>> reconcileGradebook({
-    required int classroomId,
-    required int assignmentId,
-  }) => _dio
-      .post('$_base/$classroomId/assignments/$assignmentId/gradebook/reconcile')
-      .then(
-        (response) => (response.data['enqueuedCount'] as num?)?.toInt() ?? 0,
-      )
-      .safeResult();
+  Future<Result<int>> reconcileGradebook({required int classroomId, required int assignmentId}) =>
+      _dio
+          .post('$_base/$classroomId/assignments/$assignmentId/gradebook/reconcile')
+          .then((response) => (response.data['enqueuedCount'] as num?)?.toInt() ?? 0)
+          .safeResult();
 
   Future<Result<List<ExamAudit>>> getAssignmentAudits({
     required int classroomId,
@@ -323,10 +259,7 @@ class ClassroomRepository {
     required ClassroomScheduleInput input,
   }) => _dio
       .post('$_base/$classroomId/schedules', data: input.toJson())
-      .then(
-        (response) =>
-            CalendarEntry.fromJson(response.data as Map<String, dynamic>),
-      )
+      .then((response) => CalendarEntry.fromJson(response.data as Map<String, dynamic>))
       .safeResult();
 
   Future<Result<CalendarEntry>> updateSchedule({
@@ -335,75 +268,44 @@ class ClassroomRepository {
     required ClassroomScheduleInput input,
   }) => _dio
       .patch('$_base/$classroomId/schedules/$scheduleId', data: input.toJson())
-      .then(
-        (response) =>
-            CalendarEntry.fromJson(response.data as Map<String, dynamic>),
-      )
+      .then((response) => CalendarEntry.fromJson(response.data as Map<String, dynamic>))
       .safeResult();
 
-  Future<Result<void>> deleteSchedule({
-    required int classroomId,
-    required int scheduleId,
-  }) => _dio
-      .delete<void>('$_base/$classroomId/schedules/$scheduleId')
-      .then((_) {})
-      .safeResult();
+  Future<Result<void>> deleteSchedule({required int classroomId, required int scheduleId}) =>
+      _dio.delete<void>('$_base/$classroomId/schedules/$scheduleId').then((_) {}).safeResult();
 
   Future<Result<ClassroomRoom>> getRoom(int classroomId, int roomId) => _dio
       .get('$_base/$classroomId/rooms/$roomId')
-      .then(
-        (response) =>
-            ClassroomRoom.fromJson(response.data as Map<String, dynamic>),
-      )
+      .then((response) => ClassroomRoom.fromJson(response.data as Map<String, dynamic>))
       .safeResult();
 
-  Future<Result<RoomActivity>> getRoomActivity(int classroomId, int roomId) =>
-      _dio
-          .get('$_base/$classroomId/rooms/$roomId/activity')
-          .then(
-            (response) =>
-                RoomActivity.fromJson(response.data as Map<String, dynamic>),
-          )
-          .safeResult();
+  Future<Result<RoomActivity>> getRoomActivity(int classroomId, int roomId) => _dio
+      .get('$_base/$classroomId/rooms/$roomId/activity')
+      .then((response) => RoomActivity.fromJson(response.data as Map<String, dynamic>))
+      .safeResult();
 
   Future<Result<ClassroomRoom>> startRoom(int classroomId, int roomId) => _dio
       .post('$_base/$classroomId/rooms/$roomId/start')
-      .then(
-        (response) =>
-            ClassroomRoom.fromJson(response.data as Map<String, dynamic>),
-      )
+      .then((response) => ClassroomRoom.fromJson(response.data as Map<String, dynamic>))
       .safeResult();
 
   Future<Result<RoomConnection>> joinRoom(int classroomId, int roomId) => _dio
       .post('$_base/$classroomId/rooms/$roomId/join')
-      .then(
-        (response) =>
-            RoomConnection.fromJson(response.data as Map<String, dynamic>),
-      )
+      .then((response) => RoomConnection.fromJson(response.data as Map<String, dynamic>))
       .safeResult();
 
   Future<Result<ClassroomRoom>> endRoom(int classroomId, int roomId) => _dio
       .post('$_base/$classroomId/rooms/$roomId/end')
-      .then(
-        (response) =>
-            ClassroomRoom.fromJson(response.data as Map<String, dynamic>),
-      )
+      .then((response) => ClassroomRoom.fromJson(response.data as Map<String, dynamic>))
       .safeResult();
 
   String _screenSharePath(int classroomId, int roomId, [String? userId]) =>
       '$_base/$classroomId/rooms/$roomId/screen-share'
       '${userId == null ? '' : '/${Uri.encodeComponent(userId)}'}';
 
-  Future<Result<RoomParticipantState>> requestScreenShare(
-    int classroomId,
-    int roomId,
-  ) => _dio
+  Future<Result<RoomParticipantState>> requestScreenShare(int classroomId, int roomId) => _dio
       .post('${_screenSharePath(classroomId, roomId)}/request')
-      .then(
-        (response) => RoomParticipantState.fromJson(
-          response.data as Map<String, dynamic>,
-        ),
-      )
+      .then((response) => RoomParticipantState.fromJson(response.data as Map<String, dynamic>))
       .safeResult();
 
   Future<Result<RoomParticipantState>> reviewScreenShare(
@@ -412,14 +314,8 @@ class ClassroomRepository {
     String userId, {
     required bool approve,
   }) => _dio
-      .post(
-        '${_screenSharePath(classroomId, roomId, userId)}/${approve ? 'approve' : 'reject'}',
-      )
-      .then(
-        (response) => RoomParticipantState.fromJson(
-          response.data as Map<String, dynamic>,
-        ),
-      )
+      .post('${_screenSharePath(classroomId, roomId, userId)}/${approve ? 'approve' : 'reject'}')
+      .then((response) => RoomParticipantState.fromJson(response.data as Map<String, dynamic>))
       .safeResult();
 
   Future<Result<RoomParticipantState>> setHandRaised(
@@ -428,28 +324,18 @@ class ClassroomRepository {
     required bool raised,
   }) => _dio
       .patch('$_base/$classroomId/rooms/$roomId/hand', data: {'raised': raised})
-      .then(
-        (response) => RoomParticipantState.fromJson(
-          response.data as Map<String, dynamic>,
-        ),
-      )
+      .then((response) => RoomParticipantState.fromJson(response.data as Map<String, dynamic>))
       .safeResult();
 
   /// Giáo viên hạ tay một học sinh ([userId]) hoặc tất cả; trả về user đã hạ.
-  Future<Result<List<String>>> lowerHands(
-    int classroomId,
-    int roomId, {
-    String? userId,
-  }) => _dio
+  Future<Result<List<String>>> lowerHands(int classroomId, int roomId, {String? userId}) => _dio
       .delete(
         '$_base/$classroomId/rooms/$roomId/hands'
         '${userId == null ? '' : '/${Uri.encodeComponent(userId)}'}',
       )
       .then(
         (response) =>
-            ((response.data as Map<String, dynamic>)['userIds']
-                        as List<dynamic>? ??
-                    const [])
+            ((response.data as Map<String, dynamic>)['userIds'] as List<dynamic>? ?? const [])
                 .cast<String>(),
       )
       .safeResult();
@@ -466,23 +352,14 @@ class ClassroomRepository {
         '$_base/$classroomId/rooms/$roomId/participants/'
         '${Uri.encodeComponent(userId)}/${action.path}',
       )
-      .then(
-        (response) => RoomParticipantState.fromJson(
-          response.data as Map<String, dynamic>,
-        ),
-      )
+      .then((response) => RoomParticipantState.fromJson(response.data as Map<String, dynamic>))
       .safeResult();
 
-  Future<Result<List<String>>> muteAllParticipants(
-    int classroomId,
-    int roomId,
-  ) => _dio
+  Future<Result<List<String>>> muteAllParticipants(int classroomId, int roomId) => _dio
       .post('$_base/$classroomId/rooms/$roomId/participants/mute-all')
       .then(
         (response) =>
-            ((response.data as Map<String, dynamic>)['userIds']
-                        as List<dynamic>? ??
-                    const [])
+            ((response.data as Map<String, dynamic>)['userIds'] as List<dynamic>? ?? const [])
                 .cast<String>(),
       )
       .safeResult();
@@ -498,43 +375,25 @@ class ClassroomRepository {
       .post(
         '$_base/$classroomId/rooms/$roomId/participants/'
         '${Uri.encodeComponent(userId)}/remove',
-        data: reason == null || reason.trim().isEmpty
-            ? null
-            : {'reason': reason.trim()},
+        data: reason == null || reason.trim().isEmpty ? null : {'reason': reason.trim()},
       )
-      .then(
-        (response) => RoomParticipantState.fromJson(
-          response.data as Map<String, dynamic>,
-        ),
-      )
+      .then((response) => RoomParticipantState.fromJson(response.data as Map<String, dynamic>))
       .safeResult();
 
   /// Gọi ngay trước khi publish; backend dừng lượt chia sẻ khác trong phòng.
-  Future<Result<void>> startScreenShare(int classroomId, int roomId) => _dio
-      .post<void>('${_screenSharePath(classroomId, roomId)}/start')
-      .then((_) {})
-      .safeResult();
+  Future<Result<void>> startScreenShare(int classroomId, int roomId) =>
+      _dio.post<void>('${_screenSharePath(classroomId, roomId)}/start').then((_) {}).safeResult();
 
-  Future<Result<void>> stopScreenShare(
-    int classroomId,
-    int roomId,
-    String userId,
-  ) => _dio
+  Future<Result<void>> stopScreenShare(int classroomId, int roomId, String userId) => _dio
       .post<void>('${_screenSharePath(classroomId, roomId, userId)}/stop')
       .then((_) {})
       .safeResult();
 
-  Future<Result<List<RoomAttendanceSession>>> getRoomAttendance(
-    int classroomId,
-    int roomId,
-  ) => _dio
+  Future<Result<List<RoomAttendanceSession>>> getRoomAttendance(int classroomId, int roomId) => _dio
       .get('$_base/$classroomId/rooms/$roomId/attendance')
       .then(
         (response) => (response.data as List<dynamic>)
-            .map(
-              (item) =>
-                  RoomAttendanceSession.fromJson(item as Map<String, dynamic>),
-            )
+            .map((item) => RoomAttendanceSession.fromJson(item as Map<String, dynamic>))
             .toList(),
       )
       .safeResult();
@@ -544,14 +403,8 @@ class ClassroomRepository {
     int assignmentId,
     bool active,
   ) => _dio
-      .patch(
-        '$_base/$classroomId/assignments/$assignmentId/active',
-        data: {'active': active},
-      )
-      .then(
-        (response) =>
-            ClassroomAssignment.fromJson(response.data as Map<String, dynamic>),
-      )
+      .patch('$_base/$classroomId/assignments/$assignmentId/active', data: {'active': active})
+      .then((response) => ClassroomAssignment.fromJson(response.data as Map<String, dynamic>))
       .safeResult();
 
   Future<Result<CreatedAssignments>> createAssignments({
@@ -579,22 +432,14 @@ class ClassroomRepository {
           'schedules': schedules.map((schedule) => schedule.toJson()).toList(),
         },
       )
-      .then(
-        (response) =>
-            CreatedAssignments.fromJson(response.data as Map<String, dynamic>),
-      )
+      .then((response) => CreatedAssignments.fromJson(response.data as Map<String, dynamic>))
       .safeResult();
 
-  Future<Result<EditableAssignment>> getEditableAssignment(
-    int classroomId,
-    int assignmentId,
-  ) => _dio
-      .get('$_base/$classroomId/assignments/$assignmentId/edit')
-      .then(
-        (response) =>
-            EditableAssignment.fromJson(response.data as Map<String, dynamic>),
-      )
-      .safeResult();
+  Future<Result<EditableAssignment>> getEditableAssignment(int classroomId, int assignmentId) =>
+      _dio
+          .get('$_base/$classroomId/assignments/$assignmentId/edit')
+          .then((response) => EditableAssignment.fromJson(response.data as Map<String, dynamic>))
+          .safeResult();
 
   Future<Result<EditableAssignment>> updateAssignmentContent({
     required int classroomId,
@@ -617,9 +462,7 @@ class ClassroomRepository {
                 (question) => {
                   'content': question.content.trim(),
                   'explanation': question.explanation.trim(),
-                  'options': question.options
-                      .map((option) => option.trim())
-                      .toList(),
+                  'options': question.options.map((option) => option.trim()).toList(),
                   'correctOptionIndex': question.correctOptionIndex,
                   'excludedFromScore': question.excludedFromScore,
                   'id': question.id,
@@ -629,10 +472,7 @@ class ClassroomRepository {
               .toList(),
         },
       )
-      .then(
-        (response) =>
-            EditableAssignment.fromJson(response.data as Map<String, dynamic>),
-      )
+      .then((response) => EditableAssignment.fromJson(response.data as Map<String, dynamic>))
       .safeResult();
 
   Future<Result<CreatedAssignments>> assignExistingExam({
@@ -642,14 +482,9 @@ class ClassroomRepository {
   }) => _dio
       .post(
         '$_base/$classroomId/assignments/$assignmentId/classrooms',
-        data: {
-          'schedules': schedules.map((schedule) => schedule.toJson()).toList(),
-        },
+        data: {'schedules': schedules.map((schedule) => schedule.toJson()).toList()},
       )
-      .then(
-        (response) =>
-            CreatedAssignments.fromJson(response.data as Map<String, dynamic>),
-      )
+      .then((response) => CreatedAssignments.fromJson(response.data as Map<String, dynamic>))
       .safeResult();
 
   Future<Result<ClassroomAssignment>> updateAssignmentSchedule({
@@ -673,10 +508,7 @@ class ClassroomRepository {
           'confirm': confirm,
         },
       )
-      .then(
-        (response) =>
-            ClassroomAssignment.fromJson(response.data as Map<String, dynamic>),
-      )
+      .then((response) => ClassroomAssignment.fromJson(response.data as Map<String, dynamic>))
       .safeResult();
 }
 

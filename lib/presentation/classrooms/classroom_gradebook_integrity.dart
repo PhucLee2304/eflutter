@@ -46,17 +46,10 @@ mixin _GradebookIntegrity on State<ClassroomGradebookScreen> {
       'Student';
 
   /// Review các vi phạm của một học sinh theo thứ tự; dừng ở lỗi đầu tiên.
-  Future<void> reviewViolations(
-    List<IntegrityEventRecord> events,
-    String action,
-  ) async {
+  Future<void> reviewViolations(List<IntegrityEventRecord> events, String action) async {
     if (events.isEmpty) return;
     if (action == IntegrityReviewAction.ban &&
-        await confirmBanAttempt(
-              context,
-              _studentName(events.first.studentId),
-            ) ==
-            null) {
+        await confirmBanAttempt(context, _studentName(events.first.studentId)) == null) {
       return;
     }
     if (!mounted) return;
@@ -75,23 +68,22 @@ mixin _GradebookIntegrity on State<ClassroomGradebookScreen> {
     if (!mounted) return;
     setState(() => busyEvents.removeAll(ids));
     if (result case Failure(message: final message)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message ?? 'Could not review the violation')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message ?? 'Could not review the violation')));
     }
     await load(showLoading: false);
   }
 
-  Future<void> openIntegrityLog(AssignmentSubmission submission) =>
-      showIntegrityLogDialog(
-        context,
-        repository: repository,
-        classroomId: widget.classroomId,
-        assignmentId: widget.assignmentId,
-        submission: submission,
-        maxViolations: assignment?.maxViolations ?? 0,
-        onChanged: () => load(showLoading: false),
-      );
+  Future<void> openIntegrityLog(AssignmentSubmission submission) => showIntegrityLogDialog(
+    context,
+    repository: repository,
+    classroomId: widget.classroomId,
+    assignmentId: widget.assignmentId,
+    submission: submission,
+    maxViolations: assignment?.maxViolations ?? 0,
+    onChanged: () => load(showLoading: false),
+  );
 
   Widget integrityPanel() {
     final current = assignment;
@@ -102,8 +94,7 @@ mixin _GradebookIntegrity on State<ClassroomGradebookScreen> {
       maxViolations: current.maxViolations,
       busyEventIds: busyEvents,
       onBan: (event) => reviewViolations([event], IntegrityReviewAction.ban),
-      onAllowContinue: (events) =>
-          reviewViolations(events, IntegrityReviewAction.allowContinue),
+      onAllowContinue: (events) => reviewViolations(events, IntegrityReviewAction.allowContinue),
     );
   }
 }

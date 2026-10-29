@@ -2,18 +2,13 @@ import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:eflutter/data/models/post.dart';
 import 'package:eflutter/generated/colors.gen.dart';
 import 'package:eflutter/presentation/shared/app_video_player.dart';
+import 'package:eflutter/presentation/app/theme/app_button_styles.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Avatar tròn: ảnh nếu có URL, ngược lại là chữ cái đầu của tên.
 class PostAvatar extends StatelessWidget {
-  const PostAvatar({
-    super.key,
-    this.user,
-    this.url,
-    this.name,
-    this.radius = 20,
-  });
+  const PostAvatar({super.key, this.user, this.url, this.name, this.radius = 20});
   final PostUser? user;
   final String? url;
   final String? name;
@@ -32,10 +27,7 @@ class PostAvatar extends StatelessWidget {
           ? Icon(Icons.person, size: radius)
           : Text(
               label.characters.first.toUpperCase(),
-              style: TextStyle(
-                fontSize: radius * 0.8,
-                fontWeight: FontWeight.w600,
-              ),
+              style: TextStyle(fontSize: radius * 0.8, fontWeight: FontWeight.w600),
             ),
     );
     if (src == null || src.isEmpty) return fallback;
@@ -52,8 +44,7 @@ class PostAvatar extends StatelessWidget {
 }
 
 /// Nền xám nhạt kiểu Facebook cho bong bóng comment, ô nhập, thẻ file.
-Color postBubbleColor(BuildContext context) =>
-    Theme.of(context).brightness == Brightness.dark
+Color postBubbleColor(BuildContext context) => Theme.of(context).brightness == Brightness.dark
     ? Theme.of(context).colorScheme.surfaceContainerHighest
     : const Color(0xFFF0F2F5);
 
@@ -111,10 +102,7 @@ class _Video extends StatelessWidget {
     }
     return Padding(
       padding: const EdgeInsets.only(bottom: 2),
-      child: AppVideoPlayer(
-        url: attachment.url,
-        thumbnailUrl: attachment.thumbnailUrl,
-      ),
+      child: AppVideoPlayer(url: attachment.url, thumbnailUrl: attachment.thumbnailUrl),
     );
   }
 }
@@ -126,47 +114,44 @@ class _ImageGrid extends StatelessWidget {
   static const _maxHeight = 420.0;
 
   Widget _box(double aspectRatio, {required Widget child}) => LayoutBuilder(
-    builder: (context, c) => SizedBox(
-      height: (c.maxWidth / aspectRatio).clamp(0, _maxHeight).toDouble(),
-      child: child,
-    ),
+    builder: (context, c) =>
+        SizedBox(height: (c.maxWidth / aspectRatio).clamp(0, _maxHeight).toDouble(), child: child),
   );
   final List<PostAttachment> images;
 
-  Widget _cell(BuildContext context, int index, {int extra = 0}) =>
-      GestureDetector(
-        onTap: () => showImageViewer(context, images, index),
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Image.network(
-                images[index].url,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => const ColoredBox(
-                  color: Colors.black12,
-                  child: Center(child: Icon(Icons.broken_image_outlined)),
-                ),
-              ),
-              if (extra > 0)
-                ColoredBox(
-                  color: Colors.black54,
-                  child: Center(
-                    child: Text(
-                      '+$extra',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 30,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+  Widget _cell(BuildContext context, int index, {int extra = 0}) => GestureDetector(
+    onTap: () => showImageViewer(context, images, index),
+    child: MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.network(
+            images[index].url,
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => const ColoredBox(
+              color: Colors.black12,
+              child: Center(child: Icon(Icons.broken_image_outlined)),
+            ),
+          ),
+          if (extra > 0)
+            ColoredBox(
+              color: Colors.black54,
+              child: Center(
+                child: Text(
+                  '+$extra',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 30,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-            ],
-          ),
-        ),
-      );
+              ),
+            ),
+        ],
+      ),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -231,11 +216,7 @@ class _ImageGrid extends StatelessWidget {
           Expanded(flex: 2, child: _cell(context, 0)),
           const SizedBox(height: gap),
           Expanded(
-            child: row([
-              _cell(context, 1),
-              _cell(context, 2),
-              _cell(context, 3, extra: n - 4),
-            ]),
+            child: row([_cell(context, 1), _cell(context, 2), _cell(context, 3, extra: n - 4)]),
           ),
         ],
       ),
@@ -295,10 +276,7 @@ class _FileTile extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
-                      Text(
-                        fileSize(attachment.size),
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
+                      Text(fileSize(attachment.size), style: Theme.of(context).textTheme.bodySmall),
                     ],
                   ),
                 ),
@@ -312,20 +290,17 @@ class _FileTile extends StatelessWidget {
 }
 
 /// Xem ảnh toàn màn hình, vuốt/bấm mũi tên để chuyển ảnh.
-Future<void> showImageViewer(
-  BuildContext context,
-  List<PostAttachment> images,
-  int initial,
-) => showDialog<void>(
-  context: context,
-  barrierColor: Colors.black.withValues(alpha: 0.92),
-  builder: (context) => _ImageViewer(images: images, initial: initial),
-);
+Future<void> showImageViewer(BuildContext context, List<PostAttachment> images, int initial) =>
+    showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.92),
+      builder: (context) => _ImageViewer(images: images, initial: initial),
+    );
 
-/// Nút xám nhạt giống nút đóng của popup Create/Edit post.
+/// Nút xanh nhạt giống nút đóng của popup Create/Edit post.
 final _viewerButton = IconButton.styleFrom(
-  backgroundColor: const Color(0xFFE4E6EB),
-  foregroundColor: ColorName.labelPrimary,
+  backgroundColor: AppButtonStyles.tint,
+  foregroundColor: ColorName.primary,
 );
 
 class _ImageViewer extends StatefulWidget {
@@ -361,9 +336,7 @@ class _ImageViewerState extends State<_ImageViewer> {
         itemCount: widget.images.length,
         onPageChanged: (value) => setState(() => index = value),
         itemBuilder: (_, i) => InteractiveViewer(
-          child: Center(
-            child: Image.network(widget.images[i].url, fit: BoxFit.contain),
-          ),
+          child: Center(child: Image.network(widget.images[i].url, fit: BoxFit.contain)),
         ),
       ),
       Positioned(

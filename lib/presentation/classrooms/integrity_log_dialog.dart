@@ -51,10 +51,7 @@ Future<String?> confirmBanAttempt(BuildContext context, String studentName) {
         ],
       ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
         FilledButton(
           style: FilledButton.styleFrom(backgroundColor: ColorName.red),
           onPressed: () => Navigator.pop(context, note.text.trim()),
@@ -148,9 +145,7 @@ class _IntegrityLogDialogState extends State<_IntegrityLogDialog> {
         widget.onChanged();
         await load();
       case Failure(message: final message):
-        messenger.showSnackBar(
-          SnackBar(content: Text(message ?? 'Action failed')),
-        );
+        messenger.showSnackBar(SnackBar(content: Text(message ?? 'Action failed')));
       case Cancelled():
         break;
     }
@@ -205,10 +200,7 @@ class _IntegrityLogDialogState extends State<_IntegrityLogDialog> {
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           FilledButton(
             onPressed: () {
               final value = controller.text.trim();
@@ -281,8 +273,7 @@ class _IntegrityLogDialogState extends State<_IntegrityLogDialog> {
                   : ListView.separated(
                       itemCount: events.length,
                       separatorBuilder: (_, _) => const Divider(height: 1),
-                      itemBuilder: (context, index) =>
-                          _EventRow(event: events[index]),
+                      itemBuilder: (context, index) => _EventRow(event: events[index]),
                     ),
             ),
           ],
@@ -290,10 +281,7 @@ class _IntegrityLogDialogState extends State<_IntegrityLogDialog> {
       ),
       actions: [
         if (active) ...[
-          TextButton(
-            onPressed: busy ? null : releaseSession,
-            child: const Text('Release session'),
-          ),
+          TextButton(onPressed: busy ? null : releaseSession, child: const Text('Release session')),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: ColorName.red),
             onPressed: busy ? null : ban,
@@ -301,14 +289,8 @@ class _IntegrityLogDialogState extends State<_IntegrityLogDialog> {
           ),
         ],
         if (terminated)
-          FilledButton(
-            onPressed: busy ? null : reinstate,
-            child: const Text('Reinstate result'),
-          ),
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Close'),
-        ),
+          FilledButton(onPressed: busy ? null : reinstate, child: const Text('Reinstate result')),
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
       ],
     );
   }
@@ -327,8 +309,7 @@ class _EventRow extends StatelessWidget {
     };
     final details = [
       if (event.violationNo != null) 'violation #${event.violationNo}',
-      if (event.serverDurationMs != null)
-        '${(event.serverDurationMs! / 1000).toStringAsFixed(1)}s',
+      if (event.serverDurationMs != null) '${(event.serverDurationMs! / 1000).toStringAsFixed(1)}s',
       if (event.replayed) 'sent late',
       if (event.stale) 'from an old session',
       if (event.review == 'CONTINUE_ALLOWED') 'allowed to continue',

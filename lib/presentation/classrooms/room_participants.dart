@@ -4,13 +4,7 @@ import 'package:livekit_client/livekit_client.dart';
 const roomHostMetadata = 'HOST';
 
 /// Thao tác giáo viên làm trên một học sinh trong phòng.
-enum RoomParticipantAction {
-  mute,
-  allowMicrophone,
-  disableCamera,
-  allowCamera,
-  remove,
-}
+enum RoomParticipantAction { mute, allowMicrophone, disableCamera, allowCamera, remove }
 
 enum RoomParticipantConnection { good, weak, reconnecting }
 
@@ -108,11 +102,7 @@ List<T> dedupeRoomParticipants<T>(
 
 /// Giáo viên đứng đầu; với [byHand] học sinh giơ tay sớm hơn được ưu tiên, còn
 /// lại sắp xếp theo tên. Grid tắt [byHand] để ô video không nhảy vị trí.
-int compareRoomParticipants(
-  RoomParticipantView a,
-  RoomParticipantView b, {
-  bool byHand = true,
-}) {
+int compareRoomParticipants(RoomParticipantView a, RoomParticipantView b, {bool byHand = true}) {
   if (a.isHost != b.isHost) return a.isHost ? -1 : 1;
   final aHand = a.handRaisedAt, bHand = b.handRaisedAt;
   if (byHand && (aHand != null || bHand != null)) {
@@ -121,9 +111,7 @@ int compareRoomParticipants(
     final byHand = aHand.compareTo(bHand);
     if (byHand != 0) return byHand;
   }
-  final byName = a.displayName.toLowerCase().compareTo(
-    b.displayName.toLowerCase(),
-  );
+  final byName = a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase());
   return byName != 0 ? byName : a.identity.compareTo(b.identity);
 }
 
@@ -133,17 +121,12 @@ List<RoomParticipantView> filterRoomParticipants(
 ) {
   final normalized = query.trim().toLowerCase();
   if (normalized.isEmpty) return participants.toList();
-  return participants
-      .where((p) => p.displayName.toLowerCase().contains(normalized))
-      .toList();
+  return participants.where((p) => p.displayName.toLowerCase().contains(normalized)).toList();
 }
 
 /// Trả về thiết bị đang chọn nếu vẫn còn cắm, nếu không thì thiết bị khả dụng
 /// đầu tiên.
-MediaDevice? resolveRoomDevice(
-  MediaDevice? current,
-  List<MediaDevice> available,
-) {
+MediaDevice? resolveRoomDevice(MediaDevice? current, List<MediaDevice> available) {
   if (current != null) {
     for (final device in available) {
       if (device.deviceId == current.deviceId) return device;

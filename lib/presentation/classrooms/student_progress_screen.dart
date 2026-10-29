@@ -7,11 +7,7 @@ import 'package:eflutter/data/repositories/classroom_repository.dart';
 import 'package:flutter/material.dart';
 
 class StudentProgressScreen extends StatefulWidget {
-  const StudentProgressScreen({
-    super.key,
-    required this.classroomId,
-    required this.studentId,
-  });
+  const StudentProgressScreen({super.key, required this.classroomId, required this.studentId});
   final int classroomId;
   final String studentId;
   @override
@@ -30,10 +26,7 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
   }
 
   Future<void> load() async {
-    final result = await repository.getStudentProgress(
-      widget.classroomId,
-      widget.studentId,
-    );
+    final result = await repository.getStudentProgress(widget.classroomId, widget.studentId);
     if (!mounted) return;
     switch (result) {
       case Success(data: final data):
@@ -73,12 +66,8 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
                 Wrap(
                   spacing: 24,
                   children: [
-                    Text(
-                      'Average: ${progress!.averageScore?.toStringAsFixed(2) ?? '-'}',
-                    ),
-                    Text(
-                      'Completion: ${progress!.completionRate.toStringAsFixed(1)}%',
-                    ),
+                    Text('Average: ${progress!.averageScore?.toStringAsFixed(2) ?? '-'}'),
+                    Text('Completion: ${progress!.completionRate.toStringAsFixed(1)}%'),
                   ],
                 ),
                 const Divider(height: 32),
@@ -86,9 +75,7 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
                   (item) => ListTile(
                     contentPadding: EdgeInsets.zero,
                     title: Text(item.title),
-                    subtitle: Text(
-                      '${item.status.replaceAll('_', ' ')}  |  Due ${item.dueAt}',
-                    ),
+                    subtitle: Text('${item.status.replaceAll('_', ' ')}  |  Due ${item.dueAt}'),
                     trailing: Text(item.score?.toStringAsFixed(2) ?? '-'),
                   ),
                 ),

@@ -33,9 +33,7 @@ class ClassroomCalendarView extends StatefulWidget {
 }
 
 class _ClassroomCalendarViewState extends State<ClassroomCalendarView> {
-  late final RoomSocketClient roomSocket = RoomSocketClient(
-    getIt<LocalDataBase>(),
-  );
+  late final RoomSocketClient roomSocket = RoomSocketClient(getIt<LocalDataBase>());
   StreamSubscription<ClassroomRoom>? roomSubscription;
   Timer? clockTimer;
   DateTime month = DateTime(DateTime.now().year, DateTime.now().month);
@@ -102,10 +100,7 @@ class _ClassroomCalendarViewState extends State<ClassroomCalendarView> {
     if (input == null || !mounted) return;
     setState(() => busy = true);
     final result = schedule == null
-        ? await widget.repository.createSchedule(
-            classroomId: widget.classroomId,
-            input: input,
-          )
+        ? await widget.repository.createSchedule(classroomId: widget.classroomId, input: input)
         : await widget.repository.updateSchedule(
             classroomId: widget.classroomId,
             scheduleId: schedule.id,
@@ -130,14 +125,8 @@ class _ClassroomCalendarViewState extends State<ClassroomCalendarView> {
         title: const Text('Delete class schedule?'),
         content: Text(schedule.title),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
         ],
       ),
     );
@@ -163,10 +152,7 @@ class _ClassroomCalendarViewState extends State<ClassroomCalendarView> {
     final room = entry.room;
     if (room == null) return;
     setState(() => busy = true);
-    final result = await widget.repository.startRoom(
-      widget.classroomId,
-      room.id,
-    );
+    final result = await widget.repository.startRoom(widget.classroomId, room.id);
     if (!mounted) return;
     setState(() => busy = false);
     switch (result) {
@@ -182,9 +168,8 @@ class _ClassroomCalendarViewState extends State<ClassroomCalendarView> {
     }
   }
 
-  void _message(String value) => ScaffoldMessenger.of(
-    context,
-  ).showSnackBar(SnackBar(content: Text(value)));
+  void _message(String value) =>
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(value)));
 
   @override
   Widget build(BuildContext context) {
@@ -200,11 +185,7 @@ class _ClassroomCalendarViewState extends State<ClassroomCalendarView> {
     }
     final grouped = <DateTime, List<CalendarEntry>>{};
     for (final entry in entries) {
-      final day = DateTime(
-        entry.startsAt.year,
-        entry.startsAt.month,
-        entry.startsAt.day,
-      );
+      final day = DateTime(entry.startsAt.year, entry.startsAt.month, entry.startsAt.day);
       grouped.putIfAbsent(day, () => []).add(entry);
     }
     return Column(
@@ -243,9 +224,7 @@ class _ClassroomCalendarViewState extends State<ClassroomCalendarView> {
         if (entries.isEmpty)
           const Padding(
             padding: EdgeInsets.all(36),
-            child: Center(
-              child: Text('No class schedules or deadlines this month'),
-            ),
+            child: Center(child: Text('No class schedules or deadlines this month')),
           )
         else
           ...grouped.entries.map(
@@ -266,16 +245,12 @@ class _ClassroomCalendarViewState extends State<ClassroomCalendarView> {
                       title: Text(entry.title),
                       subtitle: Text(_calendarDetails(entry)),
                       onTap: entry.relatedAssignmentId != null
-                          ? () => widget.onOpenAssignment(
-                              entry.relatedAssignmentId!,
-                            )
+                          ? () => widget.onOpenAssignment(entry.relatedAssignmentId!)
                           : null,
                       trailing: Wrap(
                         spacing: 2,
                         children: [
-                          if (widget.isTeacher &&
-                              widget.classroomActive &&
-                              entry.editable) ...[
+                          if (widget.isTeacher && widget.classroomActive && entry.editable) ...[
                             IconButton(
                               tooltip: 'Edit class schedule',
                               onPressed: busy ? null : () => edit(entry),
@@ -287,8 +262,7 @@ class _ClassroomCalendarViewState extends State<ClassroomCalendarView> {
                               icon: const Icon(Icons.delete_outline),
                             ),
                           ],
-                          if (entry.room case final room?)
-                            ..._roomActions(entry, room),
+                          if (entry.room case final room?) ..._roomActions(entry, room),
                         ],
                       ),
                     ),
@@ -308,9 +282,7 @@ class _ClassroomCalendarViewState extends State<ClassroomCalendarView> {
         FilledButton.icon(
           onPressed: busy
               ? null
-              : () => context.push(
-                  classroomRoomPath(widget.classroomId, room.id),
-                ),
+              : () => context.push(classroomRoomPath(widget.classroomId, room.id)),
           icon: const Icon(Icons.video_call_outlined),
           label: const Text('Join'),
         ),
@@ -328,19 +300,12 @@ class _ClassroomCalendarViewState extends State<ClassroomCalendarView> {
         return [
           Padding(
             padding: const EdgeInsets.all(12),
-            child: Text(
-              'Starts ${DateFormat('MMM d, HH:mm').format(room.startsAt)}',
-            ),
+            child: Text('Starts ${DateFormat('MMM d, HH:mm').format(room.startsAt)}'),
           ),
         ];
       }
       if (!room.canStartAt(now)) {
-        return [
-          const Padding(
-            padding: EdgeInsets.all(12),
-            child: Text('Start window ended'),
-          ),
-        ];
+        return [const Padding(padding: EdgeInsets.all(12), child: Text('Start window ended'))];
       }
       return [
         FilledButton.icon(
@@ -351,17 +316,13 @@ class _ClassroomCalendarViewState extends State<ClassroomCalendarView> {
       ];
     }
     return [
-      const Padding(
-        padding: EdgeInsets.all(12),
-        child: Text('Waiting for the teacher to start'),
-      ),
+      const Padding(padding: EdgeInsets.all(12), child: Text('Waiting for the teacher to start')),
     ];
   }
 
   Widget _attendanceAction(ClassroomRoom room) => IconButton(
     tooltip: widget.isTeacher ? 'Attendance' : 'My attendance',
-    onPressed: () =>
-        context.push(roomAttendancePath(widget.classroomId, room.id)),
+    onPressed: () => context.push(roomAttendancePath(widget.classroomId, room.id)),
     icon: const Icon(Icons.fact_check_outlined),
   );
 }
@@ -389,14 +350,10 @@ Future<ClassroomScheduleInput?> showScheduleEditor(
 ) async {
   final title = TextEditingController(text: schedule?.title ?? '');
   final description = TextEditingController(text: schedule?.description ?? '');
-  var startsAt =
-      schedule?.startsAt ?? DateTime.now().add(const Duration(hours: 1));
+  var startsAt = schedule?.startsAt ?? DateTime.now().add(const Duration(hours: 1));
   var endsAt = schedule?.endsAt ?? startsAt.add(const Duration(hours: 1));
 
-  Future<DateTime?> pickDateTime(
-    BuildContext dialogContext,
-    DateTime initial,
-  ) async {
+  Future<DateTime?> pickDateTime(BuildContext dialogContext, DateTime initial) async {
     final date = await showDatePicker(
       context: dialogContext,
       initialDate: initial,
@@ -416,9 +373,7 @@ Future<ClassroomScheduleInput?> showScheduleEditor(
     context: context,
     builder: (dialogContext) => StatefulBuilder(
       builder: (context, setDialogState) => AlertDialog(
-        title: Text(
-          schedule == null ? 'Add class schedule' : 'Edit class schedule',
-        ),
+        title: Text(schedule == null ? 'Add class schedule' : 'Edit class schedule'),
         content: SizedBox(
           width: 520,
           child: SingleChildScrollView(
@@ -438,9 +393,7 @@ Future<ClassroomScheduleInput?> showScheduleEditor(
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Starts'),
-                  subtitle: Text(
-                    DateFormat('MMM d, yyyy HH:mm').format(startsAt),
-                  ),
+                  subtitle: Text(DateFormat('MMM d, yyyy HH:mm').format(startsAt)),
                   trailing: const Icon(Icons.edit_calendar_outlined),
                   onTap: () async {
                     final value = await pickDateTime(dialogContext, startsAt);
@@ -450,9 +403,7 @@ Future<ClassroomScheduleInput?> showScheduleEditor(
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Ends'),
-                  subtitle: Text(
-                    DateFormat('MMM d, yyyy HH:mm').format(endsAt),
-                  ),
+                  subtitle: Text(DateFormat('MMM d, yyyy HH:mm').format(endsAt)),
                   trailing: const Icon(Icons.edit_calendar_outlined),
                   onTap: () async {
                     final value = await pickDateTime(dialogContext, endsAt);
@@ -464,10 +415,7 @@ Future<ClassroomScheduleInput?> showScheduleEditor(
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           FilledButton(
             onPressed: () {
               if (title.text.trim().isEmpty || !endsAt.isAfter(startsAt)) {

@@ -8,6 +8,7 @@ import 'package:eflutter/presentation/app/cubit/app_cubit.dart';
 import 'package:eflutter/presentation/posts/post_card.dart';
 import 'package:eflutter/presentation/posts/post_composer_dialog.dart';
 import 'package:eflutter/presentation/posts/post_media.dart';
+import 'package:eflutter/presentation/app/theme/app_button_styles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -16,8 +17,7 @@ class CommunityPostsScreen extends StatelessWidget {
   const CommunityPostsScreen({super.key});
   @override
   Widget build(BuildContext context) {
-    final admin =
-        context.watch<AppCubit>().state.user?.role.toLowerCase() == 'admin';
+    final admin = context.watch<AppCubit>().state.user?.role.toLowerCase() == 'admin';
     return Scaffold(
       body: SafeArea(
         child: admin
@@ -33,10 +33,7 @@ class CommunityPostsScreen extends StatelessWidget {
                     ),
                     Expanded(
                       child: TabBarView(
-                        children: [
-                          PostList(),
-                          PostList(admin: true, canCreate: false),
-                        ],
+                        children: [PostList(), PostList(admin: true, canCreate: false)],
                       ),
                     ),
                   ],
@@ -72,16 +69,8 @@ class ClassroomPostsView extends StatelessWidget {
           height: 560,
           child: TabBarView(
             children: [
-              PostList(
-                classroomId: classroomId,
-                canCreate: isTeacher && active,
-                readOnly: !active,
-              ),
-              PostList(
-                classroomId: classroomId,
-                pinned: true,
-                readOnly: !active,
-              ),
+              PostList(classroomId: classroomId, canCreate: isTeacher && active, readOnly: !active),
+              PostList(classroomId: classroomId, pinned: true, readOnly: !active),
             ],
           ),
         ),
@@ -234,9 +223,7 @@ class _PostListState extends State<PostList> {
     try {
       final fresh = await repo.getPost(p.id);
       if (mounted) {
-        setState(
-          () => items = [for (final i in items) i.id == p.id ? fresh : i],
-        );
+        setState(() => items = [for (final i in items) i.id == p.id ? fresh : i]);
       }
     } on DioException catch (e) {
       if (mounted && e.response?.statusCode == 404) {
@@ -247,9 +234,7 @@ class _PostListState extends State<PostList> {
 
   void _message(String value) {
     if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(value)));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(value)));
     }
   }
 
@@ -306,12 +291,14 @@ class _PostListState extends State<PostList> {
           decoration: const InputDecoration(labelText: 'Reason'),
         ),
         actions: [
-          TextButton(
+          FilledButton(
             onPressed: () => Navigator.pop(context),
+            style: AppButtonStyles.secondary,
             child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, input.text.trim()),
+            style: AppButtonStyles.primary,
             child: const Text('Confirm'),
           ),
         ],
@@ -332,8 +319,9 @@ class _PostListState extends State<PostList> {
     if (loading) return const AppLoader();
     if (error != null) {
       return Center(
-        child: FilledButton.tonalIcon(
+        child: FilledButton.icon(
           onPressed: load,
+          style: AppButtonStyles.secondary,
           icon: const Icon(Icons.refresh),
           label: Text(error!),
         ),
@@ -366,11 +354,7 @@ class _PostListState extends State<PostList> {
                     constraints: const BoxConstraints(maxWidth: 680),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        aside,
-                        const SizedBox(height: 16),
-                        _feed(context),
-                      ],
+                      children: [aside, const SizedBox(height: 16), _feed(context)],
                     ),
                   ),
                 )
@@ -428,8 +412,7 @@ class _PostListState extends State<PostList> {
             onOpen: () => open(p),
           ),
         ),
-        if (more)
-          const Padding(padding: EdgeInsets.all(16), child: AppLoader()),
+        if (more) const Padding(padding: EdgeInsets.all(16), child: AppLoader()),
       ],
     ),
   );
@@ -464,10 +447,7 @@ class _ComposerPrompt extends StatelessWidget {
                   customBorder: const StadiumBorder(),
                   onTap: onTap,
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 11,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
                     child: Text(
                       "What's on your mind${me == null ? '' : ', ${me.name.split(' ').last}'}?",
                       style: TextStyle(color: theme.hintColor, fontSize: 15),

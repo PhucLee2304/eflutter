@@ -5,85 +5,81 @@ import 'package:eflutter/presentation/classrooms/proctoring_fields.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-Future<void> showAssignmentAuditSheet(
-  BuildContext context,
-  List<ExamAudit> audits,
-) => showModalBottomSheet<void>(
-  context: context,
-  isScrollControlled: true,
-  showDragHandle: true,
-  builder: (context) => SafeArea(
-    child: SizedBox(
-      height: MediaQuery.sizeOf(context).height * .78,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 4, 24, 16),
-            child: Text(
-              'Assignment change history',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-          ),
-          const Divider(height: 1),
-          Expanded(
-            child: audits.isEmpty
-                ? const Center(child: Text('No changes recorded yet'))
-                : ListView.separated(
-                    padding: const EdgeInsets.all(20),
-                    itemCount: audits.length,
-                    separatorBuilder: (_, _) => const Divider(height: 28),
-                    itemBuilder: (context, index) {
-                      final audit = audits[index];
-                      final time = audit.regradedAt ?? audit.createdAt;
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            audit.reason.isEmpty
-                                ? 'Assignment updated'
-                                : audit.reason,
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${DateFormat('MMM d, yyyy HH:mm').format(time)} · '
-                            '${audit.actor?.name ?? audit.actorId}',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                          if (audit.scoreChanges.isNotEmpty) ...[
-                            const SizedBox(height: 12),
-                            ...audit.scoreChanges.map(
-                              (change) => Padding(
-                                padding: const EdgeInsets.only(bottom: 6),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        'Student ${change.studentId} · '
-                                        'Attempt ${change.attemptId}',
-                                      ),
-                                    ),
-                                    Text(
-                                      '${change.beforeScore?.toStringAsFixed(2) ?? '-'}'
-                                      ' → '
-                                      '${change.afterScore?.toStringAsFixed(2) ?? '-'}',
-                                    ),
-                                  ],
-                                ),
+Future<void> showAssignmentAuditSheet(BuildContext context, List<ExamAudit> audits) =>
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: SizedBox(
+          height: MediaQuery.sizeOf(context).height * .78,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 4, 24, 16),
+                child: Text(
+                  'Assignment change history',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: audits.isEmpty
+                    ? const Center(child: Text('No changes recorded yet'))
+                    : ListView.separated(
+                        padding: const EdgeInsets.all(20),
+                        itemCount: audits.length,
+                        separatorBuilder: (_, _) => const Divider(height: 28),
+                        itemBuilder: (context, index) {
+                          final audit = audits[index];
+                          final time = audit.regradedAt ?? audit.createdAt;
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                audit.reason.isEmpty ? 'Assignment updated' : audit.reason,
+                                style: Theme.of(context).textTheme.titleMedium,
                               ),
-                            ),
-                          ],
-                        ],
-                      );
-                    },
-                  ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${DateFormat('MMM d, yyyy HH:mm').format(time)} · '
+                                '${audit.actor?.name ?? audit.actorId}',
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                              if (audit.scoreChanges.isNotEmpty) ...[
+                                const SizedBox(height: 12),
+                                ...audit.scoreChanges.map(
+                                  (change) => Padding(
+                                    padding: const EdgeInsets.only(bottom: 6),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            'Student ${change.studentId} · '
+                                            'Attempt ${change.attemptId}',
+                                          ),
+                                        ),
+                                        Text(
+                                          '${change.beforeScore?.toStringAsFixed(2) ?? '-'}'
+                                          ' → '
+                                          '${change.afterScore?.toStringAsFixed(2) ?? '-'}',
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          );
+                        },
+                      ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
-    ),
-  ),
-);
+    );
 
 class CreateAssignmentInput {
   const CreateAssignmentInput({
@@ -144,10 +140,7 @@ class ClassroomAssignmentsView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (loading) {
-      return const Padding(
-        padding: EdgeInsets.all(40),
-        child: AppLoader(),
-      );
+      return const Padding(padding: EdgeInsets.all(40), child: AppLoader());
     }
     if (error != null) {
       return Center(
@@ -192,24 +185,15 @@ class ClassroomAssignmentsView extends StatelessWidget {
                 onAssignToClasses: onAssignToClasses == null
                     ? null
                     : () => onAssignToClasses!(assignment),
-                onEditSchedule: onEditSchedule == null
-                    ? null
-                    : () => onEditSchedule!(assignment),
-                onEditContent: onEditContent == null
-                    ? null
-                    : () => onEditContent!(assignment),
-                onViewAudits: onViewAudits == null
-                    ? null
-                    : () => onViewAudits!(assignment),
+                onEditSchedule: onEditSchedule == null ? null : () => onEditSchedule!(assignment),
+                onEditContent: onEditContent == null ? null : () => onEditContent!(assignment),
+                onViewAudits: onViewAudits == null ? null : () => onViewAudits!(assignment),
                 onSetActive: (active) => onSetActive(assignment, active),
               ),
             ),
           ),
         if (loadingMore)
-          const Padding(
-            padding: EdgeInsets.all(20),
-            child: AppLoader(),
-          )
+          const Padding(padding: EdgeInsets.all(20), child: AppLoader())
         else if (loadMoreError != null)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
@@ -261,14 +245,11 @@ class _AssignmentTile extends StatelessWidget {
     final submission = assignment.submission;
     final hasAttempt = submission != null && submission.attemptId > 0;
     final hasResult =
-        hasAttempt &&
-        (submission.status == 'SUBMITTED' || submission.status == 'LATE');
+        hasAttempt && (submission.status == 'SUBMITTED' || submission.status == 'LATE');
     final canOpen =
         isTeacher ||
         hasResult ||
-        (classroomActive &&
-            assignment.active &&
-            (hasAttempt || (hasOpened && !hasEnded)));
+        (classroomActive && assignment.active && (hasAttempt || (hasOpened && !hasEnded)));
     final actionLabel = switch (submission?.status) {
       'IN_PROGRESS' => 'Continue',
       'SUBMITTED' || 'LATE' when hasAttempt => 'View result',
@@ -281,19 +262,13 @@ class _AssignmentTile extends StatelessWidget {
     final details = Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.only(top: 2),
-          child: Icon(Icons.assignment_outlined),
-        ),
+        const Padding(padding: EdgeInsets.only(top: 2), child: Icon(Icons.assignment_outlined)),
         const SizedBox(width: 14),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                assignment.title,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
+              Text(assignment.title, style: Theme.of(context).textTheme.titleMedium),
               if (assignment.description?.trim().isNotEmpty == true) ...[
                 const SizedBox(height: 6),
                 Text(assignment.description!),
@@ -313,11 +288,7 @@ class _AssignmentTile extends StatelessWidget {
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    const Icon(
-                      Icons.shield_outlined,
-                      size: 16,
-                      color: ColorName.primary,
-                    ),
+                    const Icon(Icons.shield_outlined, size: 16, color: ColorName.primary),
                     const SizedBox(width: 4),
                     Text(
                       'Proctored · ${assignment.maxViolations} violations allowed',
@@ -339,10 +310,7 @@ class _AssignmentTile extends StatelessWidget {
         ? Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Switch(
-                value: assignment.active,
-                onChanged: classroomActive ? onSetActive : null,
-              ),
+              Switch(value: assignment.active, onChanged: classroomActive ? onSetActive : null),
               const SizedBox(width: 8),
               IconButton(
                 onPressed: onEditContent,
@@ -371,10 +339,7 @@ class _AssignmentTile extends StatelessWidget {
               ),
             ],
           )
-        : FilledButton(
-            onPressed: canOpen ? onOpen : null,
-            child: Text(actionLabel),
-          );
+        : FilledButton(onPressed: canOpen ? onOpen : null, child: Text(actionLabel));
 
     return Card(
       child: Padding(
@@ -440,13 +405,7 @@ Future<AssignmentScheduleInput?> showAssignmentScheduleDialog(
             initialTime: TimeOfDay.fromDateTime(initial),
           );
           if (time == null) return null;
-          return DateTime(
-            date.year,
-            date.month,
-            date.day,
-            time.hour,
-            time.minute,
-          );
+          return DateTime(date.year, date.month, date.day, time.hour, time.minute);
         }
 
         return AlertDialog(
@@ -459,12 +418,9 @@ Future<AssignmentScheduleInput?> showAssignmentScheduleDialog(
                 children: [
                   TextFormField(
                     initialValue: '$duration',
-                    decoration: const InputDecoration(
-                      labelText: 'Time limit (minutes)',
-                    ),
+                    decoration: const InputDecoration(labelText: 'Time limit (minutes)'),
                     keyboardType: TextInputType.number,
-                    onChanged: (value) =>
-                        selectedDuration = int.tryParse(value) ?? 0,
+                    onChanged: (value) => selectedDuration = int.tryParse(value) ?? 0,
                     validator: (value) {
                       final parsed = int.tryParse(value ?? '');
                       return parsed == null || parsed < 1 || parsed > 1440
@@ -500,20 +456,15 @@ Future<AssignmentScheduleInput?> showAssignmentScheduleDialog(
                   ProctoringFields(
                     proctored: selectedProctored,
                     maxViolations: selectedMaxViolations,
-                    onProctoredChanged: (value) =>
-                        setDialogState(() => selectedProctored = value),
-                    onMaxViolationsChanged: (value) =>
-                        selectedMaxViolations = value,
+                    onProctoredChanged: (value) => setDialogState(() => selectedProctored = value),
+                    onMaxViolationsChanged: (value) => selectedMaxViolations = value,
                   ),
                 ],
               ),
             ),
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancel'),
-            ),
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
             FilledButton(
               onPressed: () {
                 if (!formKey.currentState!.validate()) return;
@@ -550,10 +501,8 @@ Future<CreateAssignmentInput?> showCreateAssignmentDialog(
 }) {
   return Navigator.of(context).push<CreateAssignmentInput>(
     MaterialPageRoute(
-      builder: (context) => _CreateAssignmentDialog(
-        classrooms: classrooms,
-        currentClassroomId: currentClassroomId,
-      ),
+      builder: (context) =>
+          _CreateAssignmentDialog(classrooms: classrooms, currentClassroomId: currentClassroomId),
     ),
   );
 }
@@ -584,9 +533,7 @@ class _EditAssignmentDialogState extends State<_EditAssignmentDialog> {
   void initState() {
     super.initState();
     title = TextEditingController(text: widget.assignment.title);
-    description = TextEditingController(
-      text: widget.assignment.description ?? '',
-    );
+    description = TextEditingController(text: widget.assignment.description ?? '');
     questions = widget.assignment.questions
         .map(
           (question) => _QuestionDraft(
@@ -654,8 +601,7 @@ class _EditAssignmentDialogState extends State<_EditAssignmentDialog> {
               ),
               if (!widget.assignment.hasAttempts)
                 OutlinedButton.icon(
-                  onPressed: () =>
-                      setState(() => questions.add(_QuestionDraft())),
+                  onPressed: () => setState(() => questions.add(_QuestionDraft())),
                   icon: const Icon(Icons.add),
                   label: const Text('Add question'),
                 ),
@@ -665,10 +611,7 @@ class _EditAssignmentDialogState extends State<_EditAssignmentDialog> {
       ),
     ),
     actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('Cancel'),
-      ),
+      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
       FilledButton(
         onPressed: () {
           if (!formKey.currentState!.validate()) return;
@@ -683,9 +626,7 @@ class _EditAssignmentDialogState extends State<_EditAssignmentDialog> {
                     (question) => CreateAssignmentQuestion(
                       content: question.content.text.trim(),
                       explanation: question.explanation.text.trim(),
-                      options: question.options
-                          .map((option) => option.text.trim())
-                          .toList(),
+                      options: question.options.map((option) => option.text.trim()).toList(),
                       correctOptionIndex: question.correctOptionIndex,
                       excludedFromScore: question.excludedFromScore,
                       id: question.id,
@@ -703,17 +644,13 @@ class _EditAssignmentDialogState extends State<_EditAssignmentDialog> {
 }
 
 class _CreateAssignmentDialog extends StatefulWidget {
-  const _CreateAssignmentDialog({
-    required this.classrooms,
-    required this.currentClassroomId,
-  });
+  const _CreateAssignmentDialog({required this.classrooms, required this.currentClassroomId});
 
   final List<Classroom> classrooms;
   final int currentClassroomId;
 
   @override
-  State<_CreateAssignmentDialog> createState() =>
-      _CreateAssignmentDialogState();
+  State<_CreateAssignmentDialog> createState() => _CreateAssignmentDialogState();
 }
 
 class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
@@ -794,14 +731,10 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
                   Row(
                     children: [
                       Expanded(
-                        child: Text(
-                          'Questions',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
+                        child: Text('Questions', style: Theme.of(context).textTheme.titleMedium),
                       ),
                       TextButton.icon(
-                        onPressed: () =>
-                            setState(() => questions.add(_QuestionDraft())),
+                        onPressed: () => setState(() => questions.add(_QuestionDraft())),
                         icon: const Icon(Icons.add),
                         label: const Text('Add question'),
                       ),
@@ -822,10 +755,7 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Text(
-                    'Assign to',
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
+                  Text('Assign to', style: Theme.of(context).textTheme.titleSmall),
                   ...widget.classrooms.map(
                     (classroom) => CheckboxListTile(
                       contentPadding: EdgeInsets.zero,
@@ -848,99 +778,73 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  ...widget.classrooms
-                      .where((item) => selectedClassrooms.contains(item.id))
-                      .map((classroom) {
-                        final schedule = schedules[classroom.id]!;
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: Card(
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                  ...widget.classrooms.where((item) => selectedClassrooms.contains(item.id)).map((
+                    classroom,
+                  ) {
+                    final schedule = schedules[classroom.id]!;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Text(classroom.name, style: Theme.of(context).textTheme.titleSmall),
+                              TextFormField(
+                                initialValue: '${schedule.duration}',
+                                decoration: const InputDecoration(
+                                  labelText: 'Time limit (minutes)',
+                                ),
+                                keyboardType: TextInputType.number,
+                                onChanged: (value) => schedule.duration = int.tryParse(value) ?? 0,
+                                validator: (value) {
+                                  final minutes = int.tryParse(value?.trim() ?? '');
+                                  return minutes == null || minutes < 1 || minutes > 1440
+                                      ? 'Enter a value from 1 to 1440 minutes'
+                                      : null;
+                                },
+                              ),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 12,
+                                runSpacing: 8,
                                 children: [
-                                  Text(
-                                    classroom.name,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.titleSmall,
-                                  ),
-                                  TextFormField(
-                                    initialValue: '${schedule.duration}',
-                                    decoration: const InputDecoration(
-                                      labelText: 'Time limit (minutes)',
-                                    ),
-                                    keyboardType: TextInputType.number,
-                                    onChanged: (value) => schedule.duration =
-                                        int.tryParse(value) ?? 0,
-                                    validator: (value) {
-                                      final minutes = int.tryParse(
-                                        value?.trim() ?? '',
-                                      );
-                                      return minutes == null ||
-                                              minutes < 1 ||
-                                              minutes > 1440
-                                          ? 'Enter a value from 1 to 1440 minutes'
-                                          : null;
+                                  OutlinedButton.icon(
+                                    onPressed: () async {
+                                      final value = await pickDateTime(schedule.opensAt);
+                                      if (value != null) {
+                                        setState(() => schedule.opensAt = value);
+                                      }
                                     },
+                                    icon: const Icon(Icons.play_circle_outline),
+                                    label: Text('Opens ${_formatDateTime(schedule.opensAt)}'),
                                   ),
-                                  const SizedBox(height: 8),
-                                  Wrap(
-                                    spacing: 12,
-                                    runSpacing: 8,
-                                    children: [
-                                      OutlinedButton.icon(
-                                        onPressed: () async {
-                                          final value = await pickDateTime(
-                                            schedule.opensAt,
-                                          );
-                                          if (value != null) {
-                                            setState(
-                                              () => schedule.opensAt = value,
-                                            );
-                                          }
-                                        },
-                                        icon: const Icon(
-                                          Icons.play_circle_outline,
-                                        ),
-                                        label: Text(
-                                          'Opens ${_formatDateTime(schedule.opensAt)}',
-                                        ),
-                                      ),
-                                      OutlinedButton.icon(
-                                        onPressed: () async {
-                                          final value = await pickDateTime(
-                                            schedule.dueAt,
-                                          );
-                                          if (value != null) {
-                                            setState(
-                                              () => schedule.dueAt = value,
-                                            );
-                                          }
-                                        },
-                                        icon: const Icon(Icons.event_outlined),
-                                        label: Text(
-                                          'Due ${_formatDateTime(schedule.dueAt)}',
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  ProctoringFields(
-                                    proctored: schedule.proctored,
-                                    maxViolations: schedule.maxViolations,
-                                    onProctoredChanged: (value) => setState(
-                                      () => schedule.proctored = value,
-                                    ),
-                                    onMaxViolationsChanged: (value) =>
-                                        schedule.maxViolations = value,
+                                  OutlinedButton.icon(
+                                    onPressed: () async {
+                                      final value = await pickDateTime(schedule.dueAt);
+                                      if (value != null) {
+                                        setState(() => schedule.dueAt = value);
+                                      }
+                                    },
+                                    icon: const Icon(Icons.event_outlined),
+                                    label: Text('Due ${_formatDateTime(schedule.dueAt)}'),
                                   ),
                                 ],
                               ),
-                            ),
+                              ProctoringFields(
+                                proctored: schedule.proctored,
+                                maxViolations: schedule.maxViolations,
+                                onProctoredChanged: (value) =>
+                                    setState(() => schedule.proctored = value),
+                                onMaxViolationsChanged: (value) => schedule.maxViolations = value,
+                              ),
+                            ],
                           ),
-                        );
-                      }),
+                        ),
+                      ),
+                    );
+                  }),
                 ],
               ),
             ),
@@ -954,42 +858,29 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
             const SizedBox(width: 12),
             FilledButton(
               onPressed: () {
                 if (!formKey.currentState!.validate()) return;
                 if (selectedClassrooms.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Select at least one classroom'),
-                    ),
-                  );
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(const SnackBar(content: Text('Select at least one classroom')));
+                  return;
+                }
+                if (schedules.values.any((item) => !item.dueAt.isAfter(item.opensAt))) {
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(const SnackBar(content: Text('Due time must be after open time')));
                   return;
                 }
                 if (schedules.values.any(
-                  (item) => !item.dueAt.isAfter(item.opensAt),
+                  (item) => Duration(minutes: item.duration) > item.dueAt.difference(item.opensAt),
                 )) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Due time must be after open time'),
-                    ),
-                  );
-                  return;
-                }
-                if (schedules.values.any(
-                  (item) =>
-                      Duration(minutes: item.duration) >
-                      item.dueAt.difference(item.opensAt),
-                )) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Time limit must not exceed the assignment window',
-                      ),
+                      content: Text('Time limit must not exceed the assignment window'),
                     ),
                   );
                   return;
@@ -1016,9 +907,7 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
                           (question) => CreateAssignmentQuestion(
                             content: question.content.text.trim(),
                             explanation: question.explanation.text.trim(),
-                            options: question.options
-                                .map((option) => option.text.trim())
-                                .toList(),
+                            options: question.options.map((option) => option.text.trim()).toList(),
                             correctOptionIndex: question.correctOptionIndex,
                             excludedFromScore: question.excludedFromScore,
                           ),
@@ -1037,11 +926,7 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
 }
 
 class _ScheduleDraft {
-  _ScheduleDraft({
-    required this.duration,
-    required this.opensAt,
-    required this.dueAt,
-  });
+  _ScheduleDraft({required this.duration, required this.opensAt, required this.dueAt});
   int duration;
   DateTime opensAt;
   DateTime dueAt;
@@ -1122,9 +1007,7 @@ class _QuestionEditorState extends State<_QuestionEditor> {
                 ),
               ),
               IconButton(
-                onPressed: widget.canRemove && !widget.lockStructure
-                    ? widget.onRemove
-                    : null,
+                onPressed: widget.canRemove && !widget.lockStructure ? widget.onRemove : null,
                 tooltip: 'Remove question',
                 icon: const Icon(Icons.delete_outline),
               ),
@@ -1143,9 +1026,7 @@ class _QuestionEditorState extends State<_QuestionEditor> {
             return Row(
               children: [
                 IconButton(
-                  onPressed: () => setState(
-                    () => widget.draft.correctOptionIndex = optionIndex,
-                  ),
+                  onPressed: () => setState(() => widget.draft.correctOptionIndex = optionIndex),
                   tooltip: 'Mark option $key as correct',
                   icon: Icon(
                     widget.draft.correctOptionIndex == optionIndex
@@ -1167,9 +1048,7 @@ class _QuestionEditorState extends State<_QuestionEditor> {
           TextFormField(
             controller: widget.draft.explanation,
             enabled: !widget.lockStructure,
-            decoration: const InputDecoration(
-              labelText: 'Answer explanation (optional)',
-            ),
+            decoration: const InputDecoration(labelText: 'Answer explanation (optional)'),
             maxLines: null,
           ),
           if (widget.showScoreExclusion)
@@ -1177,9 +1056,7 @@ class _QuestionEditorState extends State<_QuestionEditor> {
               contentPadding: EdgeInsets.zero,
               title: const Text('Exclude this question from scoring'),
               value: widget.draft.excludedFromScore,
-              onChanged: (value) => setState(
-                () => widget.draft.excludedFromScore = value ?? false,
-              ),
+              onChanged: (value) => setState(() => widget.draft.excludedFromScore = value ?? false),
             ),
         ],
       ),
@@ -1190,5 +1067,4 @@ class _QuestionEditorState extends State<_QuestionEditor> {
 String? _required(String? value) =>
     value == null || value.trim().isEmpty ? 'This field is required' : null;
 
-String _formatDateTime(DateTime value) =>
-    DateFormat('MMM d, yyyy • HH:mm').format(value);
+String _formatDateTime(DateTime value) => DateFormat('MMM d, yyyy • HH:mm').format(value);
