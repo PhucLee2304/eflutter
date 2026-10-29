@@ -4,11 +4,13 @@ class ExamAttemptPage {
   final List<ExamAttempt> attempts;
   final int page;
   final int pageCounts;
+  final int total;
 
   const ExamAttemptPage({
     required this.attempts,
     required this.page,
     required this.pageCounts,
+    this.total = 0,
   });
 
   factory ExamAttemptPage.fromJson(Map<String, dynamic> json) {
@@ -19,6 +21,7 @@ class ExamAttemptPage {
           .toList(),
       page: (json['page'] as num?)?.toInt() ?? 1,
       pageCounts: (json['pageCounts'] as num?)?.toInt() ?? 1,
+      total: (json['total'] as num?)?.toInt() ?? 0,
     );
   }
 

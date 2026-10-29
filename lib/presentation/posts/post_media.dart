@@ -122,6 +122,16 @@ class _Video extends StatelessWidget {
 
 class _ImageGrid extends StatelessWidget {
   const _ImageGrid({required this.images});
+
+  // Khối ảnh không cao quá 420 để mỗi bài vừa một màn hình.
+  static const _maxHeight = 420.0;
+
+  Widget _box(double aspectRatio, {required Widget child}) => LayoutBuilder(
+    builder: (context, c) => SizedBox(
+      height: (c.maxWidth / aspectRatio).clamp(0, _maxHeight).toDouble(),
+      child: child,
+    ),
+  );
   final List<PostAttachment> images;
 
   Widget _cell(BuildContext context, int index, {int extra = 0}) =>
@@ -173,7 +183,7 @@ class _ImageGrid extends StatelessWidget {
     );
     if (n == 1) {
       return ConstrainedBox(
-        constraints: const BoxConstraints(maxHeight: 520),
+        constraints: const BoxConstraints(maxHeight: _maxHeight),
         child: GestureDetector(
           onTap: () => showImageViewer(context, images, 0),
           child: MouseRegion(
@@ -192,14 +202,11 @@ class _ImageGrid extends StatelessWidget {
       );
     }
     if (n == 2) {
-      return AspectRatio(
-        aspectRatio: 2,
-        child: row([_cell(context, 0), _cell(context, 1)]),
-      );
+      return _box(2, child: row([_cell(context, 0), _cell(context, 1)]));
     }
     if (n == 3) {
-      return AspectRatio(
-        aspectRatio: 1.5,
+      return _box(
+        1.5,
         child: Row(
           children: [
             Expanded(flex: 2, child: _cell(context, 0)),
@@ -218,8 +225,8 @@ class _ImageGrid extends StatelessWidget {
       );
     }
     // 4 ảnh trở lên: 1 ảnh lớn trên, 3 ảnh nhỏ dưới, ô cuối hiện +N.
-    return AspectRatio(
-      aspectRatio: 1,
+    return _box(
+      1,
       child: Column(
         children: [
           Expanded(flex: 2, child: _cell(context, 0)),

@@ -34,7 +34,7 @@ class PostCard extends StatelessWidget {
   final Widget? footer;
 
   static const _previewChars = 300;
-  static const _previewLines = 5;
+  static const _previewLines = 3;
   static const _previewFiles = 3;
 
   @override

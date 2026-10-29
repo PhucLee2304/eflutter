@@ -98,9 +98,13 @@ class PostList extends StatefulWidget {
     this.readOnly = false,
     this.admin = false,
     this.mine = false,
+    this.aside,
   });
   final int? classroomId;
   final bool pinned, canCreate, readOnly, admin, mine;
+
+  /// Cột bên trái cột bài viết (trang cá nhân); màn hẹp thì xếp lên trên.
+  final Widget? aside;
   @override
   State<PostList> createState() => _PostListState();
 }
@@ -324,47 +328,76 @@ class _PostListState extends State<PostList> {
         controller: controller,
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
         children: [
-          // Cột feed giữa màn hình như Facebook, không trải hết chiều ngang.
-          Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 680),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (widget.canCreate && !widget.pinned && !widget.readOnly)
-                    _ComposerPrompt(onTap: () => compose()),
-                  if (items.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.all(36),
-                      child: Center(child: Text('No posts yet')),
-                    ),
-                  ...items.map(
-                    (p) => PostCard(
-                      key: ValueKey(p.id),
-                      post: p,
-                      readOnly: widget.readOnly,
-                      onLike: () => like(p),
-                      onPin: () => pin(p),
-                      onEdit: () => compose(p),
-                      onDelete: () => remove(p),
-                      admin: widget.admin,
-                      onModerate: (action) => moderate(p, action),
-                      onOpen: () => open(p),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final aside = widget.aside;
+              if (aside == null) return Center(child: _feed(context));
+              if (constraints.maxWidth < 1100) {
+                return Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 680),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        aside,
+                        const SizedBox(height: 16),
+                        _feed(context),
+                      ],
                     ),
                   ),
-                  if (more)
-                    const Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Center(child: CircularProgressIndicator()),
-                    ),
+                );
+              }
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                spacing: 24,
+                children: [
+                  SizedBox(width: 380, child: aside),
+                  _feed(context),
                 ],
-              ),
-            ),
+              );
+            },
           ),
         ],
       ),
     );
   }
+
+  // Cột feed rộng tối đa 680 như Facebook.
+  Widget _feed(BuildContext context) => ConstrainedBox(
+    constraints: const BoxConstraints(maxWidth: 680),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (widget.canCreate && !widget.pinned && !widget.readOnly)
+          _ComposerPrompt(onTap: () => compose()),
+        if (items.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(36),
+            child: Center(child: Text('No posts yet')),
+          ),
+        ...items.map(
+          (p) => PostCard(
+            key: ValueKey(p.id),
+            post: p,
+            readOnly: widget.readOnly,
+            onLike: () => like(p),
+            onPin: () => pin(p),
+            onEdit: () => compose(p),
+            onDelete: () => remove(p),
+            admin: widget.admin,
+            onModerate: (action) => moderate(p, action),
+            onOpen: () => open(p),
+          ),
+        ),
+        if (more)
+          const Padding(
+            padding: EdgeInsets.all(16),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+      ],
+    ),
+  );
 }
 
 class _ComposerPrompt extends StatelessWidget {
@@ -383,59 +416,30 @@ class _ComposerPrompt extends StatelessWidget {
         side: BorderSide(color: theme.dividerColor.withValues(alpha: 0.4)),
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-        child: Column(
+        padding: const EdgeInsets.all(12),
+        child: Row(
           children: [
-            Row(
-              children: [
-                PostAvatar(url: me?.avatar, name: me?.name),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Material(
-                    color: postBubbleColor(context),
-                    shape: const StadiumBorder(),
-                    child: InkWell(
-                      customBorder: const StadiumBorder(),
-                      onTap: onTap,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 11,
-                        ),
-                        child: Text(
-                          "What's on your mind${me == null ? '' : ', ${me.name.split(' ').last}'}?",
-                          style: TextStyle(
-                            color: theme.hintColor,
-                            fontSize: 15,
-                          ),
-                        ),
-                      ),
+            PostAvatar(url: me?.avatar, name: me?.name),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Material(
+                color: postBubbleColor(context),
+                shape: const StadiumBorder(),
+                child: InkWell(
+                  customBorder: const StadiumBorder(),
+                  onTap: onTap,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 11,
+                    ),
+                    child: Text(
+                      "What's on your mind${me == null ? '' : ', ${me.name.split(' ').last}'}?",
+                      style: TextStyle(color: theme.hintColor, fontSize: 15),
                     ),
                   ),
                 ),
-              ],
-            ),
-            const Divider(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: TextButton.icon(
-                    onPressed: onTap,
-                    icon: const Icon(
-                      Icons.photo_library_outlined,
-                      color: Colors.green,
-                    ),
-                    label: const Text('Photo/video'),
-                  ),
-                ),
-                Expanded(
-                  child: TextButton.icon(
-                    onPressed: onTap,
-                    icon: const Icon(Icons.attach_file, color: Colors.orange),
-                    label: const Text('Document'),
-                  ),
-                ),
-              ],
+              ),
             ),
           ],
         ),

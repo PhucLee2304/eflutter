@@ -170,16 +170,19 @@ class PostPage {
     required this.items,
     required this.page,
     required this.pageCount,
+    this.total = 0,
   });
   final List<PostItem> items;
   final int page;
   final int pageCount;
+  final int total;
   factory PostPage.fromJson(Map<String, dynamic> json) => PostPage(
     items: (json['posts'] as List<dynamic>? ?? const [])
         .map((e) => PostItem.fromJson(e as Map<String, dynamic>))
         .toList(),
     page: (json['page'] as num?)?.toInt() ?? 1,
     pageCount: (json['pageCount'] as num?)?.toInt() ?? 1,
+    total: (json['total'] as num?)?.toInt() ?? 0,
   );
 }
 

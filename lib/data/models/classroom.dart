@@ -123,15 +123,21 @@ class Classroom {
 }
 
 class ClassroomPage {
-  const ClassroomPage({required this.items, required this.pageCounts});
+  const ClassroomPage({
+    required this.items,
+    required this.pageCounts,
+    this.total = 0,
+  });
   final List<Classroom> items;
   final int pageCounts;
+  final int total;
 
   factory ClassroomPage.fromJson(Map<String, dynamic> json) => ClassroomPage(
     items: (json['data'] as List<dynamic>? ?? const [])
         .map((e) => Classroom.fromJson(e as Map<String, dynamic>))
         .toList(),
     pageCounts: (json['pageCounts'] as num?)?.toInt() ?? 1,
+    total: (json['total'] as num?)?.toInt() ?? 0,
   );
 }
 
