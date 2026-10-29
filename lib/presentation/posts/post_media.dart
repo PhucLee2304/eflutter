@@ -1,5 +1,6 @@
 import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:eflutter/data/models/post.dart';
+import 'package:eflutter/generated/colors.gen.dart';
 import 'package:eflutter/presentation/shared/app_video_player.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -98,10 +99,7 @@ class _Video extends StatelessWidget {
   Widget build(BuildContext context) {
     if (attachment.processingStatus == 'PROCESSING') {
       return const ListTile(
-        leading: SizedBox.square(
-          dimension: 24,
-          child: AppLoader(),
-        ),
+        leading: SizedBox.square(dimension: 24, child: AppLoader()),
         title: Text('Video is being processed'),
       );
     }
@@ -324,6 +322,12 @@ Future<void> showImageViewer(
   builder: (context) => _ImageViewer(images: images, initial: initial),
 );
 
+/// Nút xám nhạt giống nút đóng của popup Create/Edit post.
+final _viewerButton = IconButton.styleFrom(
+  backgroundColor: const Color(0xFFE4E6EB),
+  foregroundColor: ColorName.labelPrimary,
+);
+
 class _ImageViewer extends StatefulWidget {
   const _ImageViewer({required this.images, required this.initial});
   final List<PostAttachment> images;
@@ -368,7 +372,8 @@ class _ImageViewerState extends State<_ImageViewer> {
         child: IconButton.filledTonal(
           tooltip: 'Close',
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.close),
+          style: _viewerButton,
+          icon: const Icon(Icons.close, size: 20),
         ),
       ),
       if (index > 0)
@@ -378,6 +383,7 @@ class _ImageViewerState extends State<_ImageViewer> {
             padding: const EdgeInsets.all(12),
             child: IconButton.filledTonal(
               onPressed: () => _go(-1),
+              style: _viewerButton,
               icon: const Icon(Icons.chevron_left),
             ),
           ),
@@ -389,6 +395,7 @@ class _ImageViewerState extends State<_ImageViewer> {
             padding: const EdgeInsets.all(12),
             child: IconButton.filledTonal(
               onPressed: () => _go(1),
+              style: _viewerButton,
               icon: const Icon(Icons.chevron_right),
             ),
           ),
