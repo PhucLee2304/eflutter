@@ -1,3 +1,4 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:eflutter/data/data_sources/attempt_socket_client.dart';
 import 'package:eflutter/generated/colors.gen.dart';
 import 'package:eflutter/presentation/exams/attempt/integrity_overlays.dart';
@@ -100,7 +101,7 @@ class AttemptHeader extends StatelessWidget {
                   icon: state.isCancelling
                       ? const SizedBox.square(
                           dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          child: AppLoader(),
                         )
                       : const Icon(SolarIconsOutline.closeCircle),
                 ),
@@ -111,7 +112,7 @@ class AttemptHeader extends StatelessWidget {
                 icon: state.isSubmitting
                     ? const SizedBox.square(
                         dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                        child: AppLoader(),
                       )
                     : const Icon(SolarIconsOutline.checkCircle),
                 label: const Text('Submit'),

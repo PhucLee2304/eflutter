@@ -1,3 +1,4 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:eflutter/generated/colors.gen.dart';
 import 'package:flutter/material.dart';
 import 'package:solar_icons/solar_icons.dart';
@@ -68,7 +69,7 @@ class _ExamAudioPlayerState extends State<ExamAudioPlayer> {
               alignment: Alignment.centerLeft,
               child: SizedBox.square(
                 dimension: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
+                child: AppLoader(),
               ),
             ),
           );

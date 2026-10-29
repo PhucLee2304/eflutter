@@ -1,3 +1,4 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:dio/dio.dart';
 import 'package:eflutter/core/base/result.dart';
 import 'package:eflutter/core/di/injection.dart';
@@ -361,7 +362,7 @@ class _ClassroomListScreenState extends State<ClassroomListScreen> {
                       if (loadingMore)
                         const Padding(
                           padding: EdgeInsets.all(24),
-                          child: CircularProgressIndicator(),
+                          child: AppLoader(),
                         ),
                     ],
                   ),

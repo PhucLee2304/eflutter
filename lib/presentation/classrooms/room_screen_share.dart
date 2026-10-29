@@ -1,3 +1,4 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:eflutter/data/models/classroom.dart';
 import 'package:flutter/material.dart';
 import 'package:livekit_client/livekit_client.dart'
@@ -107,11 +108,7 @@ class RoomScreenShareStage extends StatelessWidget {
                   child: VideoTrackRenderer(track!, fit: VideoViewFit.contain),
                 )
               else
-                const Center(
-                  child: CircularProgressIndicator(
-                    semanticsLabel: 'Loading the shared screen',
-                  ),
-                ),
+                const AppLoader(),
               Positioned(
                 top: 8,
                 left: 8,

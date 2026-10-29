@@ -1,3 +1,4 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -1365,7 +1366,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
   @override
   Widget build(BuildContext context) {
     if (loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(body: AppLoader());
     }
     if (removedNotice != null) return _removedView(context);
     if (liveRoom == null) return _prejoin(context);
@@ -1745,7 +1746,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
                         child: Chip(
                           avatar: SizedBox.square(
                             dimension: 14,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            child: AppLoader(),
                           ),
                           label: Text('Reconnecting...'),
                         ),
@@ -2227,7 +2228,7 @@ class _RoomAttendanceScreenState extends State<RoomAttendanceScreen> {
       body: error != null
           ? Center(child: Text(error!))
           : sessions == null
-          ? const Center(child: CircularProgressIndicator())
+          ? const AppLoader()
           : sessions!.isEmpty
           ? const Center(child: Text('No attendance sessions yet'))
           : ListView.separated(

@@ -1,3 +1,4 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:eflutter/core/base/remote_data_base.dart';
 import 'dart:async';
 
@@ -77,7 +78,7 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen> {
                         if (state.isLoading && state.attempts.isEmpty)
                           const SliverFillRemaining(
                             hasScrollBody: false,
-                            child: Center(child: CircularProgressIndicator()),
+                            child: AppLoader(),
                           )
                         else if (state.attempts.isEmpty)
                           SliverFillRemaining(

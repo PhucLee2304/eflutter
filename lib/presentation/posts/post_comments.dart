@@ -1,3 +1,4 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:eflutter/data/models/post.dart';
 import 'package:eflutter/data/repositories/post_repository.dart';
 import 'package:eflutter/presentation/app/cubit/app_cubit.dart';
@@ -193,7 +194,7 @@ class _PostCommentsState extends State<PostComments> {
                         padding: EdgeInsets.all(6),
                         child: SizedBox.square(
                           dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          child: AppLoader(),
                         ),
                       )
                     else if (thread.remaining > 0 &&
@@ -213,7 +214,7 @@ class _PostCommentsState extends State<PostComments> {
           if (loading)
             const Padding(
               padding: EdgeInsets.all(8),
-              child: Center(child: CircularProgressIndicator()),
+              child: AppLoader(),
             )
           else if (error != null)
             Center(

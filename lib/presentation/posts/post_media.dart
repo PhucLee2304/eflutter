@@ -1,3 +1,4 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:eflutter/data/models/post.dart';
 import 'package:eflutter/presentation/shared/app_video_player.dart';
 import 'package:flutter/material.dart';
@@ -99,7 +100,7 @@ class _Video extends StatelessWidget {
       return const ListTile(
         leading: SizedBox.square(
           dimension: 24,
-          child: CircularProgressIndicator(),
+          child: AppLoader(),
         ),
         title: Text('Video is being processed'),
       );

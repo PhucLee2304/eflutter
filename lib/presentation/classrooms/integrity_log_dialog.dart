@@ -1,3 +1,4 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:eflutter/core/base/result.dart';
 import 'package:eflutter/data/models/attempt_integrity.dart';
 import 'package:eflutter/data/models/classroom.dart';
@@ -272,7 +273,7 @@ class _IntegrityLogDialogState extends State<_IntegrityLogDialog> {
             const Divider(),
             Expanded(
               child: loading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const AppLoader()
                   : error != null
                   ? Center(child: Text(error!))
                   : events.isEmpty

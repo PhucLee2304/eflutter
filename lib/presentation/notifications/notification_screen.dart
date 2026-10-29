@@ -1,3 +1,4 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:eflutter/core/utils/extensions/date_time_extension.dart';
 import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/data/models/app_notification.dart';
@@ -129,7 +130,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
   Widget _buildList() {
     if (_controller.items.isEmpty && _controller.loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoader();
     }
     if (_controller.items.isEmpty) {
       return Center(child: Text(_controller.error ?? 'No notifications.'));
@@ -145,7 +146,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
           if (index == _controller.items.length) {
             return const Padding(
               padding: EdgeInsets.all(20),
-              child: Center(child: CircularProgressIndicator()),
+              child: AppLoader(),
             );
           }
           final item = _controller.items[index];

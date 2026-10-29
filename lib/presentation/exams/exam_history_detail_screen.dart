@@ -1,3 +1,4 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:eflutter/core/base/remote_data_base.dart';
 import 'package:eflutter/core/base/result.dart';
 import 'package:eflutter/core/di/injection.dart';
@@ -96,7 +97,7 @@ class _ExamHistoryDetailScreenState extends State<ExamHistoryDetailScreen> {
     return Scaffold(
       body: SafeArea(
         child: _loading
-            ? const Center(child: CircularProgressIndicator())
+            ? const AppLoader()
             : attempt == null
             ? const Center(child: Text('Attempt history not found'))
             : Column(

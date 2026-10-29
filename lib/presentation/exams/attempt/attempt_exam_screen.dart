@@ -1,3 +1,4 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
 import 'dart:async';
 
 import 'package:eflutter/core/attempt_lock/attempt_integrity_reporter.dart';
@@ -188,7 +189,7 @@ class _AttemptExamScreenState extends State<AttemptExamScreen> {
     final attempt = session.attempt;
     if (attempt == null) {
       return session.isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const AppLoader()
           : const MissingAttempt();
     }
     final title = attempt.exam?.title.trim().isNotEmpty == true
@@ -240,7 +241,7 @@ class _AttemptExamScreenState extends State<AttemptExamScreen> {
                       navigator.isLoading ||
                           navigator.isPageLoading ||
                           listening.phase == ListeningPhase.loading
-                      ? const CircularProgressIndicator()
+                      ? const AppLoader()
                       : const Text('This page is not available.'),
                 )
               : AttemptPageViewTwoPane(
@@ -294,7 +295,7 @@ class _ListeningOnlyFinished extends StatelessWidget {
             style: TextStyle(color: ColorName.labelSecondary),
           ),
           const SizedBox(height: 20),
-          const CircularProgressIndicator(),
+          const AppLoader(),
           const SizedBox(height: 20),
           TextButton(
             key: const ValueKey('listening-only-submit'),
@@ -374,7 +375,7 @@ class _PageNavigationBar extends StatelessWidget {
         if (loading)
           const SizedBox.square(
             dimension: 18,
-            child: CircularProgressIndicator(strokeWidth: 2),
+            child: AppLoader(),
           ),
         const Spacer(),
         OutlinedButton.icon(

@@ -1,3 +1,4 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:chewie/chewie.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
@@ -115,7 +116,7 @@ class _LessonVideoPlayerState extends State<LessonVideoPlayer> {
         if (chewie != null) {
           return Chewie(controller: chewie);
         }
-        return const Center(child: CircularProgressIndicator());
+        return const AppLoader();
       },
     );
   }

@@ -1,3 +1,4 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -172,7 +173,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           backgroundColor: const Color(0xFFF5F6F8),
           body: SafeArea(
             child: state.isLoading && state.user == null
-                ? const Center(child: CircularProgressIndicator())
+                ? const AppLoader()
                 : PostList(
                     mine: true,
                     aside: Form(
@@ -364,9 +365,7 @@ class _ProfileCard extends StatelessWidget {
                               ? const SizedBox(
                                   width: 18,
                                   height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
+                                  child: AppLoader(),
                                 )
                               : const Text('Save changes'),
                         ),
@@ -389,7 +388,7 @@ class _ProfileCard extends StatelessWidget {
                       style: TextStyle(fontWeight: FontWeight.w600),
                     ),
                   ),
-                OutlinedButton(
+                OutlinedButton.icon(
                   onPressed: onSignOut,
                   style: OutlinedButton.styleFrom(
                     foregroundColor: ColorName.red,
@@ -400,7 +399,8 @@ class _ProfileCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  child: const Text(
+                  icon: const Icon(SolarIconsOutline.exit, size: 18),
+                  label: const Text(
                     'Sign out',
                     style: TextStyle(fontWeight: FontWeight.w600),
                   ),
@@ -504,7 +504,7 @@ class _EditableAvatar extends StatelessWidget {
                     ? const SizedBox(
                         width: 16,
                         height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                        child: AppLoader(),
                       )
                     : const Icon(SolarIconsOutline.camera, size: 18),
               ),

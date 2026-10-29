@@ -1,3 +1,4 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:chewie/chewie.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
@@ -58,7 +59,7 @@ class _AppVideoPlayerState extends State<AppVideoPlayer> {
     child: AspectRatio(
       aspectRatio: video?.value.aspectRatio ?? 16 / 9,
       child: chewie == null
-          ? const Center(child: CircularProgressIndicator())
+          ? const AppLoader()
           : Chewie(controller: chewie!),
     ),
   );

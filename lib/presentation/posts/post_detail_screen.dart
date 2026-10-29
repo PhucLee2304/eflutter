@@ -1,3 +1,4 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:dio/dio.dart';
 import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/data/models/post.dart';
@@ -172,7 +173,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                   else
                     const Padding(
                       padding: EdgeInsets.all(48),
-                      child: Center(child: CircularProgressIndicator()),
+                      child: AppLoader(),
                     ),
                 ],
               ),

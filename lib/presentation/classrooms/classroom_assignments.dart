@@ -1,3 +1,4 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:eflutter/generated/colors.gen.dart';
 import 'package:eflutter/data/models/classroom.dart';
 import 'package:eflutter/presentation/classrooms/proctoring_fields.dart';
@@ -145,7 +146,7 @@ class ClassroomAssignmentsView extends StatelessWidget {
     if (loading) {
       return const Padding(
         padding: EdgeInsets.all(40),
-        child: Center(child: CircularProgressIndicator()),
+        child: AppLoader(),
       );
     }
     if (error != null) {
@@ -207,7 +208,7 @@ class ClassroomAssignmentsView extends StatelessWidget {
         if (loadingMore)
           const Padding(
             padding: EdgeInsets.all(20),
-            child: Center(child: CircularProgressIndicator()),
+            child: AppLoader(),
           )
         else if (loadMoreError != null)
           Padding(

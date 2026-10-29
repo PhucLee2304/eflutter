@@ -1,3 +1,4 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:flutter/material.dart';
 
 class RoomJoinControl extends StatelessWidget {
@@ -31,7 +32,7 @@ class RoomJoinControl extends StatelessWidget {
         icon: connecting
             ? const SizedBox.square(
                 dimension: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
+                child: AppLoader(),
               )
             : const Icon(Icons.login),
         label: Text(

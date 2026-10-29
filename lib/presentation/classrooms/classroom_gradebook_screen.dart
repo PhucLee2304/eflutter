@@ -1,3 +1,4 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
 import 'dart:async';
 
 import 'package:dio/dio.dart';
@@ -222,7 +223,7 @@ class _ClassroomGradebookScreenState extends State<ClassroomGradebookScreen>
       ),
     ),
     body: loading
-        ? const Center(child: CircularProgressIndicator())
+        ? const AppLoader()
         : error != null
         ? Center(
             child: Column(

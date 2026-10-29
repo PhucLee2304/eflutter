@@ -1,3 +1,4 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:eflutter/core/base/remote_data_base.dart';
 import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/core/utils/extensions/toast_bar_extension.dart';
@@ -59,7 +60,7 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
           return Scaffold(
             body: SafeArea(
               child: state.isLoading && exam == null
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const AppLoader()
                   : exam == null
                   ? _MissingExam(onBack: context.pop)
                   : _ExamDetailBody(exam: exam, state: state),
@@ -562,7 +563,7 @@ class _AttemptSetupCardState extends State<_AttemptSetupCard> {
                 ? const SizedBox(
                     width: 18,
                     height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    child: AppLoader(),
                   )
                 : const Icon(SolarIconsOutline.playCircle),
             label: const Text('Start attempt'),

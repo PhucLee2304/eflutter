@@ -1,3 +1,4 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:dio/dio.dart';
 import 'package:eflutter/core/base/result.dart';
 import 'package:eflutter/core/di/injection.dart';
@@ -53,7 +54,7 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
     body: progress == null
         ? Center(
             child: error == null
-                ? const CircularProgressIndicator()
+                ? const AppLoader()
                 : Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [

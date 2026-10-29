@@ -1,3 +1,4 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:eflutter/core/base/remote_data_base.dart';
 import 'package:eflutter/core/base/result.dart';
 import 'package:eflutter/core/di/injection.dart';
@@ -54,7 +55,7 @@ class _AttemptRouteScreenState extends State<AttemptRouteScreen> {
   @override
   Widget build(BuildContext context) {
     if (!_resolved) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(body: AppLoader());
     }
     final attempt = _attempt;
     if (attempt != null && attempt.isStrict) {

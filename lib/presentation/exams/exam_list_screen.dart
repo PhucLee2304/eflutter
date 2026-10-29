@@ -1,3 +1,4 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:eflutter/core/base/remote_data_base.dart';
 import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/core/utils/extensions/toast_bar_extension.dart';
@@ -76,7 +77,7 @@ class _ExamListScreenState extends State<ExamListScreen> {
                   if (state.isLoading && state.exams.isEmpty)
                     const SliverFillRemaining(
                       hasScrollBody: false,
-                      child: Center(child: CircularProgressIndicator()),
+                      child: AppLoader(),
                     )
                   else if (state.exams.isEmpty)
                     SliverFillRemaining(

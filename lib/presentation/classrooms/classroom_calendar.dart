@@ -1,3 +1,4 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
 import 'dart:async';
 
 import 'package:eflutter/core/base/local_data_base.dart';
@@ -187,7 +188,7 @@ class _ClassroomCalendarViewState extends State<ClassroomCalendarView> {
 
   @override
   Widget build(BuildContext context) {
-    if (loading) return const Center(child: CircularProgressIndicator());
+    if (loading) return const AppLoader();
     if (error != null) {
       return Center(
         child: TextButton.icon(

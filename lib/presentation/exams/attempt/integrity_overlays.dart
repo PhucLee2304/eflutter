@@ -1,3 +1,4 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:eflutter/generated/colors.gen.dart';
 import 'package:eflutter/presentation/exams/cubit/attempt_session_cubit.dart';
 import 'package:flutter/material.dart';
@@ -133,7 +134,7 @@ class IntegrityOverlay extends StatelessWidget {
         color: ColorName.primary,
         title: 'Connecting to the proctored session…',
         message: 'Please wait a moment.',
-        actions: [CircularProgressIndicator()],
+        actions: [AppLoader()],
       ),
       AttemptSessionStatus.inUse => _Panel(
         icon: SolarIconsOutline.monitor,
@@ -157,7 +158,7 @@ class IntegrityOverlay extends StatelessWidget {
             'The previous session disconnected recently. It can continue for '
             'about ${(state.sessionRetryAfter ?? Duration.zero).inSeconds + 1} '
             'more seconds before this device can take over.',
-        actions: const [CircularProgressIndicator()],
+        actions: const [AppLoader()],
       ),
       AttemptSessionStatus.takeoverRequired => _Panel(
         icon: SolarIconsOutline.smartphone,

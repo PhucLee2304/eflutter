@@ -1,3 +1,4 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
 import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:eflutter/core/di/injection.dart';
@@ -312,7 +313,7 @@ class _PostListState extends State<PostList> {
 
   @override
   Widget build(BuildContext context) {
-    if (loading) return const Center(child: CircularProgressIndicator());
+    if (loading) return const AppLoader();
     if (error != null) {
       return Center(
         child: FilledButton.tonalIcon(
@@ -322,18 +323,29 @@ class _PostListState extends State<PostList> {
         ),
       );
     }
-    return RefreshIndicator(
-      onRefresh: load,
-      child: ListView(
-        controller: controller,
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-        children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final aside = widget.aside;
-              if (aside == null) return Center(child: _feed(context));
-              if (constraints.maxWidth < 1100) {
-                return Center(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final aside = widget.aside;
+        final wide = aside != null && constraints.maxWidth >= 1100;
+        final list = RefreshIndicator(
+          onRefresh: load,
+          child: ListView(
+            controller: controller,
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+            children: [
+              if (wide)
+                // Chừa chỗ bên trái cho khung [aside] được ghim ở Stack bên dưới.
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: _asideGap,
+                  children: [
+                    const SizedBox(width: _asideWidth),
+                    _feed(context),
+                  ],
+                )
+              else if (aside != null)
+                Center(
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 680),
                     child: Column(
@@ -345,23 +357,33 @@ class _PostListState extends State<PostList> {
                       ],
                     ),
                   ),
-                );
-              }
-              return Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                spacing: 24,
-                children: [
-                  SizedBox(width: 380, child: aside),
-                  _feed(context),
-                ],
-              );
-            },
+                )
+              else
+                Center(child: _feed(context)),
+            ],
           ),
-        ],
-      ),
+        );
+        if (!wide) return list;
+        // Khung aside đứng yên khi cuộn bài viết (như cột trái Facebook).
+        final left = (constraints.maxWidth - _asideWidth - _asideGap - 680) / 2;
+        return Stack(
+          children: [
+            list,
+            Positioned(
+              left: left,
+              top: 16,
+              width: _asideWidth,
+              bottom: 16,
+              child: SingleChildScrollView(child: aside),
+            ),
+          ],
+        );
+      },
     );
   }
+
+  static const _asideWidth = 380.0;
+  static const _asideGap = 24.0;
 
   // Cột feed rộng tối đa 680 như Facebook.
   Widget _feed(BuildContext context) => ConstrainedBox(
@@ -391,10 +413,7 @@ class _PostListState extends State<PostList> {
           ),
         ),
         if (more)
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: Center(child: CircularProgressIndicator()),
-          ),
+          const Padding(padding: EdgeInsets.all(16), child: AppLoader()),
       ],
     ),
   );

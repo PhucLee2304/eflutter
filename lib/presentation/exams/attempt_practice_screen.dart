@@ -1,3 +1,4 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:eflutter/core/attempt_lock/attempt_integrity_reporter.dart';
 import 'package:eflutter/core/base/local_data_base.dart';
 import 'package:eflutter/core/base/remote_data_base.dart';
@@ -94,7 +95,7 @@ class _AttemptPracticeScreenState extends State<AttemptPracticeScreen> {
           return Scaffold(
             body: SafeArea(
               child: state.isLoading && attempt == null
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const AppLoader()
                   : attempt == null
                   ? const MissingAttempt()
                   : _AttemptBody(
