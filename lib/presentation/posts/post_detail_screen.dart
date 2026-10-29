@@ -11,9 +11,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
-/// Trang chi tiết: tải đầy đủ nội dung, toàn bộ file đính kèm, rồi comment
-/// phân trang.
-class PostDetailScreen extends StatefulWidget {
+/// Trang chi tiết bài viết cộng đồng (`/posts/:id`).
+class PostDetailScreen extends StatelessWidget {
   const PostDetailScreen({super.key, required this.postId, this.commentId});
   final int postId;
 
@@ -21,10 +20,49 @@ class PostDetailScreen extends StatefulWidget {
   final int? commentId;
 
   @override
-  State<PostDetailScreen> createState() => _PostDetailScreenState();
+  Widget build(BuildContext context) => Scaffold(
+    body: ListView(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+      children: [
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 680),
+            child: PostDetailView(
+              postId: postId,
+              commentId: commentId,
+              onBack: () => context.canPop() ? context.pop() : context.go('/'),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
-class _PostDetailScreenState extends State<PostDetailScreen> {
+/// Nội dung chi tiết: tải đầy đủ nội dung, toàn bộ file đính kèm, rồi comment phân trang.
+/// Không tự cuộn; dùng ở trang bài viết cộng đồng và trong tab Announcements của lớp.
+class PostDetailView extends StatefulWidget {
+  const PostDetailView({
+    super.key,
+    required this.postId,
+    required this.onBack,
+    this.commentId,
+    this.backLabel = 'Back',
+    this.classroomName,
+  });
+  final int postId;
+  final int? commentId;
+  final VoidCallback onBack;
+  final String backLabel;
+
+  /// Tên lớp cho popup sửa bài (bài viết trong lớp).
+  final String? classroomName;
+
+  @override
+  State<PostDetailView> createState() => _PostDetailViewState();
+}
+
+class _PostDetailViewState extends State<PostDetailView> {
   late final repo = PostRepository(getIt<Dio>());
   final commentFocus = FocusNode();
   PostItem? post;
@@ -102,6 +140,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         attachments: p.attachments,
         author: p.author,
         editing: true,
+        classroomName: widget.classroomName,
       ),
     );
     if (value == null) return;
@@ -121,78 +160,64 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   Future<void> _delete() async {
     try {
       await repo.delete(post!.id);
-      if (mounted) _back();
+      if (mounted) widget.onBack();
     } catch (_) {
       _snack('Could not delete post');
     }
   }
 
-  void _back() => context.canPop() ? context.pop() : context.go('/');
-
   @override
   Widget build(BuildContext context) {
     final p = post;
-    return Scaffold(
-      body: ListView(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-        children: [
-          Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 680),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton.icon(
-                      onPressed: _back,
-                      icon: const Icon(Icons.arrow_back),
-                      label: const Text('Back'),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  if (p != null)
-                    PostCard(
-                      post: p,
-                      full: true,
-                      readOnly: false,
-                      admin: false,
-                      onLike: _like,
-                      onPin: _pin,
-                      onEdit: _edit,
-                      onDelete: _delete,
-                      onModerate: (_) {},
-                      onComment: commentFocus.requestFocus,
-                      footer: PostComments(
-                        key: ValueKey(p.id),
-                        repo: repo,
-                        post: p,
-                        readOnly: false,
-                        focus: commentFocus,
-                        onCommentAdded: _load,
-                        focusCommentId: widget.commentId,
-                      ),
-                    )
-                  else if (error != null)
-                    Center(
-                      child: FilledButton.icon(
-                        style: AppButtonStyles.secondary,
-                        onPressed: () {
-                          setState(() => error = null);
-                          _load();
-                        },
-                        icon: const Icon(Icons.refresh),
-                        label: Text(error!),
-                      ),
-                    )
-                  else
-                    const Padding(padding: EdgeInsets.all(48), child: AppLoader()),
-                ],
-              ),
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: widget.onBack,
+            icon: const Icon(Icons.arrow_back),
+            label: Text(widget.backLabel),
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 8),
+        if (p != null)
+          PostCard(
+            post: p,
+            full: true,
+            readOnly: false,
+            admin: false,
+            onLike: _like,
+            onPin: _pin,
+            onEdit: _edit,
+            onDelete: _delete,
+            onModerate: (_) {},
+            onComment: commentFocus.requestFocus,
+            footer: PostComments(
+              key: ValueKey(p.id),
+              repo: repo,
+              post: p,
+              readOnly: false,
+              focus: commentFocus,
+              onCommentAdded: _load,
+              focusCommentId: widget.commentId,
+            ),
+          )
+        else if (error != null)
+          Center(
+            child: FilledButton.icon(
+              style: AppButtonStyles.secondary,
+              onPressed: () {
+                setState(() => error = null);
+                _load();
+              },
+              icon: const Icon(Icons.refresh),
+              label: Text(error!),
+            ),
+          )
+        else
+          const Padding(padding: EdgeInsets.all(48), child: AppLoader()),
+      ],
     );
   }
 }

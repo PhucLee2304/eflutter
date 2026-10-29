@@ -13,17 +13,21 @@ import 'package:eflutter/presentation/app/navigation/app_routes.dart';
 import 'package:eflutter/presentation/app/cubit/app_cubit.dart';
 import 'package:eflutter/presentation/classrooms/classroom_assignments.dart';
 import 'package:eflutter/presentation/classrooms/classroom_calendar.dart';
+import 'package:eflutter/presentation/classrooms/classroom_detail_header.dart';
 import 'package:eflutter/presentation/posts/post_list.dart';
 import 'package:eflutter/core/attempt_lock/integrity_consent.dart';
 import 'package:eflutter/presentation/classrooms/integrity_consent_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 class ClassroomDetailScreen extends StatefulWidget {
-  const ClassroomDetailScreen({super.key, required this.classroomId});
+  const ClassroomDetailScreen({super.key, required this.classroomId, this.postId, this.commentId});
   final int classroomId;
+
+  /// Mở chi tiết một bài viết của lớp ngay trong tab Announcements (`/classrooms/:id/posts/:postId`).
+  final int? postId;
+  final int? commentId;
   @override
   State<ClassroomDetailScreen> createState() => _ClassroomDetailScreenState();
 }
@@ -738,34 +742,8 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
     context.watch<AppCubit>();
     final item = classroom;
     return Scaffold(
-      appBar: AppBar(
-        title: Text(item?.name ?? 'Classroom'),
-        leading: IconButton(
-          tooltip: 'Back',
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/classrooms'),
-        ),
-        actions: [
-          if (item != null && isTeacher)
-            IconButton(
-              tooltip: 'Class gradebook',
-              icon: const Icon(Icons.table_chart_outlined),
-              onPressed: () => context.go(classGradebookPath(widget.classroomId)),
-            ),
-          if (item != null && isTeacher && item.active) ...[
-            IconButton(
-              tooltip: 'Edit classroom',
-              icon: const Icon(Icons.edit_outlined),
-              onPressed: busy ? null : edit,
-            ),
-            IconButton(
-              tooltip: 'Archive classroom',
-              icon: const Icon(Icons.archive_outlined),
-              onPressed: busy ? null : archive,
-            ),
-          ],
-        ],
-      ),
+      backgroundColor: const Color(0xFFF7F9FB),
+      appBar: ClassroomTopBar(onBack: () => context.go('/classrooms')),
       body: loading
           ? const AppLoader()
           : error != null
@@ -790,23 +768,49 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
                       onNotification: onPageScroll,
                       child: ListView(
                         children: [
-                          ClassroomOverviewHeader(classroom: item),
                           Center(
-                            child: TabsBar(
-                              selected: tab,
-                              onSelected: (value) => setState(() => tab = value),
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 1128),
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    ClassroomBanner(
+                                      classroom: item,
+                                      canManage: isTeacher && item.active,
+                                      busy: busy,
+                                      onEdit: edit,
+                                      onArchive: archive,
+                                    ),
+                                    ClassroomTabs(
+                                      selected: tab,
+                                      onSelected: (value) => setState(() => tab = value),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
                           Center(
                             child: ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 940),
+                              constraints: const BoxConstraints(maxWidth: 1128),
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                                padding: const EdgeInsets.all(24),
                                 child: switch (tab) {
                                   0 => ClassroomPostsView(
                                     classroomId: widget.classroomId,
                                     isTeacher: isTeacher,
                                     active: item.active,
+                                    classroomName: item.name,
+                                    postId: widget.postId,
+                                    commentId: widget.commentId,
+                                    aside: ClassroomStreamAside(
+                                      classroom: item,
+                                      assignments: assignments,
+                                      onOpenAssignment: openAssignment,
+                                      onViewAll: () => setState(() => tab = 1),
+                                    ),
                                   ),
                                   1 => ClassroomAssignmentsView(
                                     assignments: assignments,
@@ -822,6 +826,8 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
                                     onCreate: createAssignment,
                                     onOpen: openAssignment,
                                     onGradebook: openGradebook,
+                                    onClassGradebook: () =>
+                                        context.go(classGradebookPath(widget.classroomId)),
                                     onAssignToClasses: assignToMoreClasses,
                                     onEditSchedule: editAssignmentSchedule,
                                     onEditContent: editAssignmentContent,
@@ -915,152 +921,4 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
             ),
     );
   }
-}
-
-class ClassroomOverviewHeader extends StatefulWidget {
-  const ClassroomOverviewHeader({super.key, required this.classroom});
-
-  final Classroom classroom;
-
-  @override
-  State<ClassroomOverviewHeader> createState() => _ClassroomOverviewHeaderState();
-}
-
-class _ClassroomOverviewHeaderState extends State<ClassroomOverviewHeader> {
-  Timer? _copyResetTimer;
-  bool _copied = false;
-
-  @override
-  void dispose() {
-    _copyResetTimer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final description = widget.classroom.description?.trim();
-    final avatar = widget.classroom.avatar;
-    return Container(
-      width: double.infinity,
-      decoration: const BoxDecoration(
-        color: Color(0xFFF8FAFB),
-        border: Border(bottom: BorderSide(color: Color(0xFFE4E9EC))),
-      ),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 940),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    CircleAvatar(
-                      radius: 26,
-                      backgroundColor: const Color(0xFFE3F1EF),
-                      backgroundImage: avatar != null && avatar.isNotEmpty
-                          ? NetworkImage(avatar)
-                          : null,
-                      child: avatar == null || avatar.isEmpty
-                          ? const Icon(Icons.school_outlined, color: Color(0xFF1D6A63))
-                          : null,
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            widget.classroom.name,
-                            style: theme.textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            widget.classroom.teacher?.name ?? 'Teacher unavailable',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (!widget.classroom.active) ...[
-                      const SizedBox(width: 8),
-                      const Tooltip(
-                        message: 'Archived classroom',
-                        child: Icon(Icons.archive_outlined, color: Color(0xFF8A625B)),
-                      ),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 14),
-                Wrap(
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: 8,
-                  runSpacing: 4,
-                  children: [
-                    Text(
-                      'Class code',
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    SelectableText(
-                      widget.classroom.code,
-                      style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-                    ),
-                    IconButton(
-                      tooltip: _copied ? 'Copied' : 'Copy class code',
-                      visualDensity: VisualDensity.compact,
-                      icon: Icon(_copied ? Icons.check : Icons.copy_outlined, size: 18),
-                      onPressed: () async {
-                        await Clipboard.setData(ClipboardData(text: widget.classroom.code));
-                        if (!mounted) return;
-                        _copyResetTimer?.cancel();
-                        setState(() => _copied = true);
-                        _copyResetTimer = Timer(const Duration(seconds: 2), () {
-                          if (mounted) setState(() => _copied = false);
-                        });
-                      },
-                    ),
-                  ],
-                ),
-                if (description != null && description.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Text(description, style: theme.textTheme.bodyMedium),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class TabsBar extends StatelessWidget {
-  const TabsBar({super.key, required this.selected, required this.onSelected});
-  final int selected;
-  final ValueChanged<int> onSelected;
-  @override
-  Widget build(BuildContext context) => SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    child: SegmentedButton<int>(
-      segments: const [
-        ButtonSegment(value: 0, label: Text('Posts')),
-        ButtonSegment(value: 1, label: Text('Classwork')),
-        ButtonSegment(value: 2, label: Text('Calendar')),
-        ButtonSegment(value: 3, label: Text('People')),
-      ],
-      selected: {selected},
-      onSelectionChanged: (v) => onSelected(v.first),
-    ),
-  );
 }

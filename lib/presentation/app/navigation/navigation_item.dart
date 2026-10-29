@@ -60,30 +60,15 @@ class NavigationItem {
   });
 
   StatefulShellBranch get shellBranch => StatefulShellBranch(
-    routes: [
-      GoRoute(
-        path: route.path,
-        builder: (context, state) => screen,
-        routes: subRoutes,
-      ),
-    ],
+    routes: [GoRoute(path: route.path, builder: (context, state) => screen, routes: subRoutes)],
   );
 
-  GoRoute get goRoute => GoRoute(
-    path: route.path,
-    builder: (context, state) => screen,
-    routes: subRoutes,
-  );
+  GoRoute get goRoute =>
+      GoRoute(path: route.path, builder: (context, state) => screen, routes: subRoutes);
 
   static final allItems = itemGroups.values.expand((e) => e).toList();
   static final webShellBranches = [...allItems, notificationItem];
-  static final mobileShellBranches = [
-    homeItem,
-    topicItem,
-    classroomsItem,
-    profileItem,
-    otherItem,
-  ];
+  static final mobileShellBranches = [homeItem, topicItem, classroomsItem, profileItem, otherItem];
   static final mobileOtherItems = [
     ...allItems.where((e) => !mobileShellBranches.contains(e)),
     notificationItem,
@@ -153,46 +138,46 @@ class NavigationItem {
         builder: (context, state) {
           final id = int.tryParse(state.pathParameters['id'] ?? '');
           return id == null
-              ? const Scaffold(
-                  body: Center(child: Text('Invalid classroom ID')),
-                )
+              ? const Scaffold(body: Center(child: Text('Invalid classroom ID')))
               : ClassroomDetailScreen(classroomId: id);
         },
         routes: [
           GoRoute(
+            path: AppRoutes.classroomPost.path,
+            builder: (context, state) {
+              final classroomId = int.tryParse(state.pathParameters['id'] ?? '');
+              final postId = int.tryParse(state.pathParameters['postId'] ?? '');
+              if (classroomId == null || postId == null) {
+                return const Scaffold(body: Center(child: Text('Invalid post URL')));
+              }
+              return ClassroomDetailScreen(
+                classroomId: classroomId,
+                postId: postId,
+                // Như /posts/:id: comment cần mở tới qua extra hoặc ?comment=.
+                commentId: state.extra is int
+                    ? state.extra! as int
+                    : int.tryParse(state.uri.queryParameters['comment'] ?? ''),
+              );
+            },
+          ),
+          GoRoute(
             path: AppRoutes.classroomRoom.path,
             builder: (context, state) {
-              final classroomId = int.tryParse(
-                state.pathParameters['id'] ?? '',
-              );
+              final classroomId = int.tryParse(state.pathParameters['id'] ?? '');
               final roomId = int.tryParse(state.pathParameters['roomId'] ?? '');
               return classroomId == null || roomId == null
-                  ? const Scaffold(
-                      body: Center(child: Text('Invalid room URL')),
-                    )
-                  : ClassroomRoomScreen(
-                      classroomId: classroomId,
-                      roomId: roomId,
-                    );
+                  ? const Scaffold(body: Center(child: Text('Invalid room URL')))
+                  : ClassroomRoomScreen(classroomId: classroomId, roomId: roomId);
             },
             routes: [
               GoRoute(
                 path: 'attendance',
                 builder: (context, state) {
-                  final classroomId = int.tryParse(
-                    state.pathParameters['id'] ?? '',
-                  );
-                  final roomId = int.tryParse(
-                    state.pathParameters['roomId'] ?? '',
-                  );
+                  final classroomId = int.tryParse(state.pathParameters['id'] ?? '');
+                  final roomId = int.tryParse(state.pathParameters['roomId'] ?? '');
                   return classroomId == null || roomId == null
-                      ? const Scaffold(
-                          body: Center(child: Text('Invalid attendance URL')),
-                        )
-                      : RoomAttendanceScreen(
-                          classroomId: classroomId,
-                          roomId: roomId,
-                        );
+                      ? const Scaffold(body: Center(child: Text('Invalid attendance URL')))
+                      : RoomAttendanceScreen(classroomId: classroomId, roomId: roomId);
                 },
               ),
             ],
@@ -200,51 +185,31 @@ class NavigationItem {
           GoRoute(
             path: AppRoutes.classGradebook.path,
             builder: (context, state) {
-              final classroomId = int.tryParse(
-                state.pathParameters['id'] ?? '',
-              );
+              final classroomId = int.tryParse(state.pathParameters['id'] ?? '');
               return classroomId == null
-                  ? const Scaffold(
-                      body: Center(child: Text('Invalid classroom ID')),
-                    )
+                  ? const Scaffold(body: Center(child: Text('Invalid classroom ID')))
                   : ClassGradebookScreen(classroomId: classroomId);
             },
           ),
           GoRoute(
             path: AppRoutes.studentProgress.path,
             builder: (context, state) {
-              final classroomId = int.tryParse(
-                state.pathParameters['id'] ?? '',
-              );
+              final classroomId = int.tryParse(state.pathParameters['id'] ?? '');
               final studentId = state.pathParameters['userId'];
               return classroomId == null || studentId == null
-                  ? const Scaffold(
-                      body: Center(child: Text('Invalid student progress URL')),
-                    )
-                  : StudentProgressScreen(
-                      classroomId: classroomId,
-                      studentId: studentId,
-                    );
+                  ? const Scaffold(body: Center(child: Text('Invalid student progress URL')))
+                  : StudentProgressScreen(classroomId: classroomId, studentId: studentId);
             },
           ),
           GoRoute(
             path: AppRoutes.classroomGradebook.path,
             builder: (context, state) {
-              final classroomId = int.tryParse(
-                state.pathParameters['id'] ?? '',
-              );
-              final assignmentId = int.tryParse(
-                state.pathParameters['assignmentId'] ?? '',
-              );
+              final classroomId = int.tryParse(state.pathParameters['id'] ?? '');
+              final assignmentId = int.tryParse(state.pathParameters['assignmentId'] ?? '');
               if (classroomId == null || assignmentId == null) {
-                return const Scaffold(
-                  body: Center(child: Text('Invalid gradebook URL')),
-                );
+                return const Scaffold(body: Center(child: Text('Invalid gradebook URL')));
               }
-              return ClassroomGradebookScreen(
-                classroomId: classroomId,
-                assignmentId: assignmentId,
-              );
+              return ClassroomGradebookScreen(classroomId: classroomId, assignmentId: assignmentId);
             },
           ),
         ],
@@ -265,13 +230,10 @@ class NavigationItem {
         builder: (context, state) {
           final id = int.tryParse(state.pathParameters['id'] ?? '');
           if (id == null) {
-            return const Scaffold(
-              body: Center(child: Text('Invalid lesson ID')),
-            );
+            return const Scaffold(body: Center(child: Text('Invalid lesson ID')));
           }
           return BlocProvider(
-            create: (_) =>
-                LessonDetailCubit(TopicRepository(getIt<RemoteDataBase>())),
+            create: (_) => LessonDetailCubit(TopicRepository(getIt<RemoteDataBase>())),
             child: LessonDetailScreen(lessonId: id),
           );
         },
@@ -331,9 +293,7 @@ class NavigationItem {
         path: AppRoutes.attemptPracticeLegacy.path,
         redirect: (context, state) {
           final id = int.tryParse(state.pathParameters['id'] ?? '');
-          return id == null
-              ? AppRoutes.histories.path
-              : attemptPracticePath(id);
+          return id == null ? AppRoutes.histories.path : attemptPracticePath(id);
         },
       ),
       GoRoute(
@@ -341,15 +301,11 @@ class NavigationItem {
         builder: (context, state) {
           final id = int.tryParse(state.pathParameters['id'] ?? '');
           if (id == null) {
-            return const Scaffold(
-              body: Center(child: Text('Invalid attempt ID')),
-            );
+            return const Scaffold(body: Center(child: Text('Invalid attempt ID')));
           }
           return ExamHistoryDetailScreen(
             attemptId: id,
-            initialAttempt: state.extra is ExamAttempt
-                ? state.extra as ExamAttempt
-                : null,
+            initialAttempt: state.extra is ExamAttempt ? state.extra as ExamAttempt : null,
           );
         },
       ),
@@ -367,9 +323,7 @@ class NavigationItem {
       }
       return AttemptRouteScreen(
         attemptId: id,
-        initialAttempt: state.extra is ExamAttempt
-            ? state.extra as ExamAttempt
-            : null,
+        initialAttempt: state.extra is ExamAttempt ? state.extra as ExamAttempt : null,
       );
     },
   );
@@ -381,19 +335,14 @@ class NavigationItem {
     route: AppRoutes.other,
     screen: const Placeholder(),
     subRoutes: [
-      GoRoute(
-        path: AppRoutes.subOther.path,
-        builder: (context, state) => const Placeholder(),
-      ),
+      GoRoute(path: AppRoutes.subOther.path, builder: (context, state) => const Placeholder()),
     ],
   );
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is NavigationItem &&
-          runtimeType == other.runtimeType &&
-          route == other.route;
+      other is NavigationItem && runtimeType == other.runtimeType && route == other.route;
 
   @override
   int get hashCode => route.hashCode;

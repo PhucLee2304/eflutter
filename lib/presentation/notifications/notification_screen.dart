@@ -52,7 +52,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     final path = notificationPath(item.data);
     // Bài viết mở chồng lên để Back quay lại; các trang khác vẫn đi thẳng như cũ.
     if (path == null) return;
-    if (path.startsWith('/posts/')) {
+    if (path.contains('/posts/')) {
       unawaited(context.push(path, extra: int.tryParse(item.data['commentId'] ?? '')));
     } else {
       context.go(path);

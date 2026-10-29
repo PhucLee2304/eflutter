@@ -18,6 +18,7 @@ enum AppRoutes {
   classroomDetail(path: ':id'),
   classroomGradebook(path: 'assignments/:assignmentId/gradebook'),
   classGradebook(path: 'gradebook'),
+  classroomPost(path: 'posts/:postId'),
   studentProgress(path: 'students/:userId/progress'),
   classroomRoom(path: 'rooms/:roomId'),
   roomAttendance(path: 'rooms/:roomId/attendance'),
@@ -65,6 +66,10 @@ String roomAttendancePath(int classroomId, int roomId) =>
 
 String postDetailPath(int postId) => '/posts/$postId';
 
+/// Bài viết của lớp mở ngay trong tab Announcements của lớp đó.
+String classroomPostPath(int classroomId, int postId) =>
+    '${classroomPath(classroomId)}/posts/$postId';
+
 /// Đường dẫn mở khi bấm một thông báo, từ `data` (`type`, `id`, `classroomId`).
 /// Comment cần cuộn tới (`commentId`) không nằm trong URL mà truyền qua `extra`.
 /// Giữ khớp với `notificationPath` trong `web/firebase-messaging-sw.js`.
@@ -86,7 +91,8 @@ String? notificationPath(Map<String, String> data) {
     case 'POST_COMMENTED':
     case 'COMMENT_REPLIED':
     case 'COMMENT_LIKED':
-      return id == null ? null : postDetailPath(id);
+      if (id == null) return null;
+      return classroomId == null ? postDetailPath(id) : classroomPostPath(classroomId, id);
   }
   // Loại chưa biết: mở lớp nếu có, để thông báo nào cũng bấm được.
   return classroomId == null ? null : classroomPath(classroomId);

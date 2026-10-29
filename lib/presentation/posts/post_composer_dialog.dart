@@ -26,6 +26,7 @@ class PostComposerDialog extends StatefulWidget {
     this.attachments = const [],
     this.author,
     this.editing = false,
+    this.classroomName,
   });
   final PostRepository repository;
   final String content;
@@ -33,6 +34,9 @@ class PostComposerDialog extends StatefulWidget {
   final List<PostAttachment> attachments;
   final PostUser? author;
   final bool editing;
+
+  /// Có giá trị khi đăng trong lớp: đổi popup thành thông báo gửi tới lớp đó.
+  final String? classroomName;
 
   @override
   State<PostComposerDialog> createState() => _PostComposerDialogState();
@@ -240,7 +244,9 @@ class _PostComposerDialogState extends State<PostComposerDialog> {
                   children: [
                     Expanded(
                       child: Text(
-                        widget.editing ? 'Edit post' : 'Create post',
+                        widget.classroomName != null
+                            ? (widget.editing ? 'Edit announcement' : 'New announcement')
+                            : (widget.editing ? 'Edit post' : 'Create post'),
                         style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                       ),
                     ),
@@ -265,9 +271,39 @@ class _PostComposerDialogState extends State<PostComposerDialog> {
                         spacing: 10,
                         children: [
                           PostAvatar(user: author, url: me?.avatar, name: me?.name),
-                          Text(
-                            author?.name ?? me?.name ?? 'User',
-                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              spacing: 2,
+                              children: [
+                                Text(
+                                  author?.name ?? me?.name ?? 'User',
+                                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                                ),
+                                if (widget.classroomName case final name?)
+                                  Row(
+                                    spacing: 4,
+                                    children: [
+                                      const Icon(
+                                        Icons.school_outlined,
+                                        size: 14,
+                                        color: ColorName.labelSecondary,
+                                      ),
+                                      Flexible(
+                                        child: Text(
+                                          'To $name',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: ColorName.labelSecondary,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
@@ -279,8 +315,10 @@ class _PostComposerDialogState extends State<PostComposerDialog> {
                         keyboardType: TextInputType.multiline,
                         autofocus: true,
                         style: const TextStyle(fontSize: 16, height: 1.45),
-                        decoration: const InputDecoration(
-                          hintText: "What's on your mind?",
+                        decoration: InputDecoration(
+                          hintText: widget.classroomName != null
+                              ? 'Announce something to your class…'
+                              : "What's on your mind?",
                           border: InputBorder.none,
                           enabledBorder: InputBorder.none,
                           focusedBorder: InputBorder.none,
@@ -437,9 +475,9 @@ class _PostComposerDialogState extends State<PostComposerDialog> {
       ),
       child: Row(
         children: [
-          const Expanded(
+          Expanded(
             child: Text(
-              'Add to your post',
+              widget.classroomName != null ? 'Add to your announcement' : 'Add to your post',
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
           ),

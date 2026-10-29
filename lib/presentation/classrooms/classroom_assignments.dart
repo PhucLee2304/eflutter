@@ -2,6 +2,7 @@ import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:eflutter/generated/colors.gen.dart';
 import 'package:eflutter/data/models/classroom.dart';
 import 'package:eflutter/presentation/classrooms/proctoring_fields.dart';
+import 'package:eflutter/presentation/app/theme/app_button_styles.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -108,6 +109,7 @@ class ClassroomAssignmentsView extends StatelessWidget {
     required this.onCreate,
     required this.onOpen,
     required this.onGradebook,
+    this.onClassGradebook,
     this.onAssignToClasses,
     this.onEditSchedule,
     this.onEditContent,
@@ -131,6 +133,9 @@ class ClassroomAssignmentsView extends StatelessWidget {
   final VoidCallback onCreate;
   final ValueChanged<ClassroomAssignment> onOpen;
   final ValueChanged<ClassroomAssignment> onGradebook;
+
+  /// Bảng điểm cả lớp (mọi assignment); chỉ giáo viên.
+  final VoidCallback? onClassGradebook;
   final ValueChanged<ClassroomAssignment>? onAssignToClasses;
   final ValueChanged<ClassroomAssignment>? onEditSchedule;
   final ValueChanged<ClassroomAssignment>? onEditContent;
@@ -157,16 +162,29 @@ class ClassroomAssignmentsView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (isTeacher && classroomActive)
-          Align(
-            alignment: Alignment.centerLeft,
-            child: FilledButton.icon(
-              onPressed: onCreate,
-              icon: const Icon(Icons.add),
-              label: const Text('Create assignment'),
-            ),
+        if (isTeacher) ...[
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (classroomActive)
+                FilledButton.icon(
+                  onPressed: onCreate,
+                  style: AppButtonStyles.primary,
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Create assignment'),
+                ),
+              if (onClassGradebook != null)
+                FilledButton.icon(
+                  onPressed: onClassGradebook,
+                  style: AppButtonStyles.secondary,
+                  icon: const Icon(Icons.table_chart_outlined, size: 18),
+                  label: const Text('Class gradebook'),
+                ),
+            ],
           ),
-        if (isTeacher && classroomActive) const SizedBox(height: 16),
+          const SizedBox(height: 16),
+        ],
         if (assignments.isEmpty)
           const Padding(
             padding: EdgeInsets.all(32),
