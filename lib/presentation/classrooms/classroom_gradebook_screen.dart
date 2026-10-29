@@ -1,3 +1,4 @@
+import 'package:eflutter/core/utils/extensions/toast_bar_extension.dart';
 import 'package:eflutter/core/loading/loading_widget.dart';
 import 'dart:async';
 
@@ -151,9 +152,7 @@ class _ClassroomGradebookScreenState extends State<ClassroomGradebookScreen>
       case Success():
         await load();
       case Failure(message: final message):
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(message ?? 'Could not reset the attempt')));
+        context.showToast(message ?? 'Could not reset the attempt', type: ToastType.error);
       case Cancelled():
         break;
     }
@@ -167,15 +166,11 @@ class _ClassroomGradebookScreenState extends State<ClassroomGradebookScreen>
     if (!mounted) return;
     switch (result) {
       case Success(data: final count):
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('$count submission updates queued')));
+        context.showToast('$count submission updates queued', type: ToastType.success);
         await Future<void>.delayed(const Duration(seconds: 2));
         await load();
       case Failure(message: final message):
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(message ?? 'Could not reconcile gradebook')));
+        context.showToast(message ?? 'Could not reconcile gradebook', type: ToastType.error);
       case Cancelled():
         break;
     }

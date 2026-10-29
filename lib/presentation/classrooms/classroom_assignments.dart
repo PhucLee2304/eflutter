@@ -1,3 +1,4 @@
+import 'package:eflutter/core/utils/extensions/toast_bar_extension.dart';
 import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:eflutter/generated/colors.gen.dart';
 import 'package:eflutter/data/models/classroom.dart';
@@ -1033,8 +1034,8 @@ class _CreateAssignmentViewState extends State<CreateAssignmentView> {
     super.dispose();
   }
 
-  void showMessage(String message) =>
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  void showMessage(String message, {ToastType type = ToastType.error}) =>
+      context.showToast(message, type: type);
 
   Future<DateTime?> pickDateTime(DateTime initial) async {
     final date = await showDatePicker(

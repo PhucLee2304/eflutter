@@ -1,3 +1,4 @@
+import 'package:eflutter/core/utils/extensions/toast_bar_extension.dart';
 import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:eflutter/data/models/post.dart';
 import 'package:eflutter/data/repositories/post_repository.dart';
@@ -190,7 +191,7 @@ class _PostCommentsState extends State<PostComments> {
 
   void _snack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    context.showToast(message, type: ToastType.error);
   }
 
   @override

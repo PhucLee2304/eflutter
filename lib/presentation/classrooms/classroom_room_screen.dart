@@ -1,3 +1,4 @@
+import 'package:eflutter/core/utils/extensions/toast_bar_extension.dart';
 import 'package:eflutter/core/loading/loading_widget.dart';
 import 'dart:async';
 import 'dart:math' as math;
@@ -877,15 +878,11 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
 
   void _showRoomMessage(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.maybeOf(context)
-      ?..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          margin: const EdgeInsets.fromLTRB(16, 0, 16, _controlBarHeight + 16),
-          content: Text(message),
-        ),
-      );
+    // Thông báo trong phòng là info, câu "Could not…" là lỗi.
+    context.showToast(
+      message,
+      type: message.startsWith('Could not') ? ToastType.error : ToastType.info,
+    );
   }
 
   bool get _canHideControls =>

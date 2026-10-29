@@ -1,3 +1,4 @@
+import 'package:eflutter/core/utils/extensions/toast_bar_extension.dart';
 import 'package:eflutter/core/loading/loading_widget.dart';
 import 'dart:async';
 
@@ -565,7 +566,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
     } while (page <= pageCounts);
     if (!mounted) return;
     if (classes.isEmpty) {
-      showMessage('No other active classrooms are available');
+      showMessage('No other active classrooms are available', type: ToastType.info);
       return;
     }
 
@@ -605,7 +606,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
     setState(() => busy = false);
     switch (result) {
       case Success():
-        showMessage('Assignment added to ${selected.name}');
+        showMessage('Assignment added to ${selected.name}', type: ToastType.success);
       case Failure(message: final message):
         showMessage(message ?? 'Could not assign to the classroom');
       case Cancelled():
@@ -766,8 +767,8 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
     }
   }
 
-  void showMessage(String text) =>
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  void showMessage(String text, {ToastType type = ToastType.error}) =>
+      context.showToast(text, type: type);
 
   @override
   Widget build(BuildContext context) {

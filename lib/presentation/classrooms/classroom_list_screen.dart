@@ -1,3 +1,4 @@
+import 'package:eflutter/core/utils/extensions/toast_bar_extension.dart';
 import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:dio/dio.dart';
 import 'package:eflutter/core/base/result.dart';
@@ -125,7 +126,7 @@ class _ClassroomListScreenState extends State<ClassroomListScreen> {
       if (!mounted) return;
       switch (result) {
         case Success():
-          showMessage('Request sent. Waiting for teacher approval.');
+          showMessage('Request sent. Waiting for teacher approval.', type: ToastType.success);
         case Failure(message: final message):
           showMessage(message ?? 'Could not join the classroom');
         case Cancelled():
@@ -136,8 +137,8 @@ class _ClassroomListScreenState extends State<ClassroomListScreen> {
     }
   }
 
-  void showMessage(String text) =>
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  void showMessage(String text, {ToastType type = ToastType.error}) =>
+      context.showToast(text, type: type);
 
   static const _border = Color(0xFFDADDE1);
   static const _muted = Color(0xFF65676B);

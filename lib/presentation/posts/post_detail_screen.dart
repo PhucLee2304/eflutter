@@ -1,3 +1,4 @@
+import 'package:eflutter/core/utils/extensions/toast_bar_extension.dart';
 import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:dio/dio.dart';
 import 'package:eflutter/core/di/injection.dart';
@@ -99,7 +100,7 @@ class _PostDetailViewState extends State<PostDetailView> {
 
   void _snack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    context.showToast(message, type: ToastType.error);
   }
 
   Future<void> _like() async {

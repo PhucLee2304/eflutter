@@ -1,3 +1,4 @@
+import 'package:eflutter/core/utils/extensions/toast_bar_extension.dart';
 import 'package:eflutter/core/loading/loading_widget.dart';
 import 'dart:async';
 import 'package:dio/dio.dart';
@@ -422,7 +423,7 @@ class _PostListState extends State<PostList> {
 
   void _message(String value) {
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(value)));
+      context.showToast(value, type: ToastType.error);
     }
   }
 

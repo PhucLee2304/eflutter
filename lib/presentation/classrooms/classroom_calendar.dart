@@ -1,3 +1,4 @@
+import 'package:eflutter/core/utils/extensions/toast_bar_extension.dart';
 import 'package:eflutter/core/loading/loading_widget.dart';
 import 'dart:async';
 
@@ -168,8 +169,8 @@ class _ClassroomCalendarViewState extends State<ClassroomCalendarView> {
     }
   }
 
-  void _message(String value) =>
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(value)));
+  void _message(String value, {ToastType type = ToastType.error}) =>
+      context.showToast(value, type: type);
 
   @override
   Widget build(BuildContext context) {

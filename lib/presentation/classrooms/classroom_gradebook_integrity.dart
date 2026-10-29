@@ -68,9 +68,7 @@ mixin _GradebookIntegrity on State<ClassroomGradebookScreen> {
     if (!mounted) return;
     setState(() => busyEvents.removeAll(ids));
     if (result case Failure(message: final message)) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message ?? 'Could not review the violation')));
+      context.showToast(message ?? 'Could not review the violation', type: ToastType.error);
     }
     await load(showLoading: false);
   }

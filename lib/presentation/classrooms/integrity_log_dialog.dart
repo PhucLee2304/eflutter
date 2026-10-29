@@ -1,3 +1,4 @@
+import 'package:eflutter/core/utils/extensions/toast_bar_extension.dart';
 import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:eflutter/core/base/result.dart';
 import 'package:eflutter/data/models/attempt_integrity.dart';
@@ -137,15 +138,14 @@ class _IntegrityLogDialogState extends State<_IntegrityLogDialog> {
     final result = await action();
     if (!mounted) return;
     setState(() => busy = false);
-    final messenger = ScaffoldMessenger.of(context);
     switch (result) {
       case Success():
         if (onSuccess != null) setState(onSuccess);
-        messenger.showSnackBar(SnackBar(content: Text(done)));
+        context.showToast(done, type: ToastType.success);
         widget.onChanged();
         await load();
       case Failure(message: final message):
-        messenger.showSnackBar(SnackBar(content: Text(message ?? 'Action failed')));
+        context.showToast(message ?? 'Action failed', type: ToastType.error);
       case Cancelled():
         break;
     }
