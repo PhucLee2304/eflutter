@@ -92,13 +92,14 @@ class _PageContext extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: 8),
             child: Text(group.instruction),
           ),
-        if (group?.imageUrl != null)
+        // TOEIC Part 6/7 có thể nhiều ảnh, hiển thị theo thứ tự.
+        for (final imageUrl in group?.imageUrls ?? const <String>[])
           Padding(
             padding: const EdgeInsets.only(top: 12),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 420),
               child: Image.network(
-                group!.imageUrl!,
+                imageUrl,
                 fit: BoxFit.contain,
                 errorBuilder: (_, _, _) => const Text('Image unavailable'),
               ),

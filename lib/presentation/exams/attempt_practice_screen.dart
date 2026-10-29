@@ -250,7 +250,7 @@ class _GroupBlock extends StatelessWidget {
       children: [
         if (group.title.isNotEmpty ||
             group.instruction.isNotEmpty ||
-            group.imageUrl != null)
+            group.imageUrls.isNotEmpty)
           Container(
             margin: const EdgeInsets.only(bottom: 10),
             padding: const EdgeInsets.all(14),
@@ -271,13 +271,13 @@ class _GroupBlock extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 6),
                     child: Text(group.instruction),
                   ),
-                if (group.imageUrl != null)
+                for (final imageUrl in group.imageUrls)
                   Padding(
                     padding: const EdgeInsets.only(top: 12),
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxHeight: 360),
                       child: Image.network(
-                        group.imageUrl!,
+                        imageUrl,
                         fit: BoxFit.contain,
                         errorBuilder: (_, _, _) =>
                             const Text('Image unavailable'),

@@ -271,13 +271,13 @@ class _ReviewSection extends StatelessWidget {
                   style: const TextStyle(fontStyle: FontStyle.italic),
                 ),
               ),
-            if (group.imageUrl != null)
+            for (final imageUrl in group.imageUrls)
               Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxHeight: 360),
                   child: Image.network(
-                    group.imageUrl!,
+                    imageUrl,
                     fit: BoxFit.contain,
                     errorBuilder: (_, _, _) => const Text('Image unavailable'),
                   ),
