@@ -9,6 +9,33 @@ import 'package:injectable/injectable.dart';
 
 enum NotificationFilter { all, unread, read }
 
+/// Nhóm thông báo cho bộ lọc "Filter by type"; [value] khớp `category` của API.
+enum NotificationCategory {
+  posts('POSTS', 'Posts & comments'),
+  classrooms('CLASSROOMS', 'Classrooms'),
+  assignments('ASSIGNMENTS', 'Assignments'),
+  rooms('ROOMS', 'Live classes'),
+  exams('EXAMS', 'Exam results');
+
+  const NotificationCategory(this.value, this.label);
+  final String value;
+  final String label;
+
+  static NotificationCategory? of(AppNotification item) => switch (item.data['type']) {
+    'CLASSROOM_POST' ||
+    'CLASSROOM_POST_PINNED' ||
+    'POST_LIKED' ||
+    'POST_COMMENTED' ||
+    'COMMENT_REPLIED' ||
+    'COMMENT_LIKED' => posts,
+    'CLASSROOM' => classrooms,
+    'ASSIGNMENT' => assignments,
+    'ROOM' => rooms,
+    'ATTEMPT' => exams,
+    _ => null,
+  };
+}
+
 @lazySingleton
 class NotificationController extends ChangeNotifier {
   NotificationController(Dio dio) : _repository = NotificationRepository(dio);
@@ -21,6 +48,8 @@ class NotificationController extends ChangeNotifier {
   String? _error;
   int _unreadCount = 0;
   NotificationFilter _filter = NotificationFilter.all;
+  NotificationCategory? _category;
+  Map<String, int> _unreadByCategory = const {};
   int? _latestSeenID;
   // Tăng khi reset để bỏ kết quả của request bắt đầu trước khi đăng xuất.
   int _generation = 0;
@@ -36,6 +65,8 @@ class NotificationController extends ChangeNotifier {
   String? get error => _error;
   int get unreadCount => _unreadCount;
   NotificationFilter get filter => _filter;
+  NotificationCategory? get category => _category;
+  int unreadIn(NotificationCategory category) => _unreadByCategory[category.value] ?? 0;
 
   bool? get _readFilter => switch (_filter) {
     NotificationFilter.all => null,
@@ -49,6 +80,7 @@ class NotificationController extends ChangeNotifier {
     _page = 0;
     _pageCount = 1;
     _unreadCount = 0;
+    _unreadByCategory = const {};
     _error = null;
     _latestSeenID = null;
     _loading = false;
@@ -71,6 +103,22 @@ class NotificationController extends ChangeNotifier {
     await refresh();
   }
 
+  Future<void> setCategory(NotificationCategory? value) async {
+    if (_category == value) return;
+    _category = value;
+    notifyListeners();
+    await refresh();
+  }
+
+  void _decrementUnread(AppNotification item) {
+    if (_unreadCount > 0) _unreadCount--;
+    final key = NotificationCategory.of(item)?.value;
+    final count = _unreadByCategory[key];
+    if (key != null && count != null && count > 0) {
+      _unreadByCategory = {..._unreadByCategory, key: count - 1};
+    }
+  }
+
   Future<void> loadMore() async {
     if (_loading || !canLoadMore) return;
     _loading = true;
@@ -78,13 +126,18 @@ class NotificationController extends ChangeNotifier {
     notifyListeners();
     final generation = _generation;
     try {
-      final result = await _repository.getNotifications(page: _page + 1, read: _readFilter);
+      final result = await _repository.getNotifications(
+        page: _page + 1,
+        read: _readFilter,
+        category: _category?.value,
+      );
       if (generation != _generation) return;
       _items.addAll(result.notifications);
       if (_page == 0) _detectNew(result.notifications);
       _page = result.page;
       _pageCount = result.pageCount;
       _unreadCount = result.unreadCount;
+      _unreadByCategory = result.unreadByCategory;
     } catch (_) {
       if (generation == _generation) _error = 'Unable to load notifications.';
     } finally {
@@ -113,8 +166,8 @@ class NotificationController extends ChangeNotifier {
       final now = DateTime.now();
       for (var i = 0; i < _items.length; i++) {
         if (_items[i].id == notification.id && !_items[i].isRead) {
+          _decrementUnread(_items[i]);
           _items[i] = _items[i].markRead(now);
-          if (_unreadCount > 0) _unreadCount--;
           break;
         }
       }
@@ -136,6 +189,7 @@ class NotificationController extends ChangeNotifier {
         }
       }
       _unreadCount = 0;
+      _unreadByCategory = const {};
       if (_filter == NotificationFilter.unread) {
         _items.clear();
         _page = 0;
@@ -149,9 +203,8 @@ class NotificationController extends ChangeNotifier {
     if (ids.isEmpty) return false;
     try {
       await _repository.deleteMany(ids.toList());
-      final unreadDeleted = _items.where((item) => ids.contains(item.id) && !item.isRead).length;
+      _items.where((item) => ids.contains(item.id) && !item.isRead).forEach(_decrementUnread);
       _items.removeWhere((item) => ids.contains(item.id));
-      _unreadCount = (_unreadCount - unreadDeleted).clamp(0, 1 << 31);
       notifyListeners();
       return true;
     } catch (_) {

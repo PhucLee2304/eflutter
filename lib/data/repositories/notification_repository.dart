@@ -11,25 +11,20 @@ class NotificationRepository {
     required int page,
     int pageSize = 20,
     bool? read,
+    String? category,
   }) async {
     final response = await _dio.get(
       _base,
-      queryParameters: {'page': page, 'pageSize': pageSize, 'read': ?read},
+      queryParameters: {'page': page, 'pageSize': pageSize, 'read': ?read, 'category': ?category},
     );
     return NotificationPage.fromJson(response.data as Map<String, dynamic>);
   }
 
-  Future<void> markRead(List<int> ids) =>
-      _dio.patch('$_base/read', data: {'ids': ids});
+  Future<void> markRead(List<int> ids) => _dio.patch('$_base/read', data: {'ids': ids});
 
-  Future<void> deleteMany(List<int> ids) =>
-      _dio.delete(_base, data: {'ids': ids});
+  Future<void> deleteMany(List<int> ids) => _dio.delete(_base, data: {'ids': ids});
 
-  Future<void> registerDeviceToken(
-    String token,
-    String deviceId,
-    String platform,
-  ) => _dio.post(
+  Future<void> registerDeviceToken(String token, String deviceId, String platform) => _dio.post(
     '$_base/device-tokens',
     data: {'token': token, 'deviceId': deviceId, 'platform': platform},
   );

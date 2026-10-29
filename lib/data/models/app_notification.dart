@@ -25,9 +25,7 @@ class AppNotification {
       body: json['body'] as String,
       data: rawData.map((key, value) => MapEntry(key, value.toString())),
       createdAt: DateTime.parse(json['createdAt'] as String).toLocal(),
-      readAt: json['readAt'] == null
-          ? null
-          : DateTime.parse(json['readAt'] as String).toLocal(),
+      readAt: json['readAt'] == null ? null : DateTime.parse(json['readAt'] as String).toLocal(),
     );
   }
 
@@ -47,12 +45,16 @@ class NotificationPage {
     required this.page,
     required this.pageCount,
     required this.unreadCount,
+    this.unreadByCategory = const {},
   });
 
   final List<AppNotification> notifications;
   final int page;
   final int pageCount;
   final int unreadCount;
+
+  /// Số chưa đọc theo nhóm (`POSTS`, `CLASSROOMS`…), nhóm 0 thì không có key.
+  final Map<String, int> unreadByCategory;
 
   factory NotificationPage.fromJson(Map<String, dynamic> json) {
     return NotificationPage(
@@ -62,6 +64,9 @@ class NotificationPage {
       page: json['page'] as int,
       pageCount: json['pageCount'] as int,
       unreadCount: json['unreadCount'] as int,
+      unreadByCategory: (json['unreadByCategory'] as Map<String, dynamic>? ?? const {}).map(
+        (key, value) => MapEntry(key, value as int),
+      ),
     );
   }
 }
