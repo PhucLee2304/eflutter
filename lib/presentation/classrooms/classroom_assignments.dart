@@ -7,82 +7,6 @@ import 'package:eflutter/presentation/app/theme/app_button_styles.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-Future<void> showAssignmentAuditSheet(BuildContext context, List<ExamAudit> audits) =>
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: SizedBox(
-          height: MediaQuery.sizeOf(context).height * .78,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 4, 24, 16),
-                child: Text(
-                  'Assignment change history',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-              ),
-              const Divider(height: 1),
-              Expanded(
-                child: audits.isEmpty
-                    ? const Center(child: Text('No changes recorded yet'))
-                    : ListView.separated(
-                        padding: const EdgeInsets.all(20),
-                        itemCount: audits.length,
-                        separatorBuilder: (_, _) => const Divider(height: 28),
-                        itemBuilder: (context, index) {
-                          final audit = audits[index];
-                          final time = audit.regradedAt ?? audit.createdAt;
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                audit.reason.isEmpty ? 'Assignment updated' : audit.reason,
-                                style: Theme.of(context).textTheme.titleMedium,
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '${DateFormat('MMM d, yyyy HH:mm').format(time)} · '
-                                '${audit.actor?.name ?? audit.actorId}',
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                              if (audit.scoreChanges.isNotEmpty) ...[
-                                const SizedBox(height: 12),
-                                ...audit.scoreChanges.map(
-                                  (change) => Padding(
-                                    padding: const EdgeInsets.only(bottom: 6),
-                                    child: Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            'Student ${change.studentId} · '
-                                            'Attempt ${change.attemptId}',
-                                          ),
-                                        ),
-                                        Text(
-                                          '${change.beforeScore?.toStringAsFixed(2) ?? '-'}'
-                                          ' → '
-                                          '${change.afterScore?.toStringAsFixed(2) ?? '-'}',
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          );
-                        },
-                      ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-
 class CreateAssignmentInput {
   const CreateAssignmentInput({
     required this.schedules,
@@ -112,10 +36,7 @@ class ClassroomAssignmentsView extends StatelessWidget {
     required this.onOpen,
     required this.onGradebook,
     this.onClassGradebook,
-    this.onAssignToClasses,
-    this.onEditSchedule,
     this.onEditContent,
-    this.onViewAudits,
     required this.onSetActive,
     this.error,
     this.loadMoreError,
@@ -141,10 +62,7 @@ class ClassroomAssignmentsView extends StatelessWidget {
 
   /// Bảng điểm cả lớp (mọi assignment); chỉ giáo viên.
   final VoidCallback? onClassGradebook;
-  final ValueChanged<ClassroomAssignment>? onAssignToClasses;
-  final ValueChanged<ClassroomAssignment>? onEditSchedule;
   final ValueChanged<ClassroomAssignment>? onEditContent;
-  final ValueChanged<ClassroomAssignment>? onViewAudits;
   final void Function(ClassroomAssignment assignment, bool active) onSetActive;
 
   @override
@@ -229,12 +147,7 @@ class _ClassworkListState extends State<_ClassworkList> {
         studentCount: v.studentCount,
         onOpen: () => v.onOpen(assignment),
         onGradebook: () => v.onGradebook(assignment),
-        onAssignToClasses: v.onAssignToClasses == null
-            ? null
-            : () => v.onAssignToClasses!(assignment),
-        onEditSchedule: v.onEditSchedule == null ? null : () => v.onEditSchedule!(assignment),
         onEditContent: v.onEditContent == null ? null : () => v.onEditContent!(assignment),
-        onViewAudits: v.onViewAudits == null ? null : () => v.onViewAudits!(assignment),
         onSetActive: (active) => v.onSetActive(assignment, active),
       ),
     );
@@ -366,10 +279,7 @@ class _AssignmentTile extends StatelessWidget {
     this.studentCount,
     required this.onOpen,
     required this.onGradebook,
-    this.onAssignToClasses,
-    this.onEditSchedule,
     this.onEditContent,
-    this.onViewAudits,
     required this.onSetActive,
   });
 
@@ -381,10 +291,7 @@ class _AssignmentTile extends StatelessWidget {
   final int? studentCount;
   final VoidCallback onOpen;
   final VoidCallback onGradebook;
-  final VoidCallback? onAssignToClasses;
-  final VoidCallback? onEditSchedule;
   final VoidCallback? onEditContent;
-  final VoidCallback? onViewAudits;
   final ValueChanged<bool> onSetActive;
 
   static String _short(DateTime value) => DateFormat('MMM d, HH:mm').format(value.toLocal());
@@ -406,28 +313,6 @@ class _AssignmentTile extends StatelessWidget {
       Text(label, style: const TextStyle(fontSize: 12, color: _muted)),
     ],
   );
-
-  PopupMenuItem<VoidCallback> _menuItem(VoidCallback action, IconData icon, String label) =>
-      PopupMenuItem(
-        value: action,
-        height: 40,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        child: Row(
-          spacing: 12,
-          children: [
-            Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: AppButtonStyles.tint,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Icon(icon, size: 16, color: ColorName.primary),
-            ),
-            Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-          ],
-        ),
-      );
 
   @override
   Widget build(BuildContext context) {
@@ -566,37 +451,18 @@ class _AssignmentTile extends StatelessWidget {
             onChanged: classroomActive ? onSetActive : null,
           ),
         ),
-        PopupMenuButton<VoidCallback>(
-          tooltip: 'More',
-          icon: const Icon(Icons.more_vert, size: 20, color: _muted),
-          style: IconButton.styleFrom(
-            fixedSize: const Size(36, 36),
-            minimumSize: const Size(36, 36),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        // Một nút Edit: nội dung, lịch, giao thêm lớp và lịch sử đều nằm trong màn sửa.
+        if (onEditContent != null)
+          IconButton(
+            tooltip: 'Edit assignment',
+            onPressed: onEditContent,
+            style: IconButton.styleFrom(
+              fixedSize: const Size(36, 36),
+              minimumSize: const Size(36, 36),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.edit_outlined, size: 20, color: _muted),
           ),
-          color: Colors.white,
-          surfaceTintColor: Colors.transparent,
-          elevation: 6,
-          shadowColor: const Color(0x33000000),
-          position: PopupMenuPosition.under,
-          offset: const Offset(0, 4),
-          menuPadding: const EdgeInsets.symmetric(vertical: 6),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-            side: const BorderSide(color: _border),
-          ),
-          onSelected: (action) => action(),
-          itemBuilder: (context) => [
-            if (onEditContent != null)
-              _menuItem(onEditContent!, Icons.edit_outlined, 'Edit assignment'),
-            if (onEditSchedule != null)
-              _menuItem(onEditSchedule!, Icons.schedule_outlined, 'Edit schedule'),
-            if (onAssignToClasses != null)
-              _menuItem(onAssignToClasses!, Icons.add_home_work_outlined, 'Assign to more classes'),
-            if (onViewAudits != null)
-              _menuItem(onViewAudits!, Icons.history_outlined, 'Change history'),
-          ],
-        ),
       ];
     } else {
       final score = submission?.score;
@@ -687,276 +553,29 @@ class _AssignmentTile extends StatelessWidget {
   }
 }
 
-Future<AssignmentScheduleInput?> showAssignmentScheduleDialog(
-  BuildContext context, {
-  required int classroomId,
-  required int duration,
-  required DateTime opensAt,
-  required DateTime dueAt,
-  bool proctored = false,
-  int maxViolations = 2,
-  String title = 'Edit schedule',
-}) async {
-  var selectedDuration = duration;
-  var selectedOpensAt = opensAt;
-  var selectedDueAt = dueAt;
-  var selectedProctored = proctored;
-  var selectedMaxViolations = maxViolations;
-  final formKey = GlobalKey<FormState>();
-
-  return showDialog<AssignmentScheduleInput>(
-    context: context,
-    builder: (dialogContext) => StatefulBuilder(
-      builder: (context, setDialogState) {
-        Future<DateTime?> pick(DateTime initial) async {
-          final date = await showDatePicker(
-            context: context,
-            initialDate: initial,
-            firstDate: DateTime.now().subtract(const Duration(days: 3650)),
-            lastDate: DateTime.now().add(const Duration(days: 3650)),
-          );
-          if (date == null || !context.mounted) return null;
-          final time = await showTimePicker(
-            context: context,
-            initialTime: TimeOfDay.fromDateTime(initial),
-          );
-          if (time == null) return null;
-          return DateTime(date.year, date.month, date.day, time.hour, time.minute);
-        }
-
-        return AlertDialog(
-          title: Text(title),
-          content: Form(
-            key: formKey,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextFormField(
-                    initialValue: '$duration',
-                    decoration: const InputDecoration(labelText: 'Time limit (minutes)'),
-                    keyboardType: TextInputType.number,
-                    onChanged: (value) => selectedDuration = int.tryParse(value) ?? 0,
-                    validator: (value) {
-                      final parsed = int.tryParse(value ?? '');
-                      return parsed == null || parsed < 1 || parsed > 1440
-                          ? 'Enter a value from 1 to 1440'
-                          : null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.play_circle_outline),
-                    title: const Text('Opens'),
-                    subtitle: Text(_formatDateTime(selectedOpensAt)),
-                    onTap: () async {
-                      final value = await pick(selectedOpensAt);
-                      if (value != null) {
-                        setDialogState(() => selectedOpensAt = value);
-                      }
-                    },
-                  ),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.event_outlined),
-                    title: const Text('Due'),
-                    subtitle: Text(_formatDateTime(selectedDueAt)),
-                    onTap: () async {
-                      final value = await pick(selectedDueAt);
-                      if (value != null) {
-                        setDialogState(() => selectedDueAt = value);
-                      }
-                    },
-                  ),
-                  ProctoringFields(
-                    proctored: selectedProctored,
-                    maxViolations: selectedMaxViolations,
-                    onProctoredChanged: (value) => setDialogState(() => selectedProctored = value),
-                    onMaxViolationsChanged: (value) => selectedMaxViolations = value,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
-            FilledButton(
-              onPressed: () {
-                if (!formKey.currentState!.validate()) return;
-                if (!selectedDueAt.isAfter(selectedOpensAt) ||
-                    Duration(minutes: selectedDuration) >
-                        selectedDueAt.difference(selectedOpensAt)) {
-                  return;
-                }
-                Navigator.pop(
-                  dialogContext,
-                  AssignmentScheduleInput(
-                    classroomId: classroomId,
-                    duration: selectedDuration,
-                    opensAt: selectedOpensAt,
-                    dueAt: selectedDueAt,
-                    proctored: selectedProctored,
-                    maxViolations: selectedMaxViolations,
-                  ),
-                );
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        );
-      },
-    ),
-  );
-}
-
-Future<CreateAssignmentInput?> showEditAssignmentDialog(
-  BuildContext context,
-  EditableAssignment assignment,
-) => showDialog<CreateAssignmentInput>(
-  context: context,
-  builder: (context) => _EditAssignmentDialog(assignment: assignment),
-);
-
-class _EditAssignmentDialog extends StatefulWidget {
-  const _EditAssignmentDialog({required this.assignment});
-  final EditableAssignment assignment;
-
-  @override
-  State<_EditAssignmentDialog> createState() => _EditAssignmentDialogState();
-}
-
-class _EditAssignmentDialogState extends State<_EditAssignmentDialog> {
-  final formKey = GlobalKey<FormState>();
-  late final TextEditingController title;
-  late final TextEditingController description;
-  late final List<_QuestionDraft> questions;
-
-  @override
-  void initState() {
-    super.initState();
-    title = TextEditingController(text: widget.assignment.title);
-    description = TextEditingController(text: widget.assignment.description ?? '');
-    questions = widget.assignment.questions
-        .map(
-          (question) => _QuestionDraft(
-            content: question.content,
-            explanation: question.explanation ?? '',
-            optionValues: question.options,
-            correctOptionIndex: question.correctOptionIndex,
-            excludedFromScore: question.excludedFromScore,
-            id: question.id,
-            optionIds: question.optionIds,
-          ),
-        )
-        .toList();
-  }
-
-  @override
-  void dispose() {
-    title.dispose();
-    description.dispose();
-    for (final question in questions) {
-      question.dispose();
-    }
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Edit assignment'),
-    content: SizedBox(
-      width: 680,
-      child: Form(
-        key: formKey,
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextFormField(
-                controller: title,
-                enabled: !widget.assignment.hasAttempts,
-                decoration: const InputDecoration(labelText: 'Title'),
-                validator: _required,
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: description,
-                enabled: !widget.assignment.hasAttempts,
-                decoration: const InputDecoration(labelText: 'Description'),
-                maxLines: null,
-              ),
-              const SizedBox(height: 16),
-              ...List.generate(
-                questions.length,
-                (index) => _QuestionEditor(
-                  key: ObjectKey(questions[index]),
-                  index: index,
-                  draft: questions[index],
-                  canRemove: questions.length > 1,
-                  lockStructure: widget.assignment.hasAttempts,
-                  showScoreExclusion: true,
-                  onRemove: () => setState(() {
-                    final removed = questions.removeAt(index);
-                    removed.dispose();
-                  }),
-                ),
-              ),
-              if (!widget.assignment.hasAttempts)
-                OutlinedButton.icon(
-                  onPressed: () => setState(() => questions.add(_QuestionDraft())),
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add question'),
-                ),
-            ],
-          ),
-        ),
-      ),
-    ),
-    actions: [
-      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-      FilledButton(
-        onPressed: () {
-          if (!formKey.currentState!.validate()) return;
-          Navigator.pop(
-            context,
-            CreateAssignmentInput(
-              schedules: const [],
-              title: title.text.trim(),
-              description: description.text.trim(),
-              questions: questions
-                  .map(
-                    (question) => CreateAssignmentQuestion(
-                      content: question.content.text.trim(),
-                      explanation: question.explanation.text.trim(),
-                      options: question.options.map((option) => option.text.trim()).toList(),
-                      correctOptionIndex: question.correctOptionIndex,
-                      excludedFromScore: question.excludedFromScore,
-                      id: question.id,
-                      optionIds: question.optionIds,
-                    ),
-                  )
-                  .toList(),
-            ),
-          );
-        },
-        child: const Text('Save'),
-      ),
-    ],
-  );
-}
-
-/// Form tạo bài tập vẽ ngay trong tab Classwork (không cuộn riêng, nằm trong ListView của trang lớp).
+/// Form tạo/sửa bài tập vẽ ngay trong tab Classwork (không cuộn riêng, nằm trong ListView của trang lớp).
 class CreateAssignmentView extends StatefulWidget {
   const CreateAssignmentView({
     super.key,
-    required this.classrooms,
+    this.classrooms = const [],
     required this.currentClassroomId,
     required this.onBack,
     required this.onSubmit,
+    this.editing,
+    this.assignment,
+    this.audits = const [],
   });
 
   final List<Classroom> classrooms;
+
+  /// Bài đang sửa ở lớp hiện tại (lấy lịch hiện có); chỉ dùng cùng [editing].
+  final ClassroomAssignment? assignment;
+
+  /// Lịch sử chỉnh sửa đề, hiện ở cột phải khi sửa.
+  final List<ExamAudit> audits;
+
+  /// Khác null khi sửa nội dung bài đã có; khi đó bỏ phần Assign to và giữ id câu hỏi/đáp án.
+  final EditableAssignment? editing;
   final int currentClassroomId;
   final VoidCallback onBack;
 
@@ -984,6 +603,15 @@ class _CreateAssignmentViewState extends State<CreateAssignmentView> {
   int? expandedClassroom;
   bool saving = false;
 
+  /// Lớp đã dùng bài này (chế độ sửa): luôn được tích, không bỏ được.
+  final assigned = <int>{};
+
+  /// Lớp có lịch sửa được: lớp hiện tại và các lớp mới tích; lớp khác đã giao không có dữ liệu lịch.
+  bool _hasSchedule(int classroomId) =>
+      widget.editing == null ||
+      classroomId == widget.currentClassroomId ||
+      !assigned.contains(classroomId);
+
   List<Classroom> get classrooms {
     final list = [...widget.classrooms];
     list.sort(
@@ -993,9 +621,55 @@ class _CreateAssignmentViewState extends State<CreateAssignmentView> {
     return list;
   }
 
+  /// Bài đã có lượt làm: chỉ được đổi đáp án đúng và cách tính điểm, không đổi cấu trúc.
+  bool get locked => widget.editing?.hasAttempts ?? false;
+
   @override
   void initState() {
     super.initState();
+    if (widget.editing case final editing?) {
+      title.text = editing.title;
+      description.text = editing.description ?? '';
+      questions.addAll(
+        editing.questions.map(
+          (question) => _QuestionDraft(
+            content: question.content,
+            explanation: question.explanation ?? '',
+            optionValues: question.options,
+            correctOptionIndex: question.correctOptionIndex,
+            excludedFromScore: question.excludedFromScore,
+            id: question.id,
+            optionIds: question.optionIds,
+          ),
+        ),
+      );
+      // Bài dài: thu gọn sẵn để dễ lướt, bấm từng câu để mở.
+      if (questions.length > 3) collapsed.addAll(questions);
+      assigned
+        ..add(widget.currentClassroomId)
+        ..addAll(editing.affectedAssignments.map((item) => item.classroomId));
+      selectedClassrooms.addAll(assigned);
+      expandedClassroom = widget.currentClassroomId;
+      final current = widget.assignment;
+      for (final classroom in widget.classrooms) {
+        schedules[classroom.id] = _ScheduleDraft(
+          duration: current?.duration ?? 60,
+          opensAt: current?.opensAt ?? DateTime.now(),
+          dueAt: current?.dueAt ?? DateTime.now().add(const Duration(days: 1)),
+        );
+      }
+      if (current != null) {
+        schedules[widget.currentClassroomId] =
+            _ScheduleDraft(
+                duration: current.duration,
+                opensAt: current.opensAt,
+                dueAt: current.dueAt,
+              )
+              ..proctored = current.proctored
+              ..maxViolations = current.maxViolations;
+      }
+      return;
+    }
     final now = DateTime.now();
     final opensAt = DateTime(
       now.year,
@@ -1061,53 +735,80 @@ class _CreateAssignmentViewState extends State<CreateAssignmentView> {
       showMessage('Please fill in the required fields');
       return;
     }
+    if (widget.editing != null) {
+      final ids = [
+        widget.currentClassroomId,
+        ...selectedClassrooms.where((id) => !assigned.contains(id)),
+      ];
+      if (!_validSchedules(ids.map((id) => schedules[id]!))) return;
+      setState(() => saving = true);
+      final ok = await widget.onSubmit(
+        CreateAssignmentInput(
+          schedules: [for (final id in ids) _scheduleInput(id)],
+          title: title.text.trim(),
+          description: description.text.trim(),
+          questions: _questionInputs(),
+        ),
+      );
+      if (mounted && !ok) setState(() => saving = false);
+      return;
+    }
     if (selectedClassrooms.isEmpty) {
       showMessage('Select at least one classroom');
       return;
     }
-    final chosen = {for (final id in selectedClassrooms) id: schedules[id]!};
-    if (chosen.values.any((item) => !item.dueAt.isAfter(item.opensAt))) {
-      showMessage('Due time must be after open time');
-      return;
-    }
-    if (chosen.values.any(
-      (item) => Duration(minutes: item.duration) > item.dueAt.difference(item.opensAt),
-    )) {
-      showMessage('Time limit must not exceed the assignment window');
-      return;
-    }
+    if (!_validSchedules(selectedClassrooms.map((id) => schedules[id]!))) return;
     setState(() => saving = true);
     final ok = await widget.onSubmit(
       CreateAssignmentInput(
-        schedules: chosen.entries
-            .map(
-              (entry) => AssignmentScheduleInput(
-                classroomId: entry.key,
-                duration: entry.value.duration,
-                opensAt: entry.value.opensAt,
-                dueAt: entry.value.dueAt,
-                proctored: entry.value.proctored,
-                maxViolations: entry.value.maxViolations,
-              ),
-            )
-            .toList(),
+        schedules: [for (final id in selectedClassrooms) _scheduleInput(id)],
         title: title.text.trim(),
         description: description.text.trim(),
-        questions: questions
-            .map(
-              (question) => CreateAssignmentQuestion(
-                content: question.content.text.trim(),
-                explanation: question.explanation.text.trim(),
-                options: question.options.map((option) => option.text.trim()).toList(),
-                correctOptionIndex: question.correctOptionIndex,
-                excludedFromScore: question.excludedFromScore,
-              ),
-            )
-            .toList(),
+        questions: _questionInputs(),
       ),
     );
     if (mounted && !ok) setState(() => saving = false);
   }
+
+  bool _validSchedules(Iterable<_ScheduleDraft> items) {
+    if (items.any((item) => !item.dueAt.isAfter(item.opensAt))) {
+      showMessage('Due time must be after open time');
+      return false;
+    }
+    if (items.any(
+      (item) => Duration(minutes: item.duration) > item.dueAt.difference(item.opensAt),
+    )) {
+      showMessage('Time limit must not exceed the assignment window');
+      return false;
+    }
+    return true;
+  }
+
+  AssignmentScheduleInput _scheduleInput(int classroomId) {
+    final item = schedules[classroomId]!;
+    return AssignmentScheduleInput(
+      classroomId: classroomId,
+      duration: item.duration,
+      opensAt: item.opensAt,
+      dueAt: item.dueAt,
+      proctored: item.proctored,
+      maxViolations: item.maxViolations,
+    );
+  }
+
+  List<CreateAssignmentQuestion> _questionInputs() => questions
+      .map(
+        (question) => CreateAssignmentQuestion(
+          content: question.content.text.trim(),
+          explanation: question.explanation.text.trim(),
+          options: question.options.map((option) => option.text.trim()).toList(),
+          correctOptionIndex: question.correctOptionIndex,
+          excludedFromScore: question.excludedFromScore,
+          id: question.id,
+          optionIds: question.optionIds,
+        ),
+      )
+      .toList();
 
   static InputDecoration _decoration(String hint, {String? suffix}) {
     OutlineInputBorder border(Color color, double width) => OutlineInputBorder(
@@ -1179,7 +880,7 @@ class _CreateAssignmentViewState extends State<CreateAssignmentView> {
           _label('Title', required: true),
           TextFormField(
             controller: title,
-            enabled: !saving,
+            enabled: !saving && !locked,
             decoration: _decoration('e.g. Practice Test 5 – Reading'),
             validator: _required,
           ),
@@ -1191,7 +892,7 @@ class _CreateAssignmentViewState extends State<CreateAssignmentView> {
           _label('Description'),
           TextFormField(
             controller: description,
-            enabled: !saving,
+            enabled: !saving && !locked,
             minLines: 3,
             maxLines: 6,
             decoration: _decoration('What should students know before starting?'),
@@ -1280,7 +981,7 @@ class _CreateAssignmentViewState extends State<CreateAssignmentView> {
         IconButton(
           tooltip: 'Duplicate question',
           style: iconStyle,
-          onPressed: saving
+          onPressed: saving || locked
               ? null
               : () => setState(
                   () => questions.insert(
@@ -1299,7 +1000,7 @@ class _CreateAssignmentViewState extends State<CreateAssignmentView> {
         IconButton(
           tooltip: 'Remove question',
           style: iconStyle,
-          onPressed: questions.length > 1 && !saving
+          onPressed: questions.length > 1 && !saving && !locked
               ? () => setState(() {
                   questions.removeAt(index);
                   collapsed.remove(draft);
@@ -1346,7 +1047,7 @@ class _CreateAssignmentViewState extends State<CreateAssignmentView> {
                         _label('Question', required: true),
                         TextFormField(
                           controller: draft.content,
-                          enabled: !saving,
+                          enabled: !saving && !locked,
                           minLines: 2,
                           maxLines: null,
                           decoration: _decoration('Type the question'),
@@ -1368,7 +1069,7 @@ class _CreateAssignmentViewState extends State<CreateAssignmentView> {
                         _label('Explanation (optional)'),
                         TextFormField(
                           controller: draft.explanation,
-                          enabled: !saving,
+                          enabled: !saving && !locked,
                           maxLines: null,
                           decoration: _decoration('Why is this the right answer?'),
                         ),
@@ -1428,7 +1129,7 @@ class _CreateAssignmentViewState extends State<CreateAssignmentView> {
           Expanded(
             child: TextFormField(
               controller: draft.options[index],
-              enabled: !saving,
+              enabled: !saving && !locked,
               style: const TextStyle(fontSize: 14),
               decoration: InputDecoration(
                 hintText: 'Option $key',
@@ -1483,19 +1184,27 @@ class _CreateAssignmentViewState extends State<CreateAssignmentView> {
   Widget _assignTo() => _card(
     spacing: 10,
     children: [
-      _cardHead('Assign to', 'Tick a class to assign it. Click a class to set its schedule.'),
+      _cardHead(
+        'Assign to',
+        widget.editing == null
+            ? 'Tick a class to assign it. Click a class to set its schedule.'
+            : 'Tick more classes to assign. Click a class to edit its schedule.',
+      ),
       for (final classroom in classrooms) _classRow(classroom),
     ],
   );
 
   Widget _classRow(Classroom classroom) {
     final selected = selectedClassrooms.contains(classroom.id);
-    final expanded = expandedClassroom == classroom.id;
+    final isAssigned = assigned.contains(classroom.id);
+    final canSchedule = _hasSchedule(classroom.id);
+    final expanded = canSchedule && expandedClassroom == classroom.id;
     final schedule = schedules[classroom.id]!;
     final summary = [
       classroom.code,
       if (classroom.id == widget.currentClassroomId) 'This class',
-      if (selected && !expanded)
+      if (isAssigned && classroom.id != widget.currentClassroomId) 'Already assigned',
+      if (selected && !expanded && canSchedule)
         '${DateFormat('MMM d').format(schedule.opensAt)} – '
             '${DateFormat('MMM d').format(schedule.dueAt)} · ${schedule.duration} min',
     ].join(' · ');
@@ -1510,14 +1219,16 @@ class _CreateAssignmentViewState extends State<CreateAssignmentView> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           InkWell(
-            onTap: () => setState(() => expandedClassroom = expanded ? null : classroom.id),
+            onTap: canSchedule
+                ? () => setState(() => expandedClassroom = expanded ? null : classroom.id)
+                : null,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(2, 6, 10, 6),
               child: Row(
                 children: [
                   Checkbox(
                     value: selected,
-                    onChanged: saving
+                    onChanged: saving || isAssigned
                         ? null
                         : (value) => setState(() {
                             if (value == true) {
@@ -1547,7 +1258,8 @@ class _CreateAssignmentViewState extends State<CreateAssignmentView> {
                       ],
                     ),
                   ),
-                  Icon(expanded ? Icons.expand_less : Icons.expand_more, size: 20, color: _faint),
+                  if (canSchedule)
+                    Icon(expanded ? Icons.expand_less : Icons.expand_more, size: 20, color: _faint),
                 ],
               ),
             ),
@@ -1683,6 +1395,76 @@ class _CreateAssignmentViewState extends State<CreateAssignmentView> {
     ],
   );
 
+  Widget _lockNote(EditableAssignment editing) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    decoration: BoxDecoration(
+      color: const Color(0xFFFFF8E1),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: 8,
+      children: [
+        const Icon(Icons.lock_outline, size: 16, color: Color(0xFF8A6D00)),
+        Expanded(
+          child: Text(
+            '${editing.activeAttempts} in progress, ${editing.submittedAttempts} submitted. '
+            'Questions and options are locked; you can still change the correct answer '
+            'and scoring. Saving content pauses every class using it and re-grades submissions.',
+            style: const TextStyle(fontSize: 12, color: Color(0xFF8A6D00)),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _history() => _card(
+    spacing: 12,
+    children: [
+      _cardHead('Change history', 'Content corrections and re-grades.'),
+      if (widget.audits.isEmpty)
+        const Text('No changes recorded yet', style: TextStyle(fontSize: 13, color: _faint))
+      else
+        for (final audit in widget.audits)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            spacing: 10,
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: AppButtonStyles.tint,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Icon(Icons.history, size: 16, color: ColorName.primary),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: 2,
+                  children: [
+                    Text(
+                      audit.reason.isEmpty ? 'Assignment updated' : audit.reason,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                    ),
+                    Text(
+                      [
+                        DateFormat('MMM d, HH:mm').format(audit.regradedAt ?? audit.createdAt),
+                        audit.actor?.name ?? audit.actorId,
+                        if (audit.scoreChanges.isNotEmpty)
+                          '${audit.scoreChanges.length} scores changed',
+                      ].join(' · '),
+                      style: const TextStyle(fontSize: 12, color: _muted),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+    ],
+  );
+
   Widget _note() => Container(
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
     decoration: BoxDecoration(
@@ -1716,13 +1498,17 @@ class _CreateAssignmentViewState extends State<CreateAssignmentView> {
         const SizedBox(height: 12),
         for (var i = 0; i < questions.length; i++)
           KeyedSubtree(key: ObjectKey(questions[i]), child: _question(i)),
-        _addQuestion(),
+        if (!locked) _addQuestion(),
       ],
     );
     final aside = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       spacing: 16,
-      children: [_assignTo(), _note()],
+      children: [
+        _assignTo(),
+        if (widget.editing case final editing? when editing.hasAttempts) _lockNote(editing),
+        if (widget.editing != null) _history() else _note(),
+      ],
     );
     return Form(
       key: formKey,
@@ -1750,8 +1536,8 @@ class _CreateAssignmentViewState extends State<CreateAssignmentView> {
                           height: 16,
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
-                      : const Icon(Icons.add, size: 18),
-                  label: const Text('Create assignment'),
+                      : Icon(widget.editing == null ? Icons.add : Icons.check, size: 18),
+                  label: Text(widget.editing == null ? 'Create assignment' : 'Save changes'),
                 ),
               ],
             ),
@@ -1840,104 +1626,5 @@ class _QuestionDraft {
   }
 }
 
-class _QuestionEditor extends StatefulWidget {
-  const _QuestionEditor({
-    super.key,
-    required this.index,
-    required this.draft,
-    required this.canRemove,
-    required this.onRemove,
-    this.showScoreExclusion = false,
-    this.lockStructure = false,
-  });
-
-  final int index;
-  final _QuestionDraft draft;
-  final bool canRemove;
-  final VoidCallback onRemove;
-  final bool showScoreExclusion;
-  final bool lockStructure;
-
-  @override
-  State<_QuestionEditor> createState() => _QuestionEditorState();
-}
-
-class _QuestionEditorState extends State<_QuestionEditor> {
-  @override
-  Widget build(BuildContext context) => Card(
-    margin: const EdgeInsets.only(bottom: 12),
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Question ${widget.index + 1}',
-                  style: Theme.of(context).textTheme.titleSmall,
-                ),
-              ),
-              IconButton(
-                onPressed: widget.canRemove && !widget.lockStructure ? widget.onRemove : null,
-                tooltip: 'Remove question',
-                icon: const Icon(Icons.delete_outline),
-              ),
-            ],
-          ),
-          TextFormField(
-            controller: widget.draft.content,
-            enabled: !widget.lockStructure,
-            decoration: const InputDecoration(labelText: 'Question content'),
-            maxLines: null,
-            validator: _required,
-          ),
-          const SizedBox(height: 8),
-          ...List.generate(4, (optionIndex) {
-            final key = String.fromCharCode(65 + optionIndex);
-            return Row(
-              children: [
-                IconButton(
-                  onPressed: () => setState(() => widget.draft.correctOptionIndex = optionIndex),
-                  tooltip: 'Mark option $key as correct',
-                  icon: Icon(
-                    widget.draft.correctOptionIndex == optionIndex
-                        ? Icons.check_circle
-                        : Icons.radio_button_unchecked,
-                  ),
-                ),
-                Expanded(
-                  child: TextFormField(
-                    controller: widget.draft.options[optionIndex],
-                    enabled: !widget.lockStructure,
-                    decoration: InputDecoration(labelText: 'Option $key'),
-                    validator: _required,
-                  ),
-                ),
-              ],
-            );
-          }),
-          TextFormField(
-            controller: widget.draft.explanation,
-            enabled: !widget.lockStructure,
-            decoration: const InputDecoration(labelText: 'Answer explanation (optional)'),
-            maxLines: null,
-          ),
-          if (widget.showScoreExclusion)
-            CheckboxListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Exclude this question from scoring'),
-              value: widget.draft.excludedFromScore,
-              onChanged: (value) => setState(() => widget.draft.excludedFromScore = value ?? false),
-            ),
-        ],
-      ),
-    ),
-  );
-}
-
 String? _required(String? value) =>
     value == null || value.trim().isEmpty ? 'This field is required' : null;
-
-String _formatDateTime(DateTime value) => DateFormat('MMM d, yyyy • HH:mm').format(value);

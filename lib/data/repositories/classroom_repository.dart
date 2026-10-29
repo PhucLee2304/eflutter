@@ -441,71 +441,40 @@ class ClassroomRepository {
           .then((response) => EditableAssignment.fromJson(response.data as Map<String, dynamic>))
           .safeResult();
 
-  Future<Result<EditableAssignment>> updateAssignmentContent({
+  /// Lưu màn sửa bài, cùng dạng với lúc tạo: cả nội dung đề và lịch các lớp được tích.
+  /// Backend tự so với dữ liệu hiện có và chỉ ghi phần thay đổi (một transaction).
+  /// 409 nghĩa là thay đổi ảnh hưởng bài đang làm, cần gửi lại với [confirm].
+  Future<Result<ClassroomAssignment>> updateAssignment({
     required int classroomId,
     required int assignmentId,
     required String title,
     required String description,
     required List<CreateAssignmentQuestion> questions,
-    required bool confirm,
-    required String reason,
+    required List<AssignmentScheduleInput> schedules,
+    bool confirm = false,
+    String reason = '',
   }) => _dio
-      .patch(
+      .put(
         '$_base/$classroomId/assignments/$assignmentId',
         data: {
           'title': title.trim(),
           'description': description.trim(),
-          'confirm': confirm,
-          'reason': reason.trim(),
           'questions': questions
               .map(
                 (question) => {
+                  'id': question.id,
                   'content': question.content.trim(),
                   'explanation': question.explanation.trim(),
                   'options': question.options.map((option) => option.trim()).toList(),
+                  'optionIds': question.optionIds,
                   'correctOptionIndex': question.correctOptionIndex,
                   'excludedFromScore': question.excludedFromScore,
-                  'id': question.id,
-                  'optionIds': question.optionIds,
                 },
               )
               .toList(),
-        },
-      )
-      .then((response) => EditableAssignment.fromJson(response.data as Map<String, dynamic>))
-      .safeResult();
-
-  Future<Result<CreatedAssignments>> assignExistingExam({
-    required int classroomId,
-    required int assignmentId,
-    required List<AssignmentScheduleInput> schedules,
-  }) => _dio
-      .post(
-        '$_base/$classroomId/assignments/$assignmentId/classrooms',
-        data: {'schedules': schedules.map((schedule) => schedule.toJson()).toList()},
-      )
-      .then((response) => CreatedAssignments.fromJson(response.data as Map<String, dynamic>))
-      .safeResult();
-
-  Future<Result<ClassroomAssignment>> updateAssignmentSchedule({
-    required int classroomId,
-    required int assignmentId,
-    required int duration,
-    required DateTime opensAt,
-    required DateTime dueAt,
-    bool? proctored,
-    int? maxViolations,
-    bool confirm = false,
-  }) => _dio
-      .patch(
-        '$_base/$classroomId/assignments/$assignmentId/schedule',
-        data: {
-          'duration': duration,
-          'opensAt': opensAt.toUtc().toIso8601String(),
-          'dueAt': dueAt.toUtc().toIso8601String(),
-          'proctored': ?proctored,
-          'maxViolations': ?maxViolations,
+          'schedules': schedules.map((schedule) => schedule.toJson()).toList(),
           'confirm': confirm,
+          'reason': reason.trim(),
         },
       )
       .then((response) => ClassroomAssignment.fromJson(response.data as Map<String, dynamic>))

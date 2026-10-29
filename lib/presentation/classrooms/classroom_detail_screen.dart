@@ -1,3 +1,4 @@
+import 'package:eflutter/presentation/app/theme/app_button_styles.dart';
 import 'package:eflutter/core/utils/extensions/toast_bar_extension.dart';
 import 'package:eflutter/core/loading/loading_widget.dart';
 import 'dart:async';
@@ -60,6 +61,15 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
 
   /// Khác null khi đang mở form tạo bài trong tab Classwork (danh sách lớp có thể giao).
   List<Classroom>? creatingFor;
+
+  /// Khác null khi đang mở màn sửa một bài trong tab Classwork.
+  ({
+    ClassroomAssignment assignment,
+    EditableAssignment editable,
+    List<Classroom> classrooms,
+    List<ExamAudit> audits,
+  })?
+  editing;
   String? error;
   late int tab = widget.initialTab;
 
@@ -73,6 +83,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
       tab = value;
       initialPostId = null;
       creatingFor = null;
+      editing = null;
     });
     SystemNavigator.routeInformationUpdated(
       uri: Uri.parse(classroomTabPath(widget.classroomId, value)),
@@ -189,31 +200,34 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
     return false;
   }
 
-  Future<void> createAssignment() async {
-    final teacherClassrooms = <Classroom>[];
+  /// Các lớp đang hoạt động mà người dùng là giáo viên; null khi tải lỗi (đã báo lỗi).
+  Future<List<Classroom>?> loadTeacherClassrooms() async {
+    final classes = <Classroom>[];
+    final userID = context.read<AppCubit>().state.user?.id.toString();
     var page = 1;
     var pageCounts = 1;
     do {
       final result = await repository.getMine(page: page);
-      if (!mounted) return;
+      if (!mounted) return null;
       switch (result) {
         case Success(data: final value):
           pageCounts = value.pageCounts;
-          final userID = context.read<AppCubit>().state.user?.id.toString();
-          teacherClassrooms.addAll(
-            value.items.where((item) => item.active && item.teacher?.id == userID),
-          );
+          classes.addAll(value.items.where((item) => item.active && item.teacher?.id == userID));
         case Failure(message: final message):
           showMessage(message ?? 'Could not load your classrooms');
-          return;
+          return null;
         case Cancelled():
-          return;
+          return null;
       }
       page++;
     } while (page <= pageCounts);
+    return classes;
+  }
 
-    if (!mounted) return;
-    setState(() => creatingFor = teacherClassrooms);
+  Future<void> createAssignment() async {
+    final classes = await loadTeacherClassrooms();
+    if (classes == null || !mounted) return;
+    setState(() => creatingFor = classes);
   }
 
   // Gửi form tạo bài; thành công thì đóng form và tải lại danh sách Classwork.
@@ -354,10 +368,11 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
 
   Future<void> editAssignmentContent(ClassroomAssignment assignment) async {
     setState(() => busy = true);
-    final editableResult = await repository.getEditableAssignment(
-      widget.classroomId,
-      assignment.id,
-    );
+    final (editableResult, auditsResult, classes) = await (
+      repository.getEditableAssignment(widget.classroomId, assignment.id),
+      repository.getAssignmentAudits(classroomId: widget.classroomId, assignmentId: assignment.id),
+      loadTeacherClassrooms(),
+    ).wait;
     if (!mounted) return;
     setState(() => busy = false);
     final editable = editableResult.dataOrNull;
@@ -367,251 +382,103 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
       }
       return;
     }
-    final input = await showEditAssignmentDialog(context, editable);
-    if (input == null || !mounted) return;
-
-    Future<Result<EditableAssignment>> save(bool confirm) => repository.updateAssignmentContent(
-      classroomId: widget.classroomId,
-      assignmentId: assignment.id,
-      title: input.title,
-      description: input.description,
-      questions: input.questions,
-      confirm: confirm,
-      reason: '',
-    );
-
-    setState(() => busy = true);
-    var result = await save(false);
-    if (!mounted) return;
-    setState(() => busy = false);
-    if (result case Failure(code: 409, message: final conflictMessage)) {
-      final reasonController = TextEditingController();
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Assignment already has attempts'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '${conflictMessage ?? 'This assignment already has attempts.'}\n\n'
-                '${editable.activeAttempts} active, '
-                '${editable.submittedAttempts} submitted across '
-                '${editable.affectedAssignments.length} classrooms.\n\n'
-                'Saving will pause every classroom using this exam and submit '
-                'all attempts currently in progress.',
-              ),
-              if (editable.affectedAssignments.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    editable.affectedAssignments
-                        .map((item) => '• ${item.classroomName}')
-                        .join('\n'),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 12),
-              TextField(
-                controller: reasonController,
-                decoration: const InputDecoration(labelText: 'Reason for correction'),
-                maxLines: 2,
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Pause and save'),
-            ),
-          ],
-        ),
-      );
-      if (confirmed != true || !mounted) {
-        reasonController.dispose();
-        return;
-      }
-      if (reasonController.text.trim().isEmpty) {
-        reasonController.dispose();
-        showMessage('Enter a reason for this correction');
-        return;
-      }
-      setState(() => busy = true);
-      result = await repository.updateAssignmentContent(
-        classroomId: widget.classroomId,
-        assignmentId: assignment.id,
-        title: input.title,
-        description: input.description,
-        questions: input.questions,
-        confirm: true,
-        reason: reasonController.text,
-      );
-      reasonController.dispose();
-      if (!mounted) return;
-      setState(() => busy = false);
-    }
-    switch (result) {
-      case Success():
-        await loadAssignments();
-      case Failure(message: final message):
-        showMessage(message ?? 'Could not update the assignment');
-      case Cancelled():
-        break;
-    }
-  }
-
-  Future<void> viewAssignmentAudits(ClassroomAssignment assignment) async {
-    setState(() => busy = true);
-    final result = await repository.getAssignmentAudits(
-      classroomId: widget.classroomId,
-      assignmentId: assignment.id,
-    );
-    if (!mounted) return;
-    setState(() => busy = false);
-    switch (result) {
-      case Success(data: final audits):
-        await showAssignmentAuditSheet(context, audits);
-      case Failure(message: final message):
-        showMessage(message ?? 'Could not load assignment change history');
-      case Cancelled():
-        break;
-    }
-  }
-
-  Future<void> editAssignmentSchedule(ClassroomAssignment assignment) async {
-    final schedule = await showAssignmentScheduleDialog(
-      context,
-      classroomId: widget.classroomId,
-      duration: assignment.duration,
-      opensAt: assignment.opensAt,
-      dueAt: assignment.dueAt,
-      proctored: assignment.proctored,
-      maxViolations: assignment.maxViolations,
-    );
-    if (schedule == null || !mounted) return;
-    setState(() => busy = true);
-    var result = await repository.updateAssignmentSchedule(
-      classroomId: widget.classroomId,
-      assignmentId: assignment.id,
-      duration: schedule.duration,
-      opensAt: schedule.opensAt,
-      dueAt: schedule.dueAt,
-      proctored: schedule.proctored,
-      maxViolations: schedule.maxViolations,
-    );
-    if (result case Failure(code: 409) when mounted) {
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Apply shorter schedule?'),
-          content: const Text(
-            'Students have already started this assignment. The shorter '
-            'schedule may end active attempts sooner.',
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Apply')),
-          ],
-        ),
-      );
-      if (confirmed == true) {
-        result = await repository.updateAssignmentSchedule(
-          classroomId: widget.classroomId,
-          assignmentId: assignment.id,
-          duration: schedule.duration,
-          opensAt: schedule.opensAt,
-          dueAt: schedule.dueAt,
-          proctored: schedule.proctored,
-          maxViolations: schedule.maxViolations,
-          confirm: true,
-        );
-      }
-    }
-    if (!mounted) return;
-    setState(() => busy = false);
-    switch (result) {
-      case Success():
-        await loadAssignments();
-      case Failure(message: final message):
-        showMessage(message ?? 'Could not update the schedule');
-      case Cancelled():
-        break;
-    }
-  }
-
-  Future<void> assignToMoreClasses(ClassroomAssignment assignment) async {
-    final classes = <Classroom>[];
-    final userID = context.read<AppCubit>().state.user?.id.toString();
-    var page = 1;
-    var pageCounts = 1;
-    do {
-      final result = await repository.getMine(page: page);
-      switch (result) {
-        case Success(data: final value):
-          pageCounts = value.pageCounts;
-          classes.addAll(
-            value.items.where(
-              (item) => item.active && item.id != widget.classroomId && item.teacher?.id == userID,
-            ),
-          );
-        case Failure(message: final message):
-          showMessage(message ?? 'Could not load your classrooms');
-          return;
-        case Cancelled():
-          return;
-      }
-      page++;
-    } while (page <= pageCounts);
-    if (!mounted) return;
-    if (classes.isEmpty) {
-      showMessage('No other active classrooms are available', type: ToastType.info);
-      return;
-    }
-
-    final selected = await showDialog<Classroom>(
-      context: context,
-      builder: (context) => SimpleDialog(
-        title: const Text('Assign to another class'),
-        children: classes
-            .map(
-              (item) => SimpleDialogOption(
-                onPressed: () => Navigator.pop(context, item),
-                child: ListTile(title: Text(item.name), subtitle: Text(item.code)),
-              ),
-            )
-            .toList(),
+    setState(
+      () => editing = (
+        assignment: assignment,
+        editable: editable,
+        classrooms: classes ?? const [],
+        audits: auditsResult.dataOrNull ?? const [],
       ),
     );
-    if (selected == null || !mounted) return;
-    final schedule = await showAssignmentScheduleDialog(
-      context,
-      classroomId: selected.id,
-      duration: assignment.duration,
-      opensAt: assignment.opensAt,
-      dueAt: assignment.dueAt,
-      proctored: assignment.proctored,
-      maxViolations: assignment.maxViolations,
-      title: 'Schedule for ${selected.name}',
-    );
-    if (schedule == null || !mounted) return;
-    setState(() => busy = true);
-    final result = await repository.assignExistingExam(
-      classroomId: widget.classroomId,
-      assignmentId: assignment.id,
-      schedules: [schedule],
-    );
-    if (!mounted) return;
-    setState(() => busy = false);
+  }
+
+  /// Lưu màn sửa: gửi cả form như lúc tạo (schedules gồm lớp hiện tại và lớp mới tích),
+  /// backend tự so và chỉ ghi phần thay đổi. Cần xác nhận thì hỏi một lần rồi gửi lại.
+  Future<bool> saveAssignmentContent(CreateAssignmentInput input) async {
+    final session = editing!;
+    Future<Result<ClassroomAssignment>> save({bool confirm = false, String reason = ''}) =>
+        repository.updateAssignment(
+          classroomId: widget.classroomId,
+          assignmentId: session.assignment.id,
+          title: input.title,
+          description: input.description,
+          questions: input.questions,
+          schedules: input.schedules,
+          confirm: confirm,
+          reason: reason,
+        );
+
+    var result = await save();
+    if (!mounted) return false;
+    if (result case Failure(code: 409)) {
+      final reason = await _confirmUpdate(session.editable);
+      if (reason == null || !mounted) return false;
+      result = await save(confirm: true, reason: reason);
+      if (!mounted) return false;
+    }
     switch (result) {
       case Success():
-        showMessage('Assignment added to ${selected.name}', type: ToastType.success);
+        setState(() => editing = null);
+        showMessage('Assignment updated', type: ToastType.success);
+        await loadAssignments();
+        return true;
       case Failure(message: final message):
-        showMessage(message ?? 'Could not assign to the classroom');
+        showMessage(message ?? 'Could not update the assignment');
+        return false;
       case Cancelled():
-        break;
+        return false;
     }
+  }
+
+  /// Một hộp xác nhận cho mọi thay đổi ảnh hưởng tới bài đang làm. Trả lý do (có thể rỗng;
+  /// backend báo lỗi nếu sửa câu hỏi mà thiếu lý do), hoặc null khi huỷ.
+  Future<String?> _confirmUpdate(EditableAssignment editable) async {
+    final reasonController = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Students have already started'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          spacing: 8,
+          children: [
+            Text(
+              '${editable.activeAttempts} in progress, ${editable.submittedAttempts} submitted.',
+            ),
+            Text(
+              'Changing questions pauses every class using this exam '
+              '(${editable.affectedAssignments.map((item) => item.classroomName).join(', ')}), '
+              'submits attempts in progress and re-grades submissions. '
+              'A shorter schedule may end active attempts sooner.',
+            ),
+            TextField(
+              controller: reasonController,
+              decoration: const InputDecoration(
+                labelText: 'Reason for correction',
+                helperText: 'Required when you changed questions',
+              ),
+              maxLines: 2,
+            ),
+          ],
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(context, false),
+            style: AppButtonStyles.secondary,
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: AppButtonStyles.primary,
+            child: const Text('Confirm and save'),
+          ),
+        ],
+      ),
+    );
+    final reason = reasonController.text.trim();
+    reasonController.dispose();
+    return confirmed == true ? reason : null;
   }
 
   void openGradebook(ClassroomAssignment assignment) =>
@@ -842,6 +709,16 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
                                       onViewAll: () => selectTab(1),
                                     ),
                                   ),
+                                  1 when editing != null => CreateAssignmentView(
+                                    key: ValueKey(('edit', editing!.assignment.id)),
+                                    currentClassroomId: widget.classroomId,
+                                    editing: editing!.editable,
+                                    assignment: editing!.assignment,
+                                    classrooms: editing!.classrooms,
+                                    audits: editing!.audits,
+                                    onBack: () => setState(() => editing = null),
+                                    onSubmit: saveAssignmentContent,
+                                  ),
                                   1 when creatingFor != null => CreateAssignmentView(
                                     classrooms: creatingFor!,
                                     currentClassroomId: widget.classroomId,
@@ -865,10 +742,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
                                     onGradebook: openGradebook,
                                     onClassGradebook: () =>
                                         context.go(classGradebookPath(widget.classroomId)),
-                                    onAssignToClasses: assignToMoreClasses,
-                                    onEditSchedule: editAssignmentSchedule,
                                     onEditContent: editAssignmentContent,
-                                    onViewAudits: viewAssignmentAudits,
                                     onSetActive: setAssignmentActive,
                                   ),
                                   2 => ClassroomCalendarView(
