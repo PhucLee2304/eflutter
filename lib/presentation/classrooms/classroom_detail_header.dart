@@ -169,27 +169,30 @@ class _ClassroomBannerState extends State<ClassroomBanner> {
                           ),
                   ),
                   const SizedBox(width: 20),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 560),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.name,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
+                  // Flexible để tên/dòng phụ co lại trên màn hẹp thay vì tràn ngang.
+                  Flexible(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 560),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          '${item.teacher?.name ?? 'Teacher unavailable'}  ·  $students students',
-                          style: const TextStyle(fontSize: 14, color: Color(0xFFDCE6EF)),
-                        ),
-                      ],
+                          const SizedBox(height: 6),
+                          Text(
+                            '${item.teacher?.name ?? 'Teacher unavailable'}  ·  $students students',
+                            style: const TextStyle(fontSize: 14, color: Color(0xFFDCE6EF)),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],

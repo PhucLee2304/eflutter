@@ -21,9 +21,7 @@ void main() {
     ),
   );
 
-  testWidgets('student can start an open assignment on a narrow screen', (
-    tester,
-  ) async {
+  testWidgets('student can start an open assignment on a narrow screen', (tester) async {
     var opened = false;
     await tester.binding.setSurfaceSize(const Size(390, 800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -73,9 +71,7 @@ void main() {
     expect(find.text('Gradebook'), findsOneWidget);
   });
 
-  testWidgets('shows a retry action when loading the next page fails', (
-    tester,
-  ) async {
+  testWidgets('shows a retry action when loading the next page fails', (tester) async {
     var retried = false;
     await tester.pumpWidget(
       MaterialApp(
@@ -104,68 +100,76 @@ void main() {
     expect(retried, isTrue);
   });
 
-  testWidgets(
-    'create assignment rejects a duration exceeding its open window',
-    (tester) async {
-      final classroom = Classroom(
-        id: 2,
-        code: 'CLASS002',
-        name: 'Class 2',
-        active: true,
-      );
+  group('create assignment view', () {
+    final classroom = Classroom(id: 2, code: 'CLASS002', name: 'Class 2', active: true);
 
+    Future<void> fillForm(WidgetTester tester) async {
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'e.g. Practice Test 5 – Reading'),
+        'Assignment',
+      );
+      await tester.enterText(find.widgetWithText(TextFormField, 'Type the question'), '2 + 2 = ?');
+      for (final option in ['A', 'B', 'C', 'D']) {
+        await tester.enterText(find.widgetWithText(TextFormField, 'Option $option'), option);
+      }
+    }
+
+    Future<void> pump(
+      WidgetTester tester,
+      Future<bool> Function(CreateAssignmentInput) onSubmit,
+    ) async {
+      tester.view.physicalSize = const Size(1280, 2000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
       await tester.pumpWidget(
         MaterialApp(
-          home: Builder(
-            builder: (context) => Scaffold(
-              body: FilledButton(
-                onPressed: () => showCreateAssignmentDialog(
-                  context,
+          home: Scaffold(
+            body: ListView(
+              children: [
+                CreateAssignmentView(
                   classrooms: [classroom],
                   currentClassroomId: classroom.id,
+                  onBack: () {},
+                  onSubmit: onSubmit,
                 ),
-                child: const Text('Open dialog'),
-              ),
+              ],
             ),
           ),
         ),
       );
+    }
 
-      await tester.tap(find.text('Open dialog'));
-      await tester.pumpAndSettle();
-      await tester.enterText(
-        find.widgetWithText(TextFormField, 'Title'),
-        'Assignment',
-      );
-      await tester.enterText(
-        find.widgetWithText(TextFormField, 'Question content'),
-        '2 + 2 = ?',
-      );
-      for (final option in ['A', 'B', 'C', 'D']) {
-        await tester.enterText(
-          find.widgetWithText(TextFormField, 'Option $option'),
-          option,
-        );
-      }
-      await tester.enterText(
-        find.widgetWithText(TextFormField, 'Time limit (minutes)'),
-        '1440',
-      );
-      await tester.ensureVisible(find.widgetWithText(FilledButton, 'Create'));
-      await tester.tap(find.widgetWithText(FilledButton, 'Create'));
+    testWidgets('submits the current classroom by default', (tester) async {
+      CreateAssignmentInput? submitted;
+      await pump(tester, (input) async {
+        submitted = input;
+        return true;
+      });
+      await fillForm(tester);
+      await tester.tap(find.widgetWithText(FilledButton, 'Create assignment'));
       await tester.pump();
 
-      expect(
-        find.text('Time limit must not exceed the assignment window'),
-        findsOneWidget,
-      );
-      expect(find.text('Create assignment'), findsOneWidget);
-    },
-  );
+      expect(submitted?.title, 'Assignment');
+      expect(submitted?.schedules.single.classroomId, classroom.id);
+      expect(submitted?.questions.single.options, ['A', 'B', 'C', 'D']);
+    });
 
-  testWidgets('missing submission does not enable an unopened assignment', (
-    tester,
-  ) async {
+    testWidgets('rejects submitting without a selected classroom', (tester) async {
+      var called = false;
+      await pump(tester, (_) async => called = true);
+      await fillForm(tester);
+      await tester.tap(find.byType(Checkbox));
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'Create assignment'));
+      await tester.pump();
+
+      expect(called, isFalse);
+      expect(find.text('Select at least one classroom'), findsOneWidget);
+    });
+  });
+
+  testWidgets('missing submission does not enable an unopened assignment', (tester) async {
     final unopened = ClassroomAssignment(
       id: 4,
       classroomId: 2,
@@ -194,15 +198,11 @@ void main() {
       ),
     );
 
-    final button = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'Not open yet'),
-    );
+    final button = tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Not open yet'));
     expect(button.onPressed, isNull);
   });
 
-  testWidgets('submitted result remains available while assignment is paused', (
-    tester,
-  ) async {
+  testWidgets('submitted result remains available while assignment is paused', (tester) async {
     var opened = false;
     final paused = ClassroomAssignment(
       id: 6,

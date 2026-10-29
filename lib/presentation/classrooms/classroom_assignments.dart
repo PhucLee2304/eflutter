@@ -104,6 +104,7 @@ class ClassroomAssignmentsView extends StatelessWidget {
     this.loadingMore = false,
     required this.isTeacher,
     required this.classroomActive,
+    this.studentCount,
     required this.onReload,
     this.onLoadMore,
     required this.onCreate,
@@ -125,6 +126,9 @@ class ClassroomAssignmentsView extends StatelessWidget {
   final bool loadingMore;
   final bool isTeacher;
   final bool classroomActive;
+
+  /// Sĩ số lớp (học sinh đã duyệt), mẫu số của thanh tiến độ nộp bài.
+  final int? studentCount;
   final String? error;
   final String? loadMoreError;
   final bool hasMore;
@@ -159,71 +163,194 @@ class ClassroomAssignmentsView extends StatelessWidget {
       );
     }
 
+    return _ClassworkList(view: this);
+  }
+}
+
+/// Trạng thái thời gian của một assignment, dùng để lọc và chia nhóm.
+enum _Phase { open, upcoming, closed }
+
+_Phase _phaseOf(ClassroomAssignment a, DateTime now) {
+  if (!a.active || now.isAfter(a.dueAt)) return _Phase.closed;
+  if (now.isBefore(a.opensAt)) return _Phase.upcoming;
+  return _Phase.open;
+}
+
+const _muted = Color(0xFF65676B);
+const _faint = Color(0xFF8A8D91);
+const _border = Color(0xFFE4E6EB);
+
+class _ClassworkList extends StatefulWidget {
+  const _ClassworkList({required this.view});
+  final ClassroomAssignmentsView view;
+
+  @override
+  State<_ClassworkList> createState() => _ClassworkListState();
+}
+
+class _ClassworkListState extends State<_ClassworkList> {
+  _Phase? filter;
+
+  Widget _pill(String label, _Phase? value) {
+    final selected = filter == value;
+    return InkWell(
+      borderRadius: BorderRadius.circular(7),
+      onTap: selected ? null : () => setState(() => filter = value),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? Colors.white : null,
+          borderRadius: BorderRadius.circular(7),
+          boxShadow: selected
+              ? const [BoxShadow(color: Color(0x14000000), blurRadius: 2, offset: Offset(0, 1))]
+              : null,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: selected ? ColorName.primary : _muted,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _tile(ClassroomAssignment assignment) {
+    final v = widget.view;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: _AssignmentTile(
+        assignment: assignment,
+        isTeacher: v.isTeacher,
+        classroomActive: v.classroomActive,
+        studentCount: v.studentCount,
+        onOpen: () => v.onOpen(assignment),
+        onGradebook: () => v.onGradebook(assignment),
+        onAssignToClasses: v.onAssignToClasses == null
+            ? null
+            : () => v.onAssignToClasses!(assignment),
+        onEditSchedule: v.onEditSchedule == null ? null : () => v.onEditSchedule!(assignment),
+        onEditContent: v.onEditContent == null ? null : () => v.onEditContent!(assignment),
+        onViewAudits: v.onViewAudits == null ? null : () => v.onViewAudits!(assignment),
+        onSetActive: (active) => v.onSetActive(assignment, active),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final v = widget.view;
+    final now = DateTime.now();
+    final groups = {for (final phase in _Phase.values) phase: <ClassroomAssignment>[]};
+    for (final a in v.assignments) {
+      groups[_phaseOf(a, now)]!.add(a);
+    }
+    const titles = {_Phase.open: 'Open now', _Phase.upcoming: 'Upcoming', _Phase.closed: 'Closed'};
+    final shown = [
+      for (final phase in _Phase.values)
+        if (filter == null || filter == phase) phase,
+    ];
+    final empty = shown.every((phase) => groups[phase]!.isEmpty);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (isTeacher) ...[
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              if (classroomActive)
-                FilledButton.icon(
-                  onPressed: onCreate,
-                  style: AppButtonStyles.primary,
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Create assignment'),
-                ),
-              if (onClassGradebook != null)
-                FilledButton.icon(
-                  onPressed: onClassGradebook,
-                  style: AppButtonStyles.secondary,
-                  icon: const Icon(Icons.table_chart_outlined, size: 18),
-                  label: const Text('Class gradebook'),
-                ),
-            ],
-          ),
-          const SizedBox(height: 16),
-        ],
-        if (assignments.isEmpty)
-          const Padding(
-            padding: EdgeInsets.all(32),
-            child: Center(child: Text('No assignments yet')),
-          )
-        else
-          ...assignments.map(
-            (assignment) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _AssignmentTile(
-                assignment: assignment,
-                isTeacher: isTeacher,
-                classroomActive: classroomActive,
-                onOpen: () => onOpen(assignment),
-                onGradebook: () => onGradebook(assignment),
-                onAssignToClasses: onAssignToClasses == null
-                    ? null
-                    : () => onAssignToClasses!(assignment),
-                onEditSchedule: onEditSchedule == null ? null : () => onEditSchedule!(assignment),
-                onEditContent: onEditContent == null ? null : () => onEditContent!(assignment),
-                onViewAudits: onViewAudits == null ? null : () => onViewAudits!(assignment),
-                onSetActive: (active) => onSetActive(assignment, active),
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEEF0F2),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _pill('All', null),
+                  _pill('Open', _Phase.open),
+                  _pill('Upcoming', _Phase.upcoming),
+                  _pill('Closed', _Phase.closed),
+                ],
+              ),
+            ),
+            if (v.isTeacher)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                spacing: 8,
+                children: [
+                  if (v.onClassGradebook != null)
+                    FilledButton.icon(
+                      onPressed: v.onClassGradebook,
+                      style: AppButtonStyles.secondary,
+                      icon: const Icon(Icons.grid_view_outlined, size: 18),
+                      label: const Text('Class gradebook'),
+                    ),
+                  if (v.classroomActive)
+                    FilledButton.icon(
+                      onPressed: v.onCreate,
+                      style: AppButtonStyles.primary,
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Create assignment'),
+                    ),
+                ],
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (empty)
+          Padding(
+            padding: const EdgeInsets.all(40),
+            child: Center(
+              child: Text(
+                v.assignments.isEmpty ? 'No assignments yet' : 'Nothing here',
+                style: const TextStyle(color: _muted),
               ),
             ),
           ),
-        if (loadingMore)
+        for (final phase in shown)
+          if (groups[phase]!.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(0, 16, 0, 12),
+              child: Row(
+                spacing: 8,
+                children: [
+                  Text(
+                    titles[phase]!,
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                  Text(
+                    '${groups[phase]!.length}',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: _faint,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            ...groups[phase]!.map(_tile),
+          ],
+        if (v.loadingMore)
           const Padding(padding: EdgeInsets.all(20), child: AppLoader())
-        else if (loadMoreError != null)
+        else if (v.loadMoreError != null)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: Center(
-              child: TextButton.icon(
-                onPressed: onLoadMore,
+              child: FilledButton.icon(
+                onPressed: v.onLoadMore,
+                style: AppButtonStyles.secondary,
                 icon: const Icon(Icons.refresh),
                 label: const Text('Retry loading more'),
               ),
             ),
           )
-        else if (hasMore)
+        else if (v.hasMore)
           const SizedBox(height: 24),
       ],
     );
@@ -235,6 +362,7 @@ class _AssignmentTile extends StatelessWidget {
     required this.assignment,
     required this.isTeacher,
     required this.classroomActive,
+    this.studentCount,
     required this.onOpen,
     required this.onGradebook,
     this.onAssignToClasses,
@@ -247,6 +375,9 @@ class _AssignmentTile extends StatelessWidget {
   final ClassroomAssignment assignment;
   final bool isTeacher;
   final bool classroomActive;
+
+  /// Sĩ số lớp (học sinh đã duyệt), mẫu số của thanh tiến độ nộp bài.
+  final int? studentCount;
   final VoidCallback onOpen;
   final VoidCallback onGradebook;
   final VoidCallback? onAssignToClasses;
@@ -255,9 +386,52 @@ class _AssignmentTile extends StatelessWidget {
   final VoidCallback? onViewAudits;
   final ValueChanged<bool> onSetActive;
 
+  static String _short(DateTime value) => DateFormat('MMM d, HH:mm').format(value.toLocal());
+
+  Widget _chip(String label, Color bg, Color fg) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+    decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
+    child: Text(
+      label,
+      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: fg),
+    ),
+  );
+
+  Widget _meta(IconData icon, String label) => Row(
+    mainAxisSize: MainAxisSize.min,
+    spacing: 6,
+    children: [
+      Icon(icon, size: 15, color: _faint),
+      Text(label, style: const TextStyle(fontSize: 12, color: _muted)),
+    ],
+  );
+
+  PopupMenuItem<VoidCallback> _menuItem(VoidCallback action, IconData icon, String label) =>
+      PopupMenuItem(
+        value: action,
+        height: 40,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        child: Row(
+          spacing: 12,
+          children: [
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: AppButtonStyles.tint,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Icon(icon, size: 16, color: ColorName.primary),
+            ),
+            Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+          ],
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
+    final phase = _phaseOf(assignment, now);
     final hasOpened = !now.isBefore(assignment.opensAt);
     final hasEnded = now.isAfter(assignment.dueAt);
     final submission = assignment.submission;
@@ -276,113 +450,236 @@ class _AssignmentTile extends StatelessWidget {
       _ when hasEnded => 'Closed',
       _ => 'Start',
     };
+    final dimmed = !assignment.active;
 
-    final details = Row(
+    // Học sinh: trạng thái bài làm của mình; giáo viên: trạng thái lịch của bài.
+    final status = switch ((isTeacher, submission?.status)) {
+      (false, 'SUBMITTED') when hasAttempt => _chip('Submitted', const Color(0xFFF0F2F5), _muted),
+      (false, 'LATE') when hasAttempt => _chip(
+        'Late',
+        const Color(0xFFFFF4E5),
+        const Color(0xFFB26A00),
+      ),
+      (false, 'IN_PROGRESS') => _chip('In progress', AppButtonStyles.tint, ColorName.primary),
+      _ when dimmed => _chip('Paused', const Color(0xFFF0F2F5), _muted),
+      _ => switch (phase) {
+        _Phase.open => _chip('Open', const Color(0xFFE7F6EC), const Color(0xFF1E8E3E)),
+        _Phase.upcoming => _chip('Scheduled', AppButtonStyles.tint, ColorName.primary),
+        _Phase.closed => _chip('Closed', const Color(0xFFF0F2F5), _muted),
+      },
+    };
+
+    final info = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: 6,
       children: [
-        const Padding(padding: EdgeInsets.only(top: 2), child: Icon(Icons.assignment_outlined)),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(assignment.title, style: Theme.of(context).textTheme.titleMedium),
-              if (assignment.description?.trim().isNotEmpty == true) ...[
-                const SizedBox(height: 6),
-                Text(assignment.description!),
-              ],
-              const SizedBox(height: 10),
-              Text(
-                'Opens ${_formatDateTime(assignment.opensAt)} | '
-                'Due ${_formatDateTime(assignment.dueAt)}',
-                style: Theme.of(context).textTheme.bodySmall,
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text(
+              assignment.title,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: dimmed ? _muted : const Color(0xFF191919),
               ),
-              const SizedBox(height: 4),
-              Text(
-                'Time limit: ${assignment.duration} minutes',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              if (assignment.proctored) ...[
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    const Icon(Icons.shield_outlined, size: 16, color: ColorName.primary),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Proctored · ${assignment.maxViolations} violations allowed',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                ),
-              ],
-              if (!isTeacher && submission?.score != null) ...[
-                const SizedBox(height: 4),
-                Text('Score: ${submission!.score!.toStringAsFixed(2)}/10'),
-              ],
-            ],
+            ),
+            status,
+          ],
+        ),
+        if (assignment.description?.trim().isNotEmpty == true)
+          Text(
+            assignment.description!.trim(),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 13, color: _muted),
           ),
+        Wrap(
+          spacing: 16,
+          runSpacing: 4,
+          children: [
+            _meta(
+              Icons.calendar_today_outlined,
+              isTeacher
+                  ? '${hasOpened ? 'Opened' : 'Opens'} ${_short(assignment.opensAt)} · '
+                        'Due ${_short(assignment.dueAt)}'
+                  : 'Due ${_short(assignment.dueAt)}',
+            ),
+            _meta(Icons.timer_outlined, '${assignment.duration} min'),
+            if (assignment.proctored)
+              _meta(Icons.shield_outlined, 'Proctored · ${assignment.maxViolations} violations'),
+          ],
         ),
       ],
     );
-    final action = isTeacher
-        ? Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Switch(value: assignment.active, onChanged: classroomActive ? onSetActive : null),
-              const SizedBox(width: 8),
-              IconButton(
-                onPressed: onEditContent,
-                tooltip: 'Edit assignment',
-                icon: const Icon(Icons.edit_outlined),
-              ),
-              IconButton(
-                onPressed: onViewAudits,
-                tooltip: 'View change history',
-                icon: const Icon(Icons.history_outlined),
-              ),
-              IconButton(
-                onPressed: onEditSchedule,
-                tooltip: 'Edit schedule',
-                icon: const Icon(Icons.schedule_outlined),
-              ),
-              IconButton(
-                onPressed: onAssignToClasses,
-                tooltip: 'Assign to more classes',
-                icon: const Icon(Icons.add_home_work_outlined),
-              ),
-              OutlinedButton.icon(
-                onPressed: onGradebook,
-                icon: const Icon(Icons.grading_outlined),
-                label: const Text('Gradebook'),
-              ),
-            ],
-          )
-        : FilledButton(onPressed: canOpen ? onOpen : null, child: Text(actionLabel));
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            if (constraints.maxWidth < 620) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+    final List<Widget> trailing;
+    if (isTeacher) {
+      final total = studentCount ?? assignment.submissions.length;
+      final submitted = assignment.submissions
+          .where((s) => s.status == 'SUBMITTED' || s.status == 'LATE')
+          .length;
+      trailing = [
+        if (total > 0)
+          SizedBox(
+            width: 120,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              spacing: 6,
+              children: [
+                Text(
+                  '$submitted / $total',
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(3),
+                  child: LinearProgressIndicator(
+                    value: (submitted / total).clamp(0, 1),
+                    minHeight: 6,
+                    color: ColorName.primary,
+                    backgroundColor: const Color(0xFFEEF0F2),
+                  ),
+                ),
+                const Text('submitted', style: TextStyle(fontSize: 11, color: _faint)),
+              ],
+            ),
+          ),
+        FilledButton.icon(
+          onPressed: onGradebook,
+          style: AppButtonStyles.secondary.copyWith(
+            padding: const WidgetStatePropertyAll(
+              EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            ),
+          ),
+          icon: const Icon(Icons.grid_view_outlined, size: 16),
+          label: const Text('Gradebook'),
+        ),
+        Tooltip(
+          message: assignment.active ? 'Active' : 'Paused',
+          child: Switch(
+            value: assignment.active,
+            activeThumbColor: Colors.white,
+            activeTrackColor: ColorName.primary,
+            onChanged: classroomActive ? onSetActive : null,
+          ),
+        ),
+        PopupMenuButton<VoidCallback>(
+          tooltip: 'More',
+          icon: const Icon(Icons.more_vert, size: 20, color: _muted),
+          style: IconButton.styleFrom(
+            fixedSize: const Size(36, 36),
+            minimumSize: const Size(36, 36),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          color: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          elevation: 6,
+          shadowColor: const Color(0x33000000),
+          position: PopupMenuPosition.under,
+          offset: const Offset(0, 4),
+          menuPadding: const EdgeInsets.symmetric(vertical: 6),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: const BorderSide(color: _border),
+          ),
+          onSelected: (action) => action(),
+          itemBuilder: (context) => [
+            if (onEditContent != null)
+              _menuItem(onEditContent!, Icons.edit_outlined, 'Edit assignment'),
+            if (onEditSchedule != null)
+              _menuItem(onEditSchedule!, Icons.schedule_outlined, 'Edit schedule'),
+            if (onAssignToClasses != null)
+              _menuItem(onAssignToClasses!, Icons.add_home_work_outlined, 'Assign to more classes'),
+            if (onViewAudits != null)
+              _menuItem(onViewAudits!, Icons.history_outlined, 'Change history'),
+          ],
+        ),
+      ];
+    } else {
+      final score = submission?.score;
+      trailing = [
+        if (score != null && hasResult)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            spacing: 2,
+            children: [
+              Text(
+                '${score.toStringAsFixed(2)} / 10',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+              ),
+              const Text('score', style: TextStyle(fontSize: 11, color: _faint)),
+            ],
+          ),
+        FilledButton(
+          onPressed: canOpen ? onOpen : null,
+          style: hasResult ? AppButtonStyles.secondary : AppButtonStyles.primary,
+          child: Text(actionLabel),
+        ),
+      ];
+    }
+
+    final icon = Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        color: dimmed ? const Color(0xFFF0F2F5) : AppButtonStyles.tint,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Icon(
+        Icons.assignment_turned_in_outlined,
+        size: 22,
+        color: dimmed ? _faint : ColorName.primary,
+      ),
+    );
+
+    return Material(
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: _border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: isTeacher ? onGradebook : (canOpen ? onOpen : null),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              if (constraints.maxWidth < 700) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  spacing: 12,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      spacing: 16,
+                      children: [
+                        icon,
+                        Expanded(child: info),
+                      ],
+                    ),
+                    Wrap(
+                      alignment: WrapAlignment.end,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 12,
+                      runSpacing: 8,
+                      children: trailing,
+                    ),
+                  ],
+                );
+              }
+              return Row(
+                spacing: 16,
                 children: [
-                  details,
-                  const SizedBox(height: 12),
-                  Align(alignment: Alignment.centerRight, child: action),
+                  icon,
+                  Expanded(child: info),
+                  ...trailing,
                 ],
               );
-            }
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: details),
-                const SizedBox(width: 12),
-                action,
-              ],
-            );
-          },
+            },
+          ),
         ),
       ),
     );
@@ -508,19 +805,6 @@ Future<AssignmentScheduleInput?> showAssignmentScheduleDialog(
           ],
         );
       },
-    ),
-  );
-}
-
-Future<CreateAssignmentInput?> showCreateAssignmentDialog(
-  BuildContext context, {
-  required List<Classroom> classrooms,
-  required int currentClassroomId,
-}) {
-  return Navigator.of(context).push<CreateAssignmentInput>(
-    MaterialPageRoute(
-      builder: (context) =>
-          _CreateAssignmentDialog(classrooms: classrooms, currentClassroomId: currentClassroomId),
     ),
   );
 }
@@ -661,48 +945,96 @@ class _EditAssignmentDialogState extends State<_EditAssignmentDialog> {
   );
 }
 
-class _CreateAssignmentDialog extends StatefulWidget {
-  const _CreateAssignmentDialog({required this.classrooms, required this.currentClassroomId});
+/// Form tạo bài tập vẽ ngay trong tab Classwork (không cuộn riêng, nằm trong ListView của trang lớp).
+class CreateAssignmentView extends StatefulWidget {
+  const CreateAssignmentView({
+    super.key,
+    required this.classrooms,
+    required this.currentClassroomId,
+    required this.onBack,
+    required this.onSubmit,
+  });
 
   final List<Classroom> classrooms;
   final int currentClassroomId;
+  final VoidCallback onBack;
+
+  /// Gửi bài lên server; trả về true khi tạo thành công.
+  final Future<bool> Function(CreateAssignmentInput input) onSubmit;
 
   @override
-  State<_CreateAssignmentDialog> createState() => _CreateAssignmentDialogState();
+  State<CreateAssignmentView> createState() => _CreateAssignmentViewState();
 }
 
-class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
+class _CreateAssignmentViewState extends State<CreateAssignmentView> {
+  static const _border = Color(0xFFE4E6EB);
+  static const _muted = Color(0xFF65676B);
+  static const _faint = Color(0xFF8A8D91);
+  static const _selectedBorder = Color(0xFF9CCBE8);
+  static const _selectedFill = Color(0xFFF3F9FD);
+
   final formKey = GlobalKey<FormState>();
+  final title = TextEditingController();
+  final description = TextEditingController();
   final selectedClassrooms = <int>{};
   final schedules = <int, _ScheduleDraft>{};
-  String title = '';
-  String description = '';
-  int duration = 60;
   final questions = <_QuestionDraft>[];
-  late DateTime opensAt;
-  late DateTime dueAt;
+  final collapsed = <_QuestionDraft>{};
+  int? expandedClassroom;
+  bool saving = false;
+
+  List<Classroom> get classrooms {
+    final list = [...widget.classrooms];
+    list.sort(
+      (a, b) =>
+          (b.id == widget.currentClassroomId ? 1 : 0) - (a.id == widget.currentClassroomId ? 1 : 0),
+    );
+    return list;
+  }
 
   @override
   void initState() {
     super.initState();
-    selectedClassrooms.add(widget.currentClassroomId);
-    opensAt = DateTime.now().add(const Duration(minutes: 10));
-    dueAt = DateTime.now().add(const Duration(days: 1));
-    schedules[widget.currentClassroomId] = _ScheduleDraft(
-      duration: duration,
-      opensAt: opensAt,
-      dueAt: dueAt,
+    final now = DateTime.now();
+    final opensAt = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      now.hour,
+      now.minute,
+    ).add(const Duration(minutes: 10));
+    for (final classroom in widget.classrooms) {
+      schedules[classroom.id] = _ScheduleDraft(
+        duration: 60,
+        opensAt: opensAt,
+        dueAt: opensAt.add(const Duration(days: 1)),
+      );
+    }
+    schedules.putIfAbsent(
+      widget.currentClassroomId,
+      () => _ScheduleDraft(
+        duration: 60,
+        opensAt: opensAt,
+        dueAt: opensAt.add(const Duration(days: 1)),
+      ),
     );
+    selectedClassrooms.add(widget.currentClassroomId);
+    expandedClassroom = widget.currentClassroomId;
     questions.add(_QuestionDraft());
   }
 
   @override
   void dispose() {
+    title.dispose();
+    description.dispose();
     for (final question in questions) {
       question.dispose();
     }
     super.dispose();
   }
+
+  void showMessage(String message) =>
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
 
   Future<DateTime?> pickDateTime(DateTime initial) async {
     final date = await showDatePicker(
@@ -720,227 +1052,749 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
     return DateTime(date.year, date.month, date.day, time.hour, time.minute);
   }
 
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Create assignment')),
-    body: SafeArea(
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 900),
-          child: Form(
-            key: formKey,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextFormField(
-                    decoration: const InputDecoration(labelText: 'Title'),
-                    onChanged: (value) => title = value,
-                    validator: _required,
-                  ),
-                  TextFormField(
-                    decoration: const InputDecoration(labelText: 'Description'),
-                    onChanged: (value) => description = value,
-                    maxLines: null,
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text('Questions', style: Theme.of(context).textTheme.titleMedium),
-                      ),
-                      TextButton.icon(
-                        onPressed: () => setState(() => questions.add(_QuestionDraft())),
-                        icon: const Icon(Icons.add),
-                        label: const Text('Add question'),
-                      ),
-                    ],
-                  ),
-                  ...List.generate(
-                    questions.length,
-                    (index) => _QuestionEditor(
-                      key: ObjectKey(questions[index]),
-                      index: index,
-                      draft: questions[index],
-                      showScoreExclusion: true,
-                      canRemove: questions.length > 1,
-                      onRemove: () => setState(() {
-                        final removed = questions.removeAt(index);
-                        removed.dispose();
-                      }),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text('Assign to', style: Theme.of(context).textTheme.titleSmall),
-                  ...widget.classrooms.map(
-                    (classroom) => CheckboxListTile(
-                      contentPadding: EdgeInsets.zero,
-                      value: selectedClassrooms.contains(classroom.id),
-                      title: Text(classroom.name),
-                      subtitle: Text(classroom.code),
-                      onChanged: (value) => setState(() {
-                        if (value == true) {
-                          selectedClassrooms.add(classroom.id);
-                          schedules[classroom.id] = _ScheduleDraft(
-                            duration: duration,
-                            opensAt: opensAt,
-                            dueAt: dueAt,
-                          );
-                        } else {
-                          selectedClassrooms.remove(classroom.id);
-                          schedules.remove(classroom.id);
-                        }
-                      }),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  ...widget.classrooms.where((item) => selectedClassrooms.contains(item.id)).map((
-                    classroom,
-                  ) {
-                    final schedule = schedules[classroom.id]!;
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Text(classroom.name, style: Theme.of(context).textTheme.titleSmall),
-                              TextFormField(
-                                initialValue: '${schedule.duration}',
-                                decoration: const InputDecoration(
-                                  labelText: 'Time limit (minutes)',
-                                ),
-                                keyboardType: TextInputType.number,
-                                onChanged: (value) => schedule.duration = int.tryParse(value) ?? 0,
-                                validator: (value) {
-                                  final minutes = int.tryParse(value?.trim() ?? '');
-                                  return minutes == null || minutes < 1 || minutes > 1440
-                                      ? 'Enter a value from 1 to 1440 minutes'
-                                      : null;
-                                },
-                              ),
-                              const SizedBox(height: 8),
-                              Wrap(
-                                spacing: 12,
-                                runSpacing: 8,
-                                children: [
-                                  OutlinedButton.icon(
-                                    onPressed: () async {
-                                      final value = await pickDateTime(schedule.opensAt);
-                                      if (value != null) {
-                                        setState(() => schedule.opensAt = value);
-                                      }
-                                    },
-                                    icon: const Icon(Icons.play_circle_outline),
-                                    label: Text('Opens ${_formatDateTime(schedule.opensAt)}'),
-                                  ),
-                                  OutlinedButton.icon(
-                                    onPressed: () async {
-                                      final value = await pickDateTime(schedule.dueAt);
-                                      if (value != null) {
-                                        setState(() => schedule.dueAt = value);
-                                      }
-                                    },
-                                    icon: const Icon(Icons.event_outlined),
-                                    label: Text('Due ${_formatDateTime(schedule.dueAt)}'),
-                                  ),
-                                ],
-                              ),
-                              ProctoringFields(
-                                proctored: schedule.proctored,
-                                maxViolations: schedule.maxViolations,
-                                onProctoredChanged: (value) =>
-                                    setState(() => schedule.proctored = value),
-                                onMaxViolationsChanged: (value) => schedule.maxViolations = value,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  }),
-                ],
+  Future<void> submit() async {
+    if (saving) return;
+    if (!formKey.currentState!.validate()) {
+      // Câu đang thu gọn có thể chứa ô lỗi; mở hết ra cho thấy.
+      setState(collapsed.clear);
+      showMessage('Please fill in the required fields');
+      return;
+    }
+    if (selectedClassrooms.isEmpty) {
+      showMessage('Select at least one classroom');
+      return;
+    }
+    final chosen = {for (final id in selectedClassrooms) id: schedules[id]!};
+    if (chosen.values.any((item) => !item.dueAt.isAfter(item.opensAt))) {
+      showMessage('Due time must be after open time');
+      return;
+    }
+    if (chosen.values.any(
+      (item) => Duration(minutes: item.duration) > item.dueAt.difference(item.opensAt),
+    )) {
+      showMessage('Time limit must not exceed the assignment window');
+      return;
+    }
+    setState(() => saving = true);
+    final ok = await widget.onSubmit(
+      CreateAssignmentInput(
+        schedules: chosen.entries
+            .map(
+              (entry) => AssignmentScheduleInput(
+                classroomId: entry.key,
+                duration: entry.value.duration,
+                opensAt: entry.value.opensAt,
+                dueAt: entry.value.dueAt,
+                proctored: entry.value.proctored,
+                maxViolations: entry.value.maxViolations,
               ),
+            )
+            .toList(),
+        title: title.text.trim(),
+        description: description.text.trim(),
+        questions: questions
+            .map(
+              (question) => CreateAssignmentQuestion(
+                content: question.content.text.trim(),
+                explanation: question.explanation.text.trim(),
+                options: question.options.map((option) => option.text.trim()).toList(),
+                correctOptionIndex: question.correctOptionIndex,
+                excludedFromScore: question.excludedFromScore,
+              ),
+            )
+            .toList(),
+      ),
+    );
+    if (mounted && !ok) setState(() => saving = false);
+  }
+
+  static InputDecoration _decoration(String hint, {String? suffix}) {
+    OutlineInputBorder border(Color color, double width) => OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8),
+      borderSide: BorderSide(color: color, width: width),
+    );
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: const TextStyle(color: _faint, fontSize: 14),
+      suffixText: suffix,
+      filled: true,
+      fillColor: const Color(0xFFF0F2F5),
+      isDense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      border: border(Colors.transparent, 1),
+      enabledBorder: border(Colors.transparent, 1),
+      focusedBorder: border(ColorName.primary, 1.5),
+      errorBorder: border(const Color(0xFFE53935), 1),
+      focusedErrorBorder: border(const Color(0xFFE53935), 1.5),
+    );
+  }
+
+  static Widget _label(String text, {bool required = false}) => Padding(
+    padding: const EdgeInsets.only(bottom: 6),
+    child: Text.rich(
+      TextSpan(
+        text: text,
+        children: [
+          if (required)
+            const TextSpan(
+              text: ' *',
+              style: TextStyle(color: Color(0xFFE53935)),
             ),
+        ],
+      ),
+      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF3A3B3C)),
+    ),
+  );
+
+  static Widget _card({required List<Widget> children, double spacing = 16}) => Container(
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: _border),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: spacing,
+      children: children,
+    ),
+  );
+
+  static Widget _cardHead(String title, String subtitle) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    spacing: 2,
+    children: [
+      Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+      Text(subtitle, style: const TextStyle(fontSize: 13, color: _muted)),
+    ],
+  );
+
+  Widget _details() => _card(
+    children: [
+      _cardHead('Details', 'Students see the title and description before they start.'),
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _label('Title', required: true),
+          TextFormField(
+            controller: title,
+            enabled: !saving,
+            decoration: _decoration('e.g. Practice Test 5 – Reading'),
+            validator: _required,
+          ),
+        ],
+      ),
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _label('Description'),
+          TextFormField(
+            controller: description,
+            enabled: !saving,
+            minLines: 3,
+            maxLines: 6,
+            decoration: _decoration('What should students know before starting?'),
+          ),
+        ],
+      ),
+    ],
+  );
+
+  Widget _questionsHeader() => Row(
+    spacing: 8,
+    children: [
+      const Text('Questions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: AppButtonStyles.tint,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(
+          '${questions.length}',
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: ColorName.primary,
           ),
         ),
       ),
-    ),
-    bottomNavigationBar: SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-            const SizedBox(width: 12),
-            FilledButton(
-              onPressed: () {
-                if (!formKey.currentState!.validate()) return;
-                if (selectedClassrooms.isEmpty) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(const SnackBar(content: Text('Select at least one classroom')));
-                  return;
-                }
-                if (schedules.values.any((item) => !item.dueAt.isAfter(item.opensAt))) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(const SnackBar(content: Text('Due time must be after open time')));
-                  return;
-                }
-                if (schedules.values.any(
-                  (item) => Duration(minutes: item.duration) > item.dueAt.difference(item.opensAt),
-                )) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Time limit must not exceed the assignment window'),
+      const Spacer(),
+      const Flexible(
+        child: Text(
+          'Select the circle next to the correct answer',
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(fontSize: 13, color: _muted),
+        ),
+      ),
+    ],
+  );
+
+  Widget _question(int index) {
+    final draft = questions[index];
+    final isCollapsed = collapsed.contains(draft);
+    const iconStyle = ButtonStyle(
+      visualDensity: VisualDensity.compact,
+      foregroundColor: WidgetStatePropertyAll(_faint),
+    );
+    final head = Row(
+      spacing: 8,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+          decoration: BoxDecoration(
+            color: ColorName.primary,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            'Q${index + 1}',
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white),
+          ),
+        ),
+        Expanded(
+          child: isCollapsed
+              ? Text(
+                  draft.content.text.trim().isEmpty ? 'Untitled question' : draft.content.text,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                )
+              : const SizedBox.shrink(),
+        ),
+        if (!isCollapsed) ...[
+          SizedBox(
+            height: 20,
+            child: FittedBox(
+              child: Switch(
+                value: draft.excludedFromScore,
+                onChanged: saving
+                    ? null
+                    : (value) => setState(() => draft.excludedFromScore = value),
+              ),
+            ),
+          ),
+          const Text('Exclude from scoring', style: TextStyle(fontSize: 13, color: _muted)),
+          Container(width: 1, height: 18, color: _border, margin: const EdgeInsets.only(left: 4)),
+        ],
+        IconButton(
+          tooltip: 'Duplicate question',
+          style: iconStyle,
+          onPressed: saving
+              ? null
+              : () => setState(
+                  () => questions.insert(
+                    index + 1,
+                    _QuestionDraft(
+                      content: draft.content.text,
+                      explanation: draft.explanation.text,
+                      optionValues: draft.options.map((o) => o.text).toList(),
+                      correctOptionIndex: draft.correctOptionIndex,
+                      excludedFromScore: draft.excludedFromScore,
                     ),
-                  );
-                  return;
-                }
-                Navigator.pop(
-                  context,
-                  CreateAssignmentInput(
-                    schedules: schedules.entries
-                        .map(
-                          (entry) => AssignmentScheduleInput(
-                            classroomId: entry.key,
-                            duration: entry.value.duration,
-                            opensAt: entry.value.opensAt,
-                            dueAt: entry.value.dueAt,
-                            proctored: entry.value.proctored,
-                            maxViolations: entry.value.maxViolations,
-                          ),
-                        )
-                        .toList(),
-                    title: title,
-                    description: description,
-                    questions: questions
-                        .map(
-                          (question) => CreateAssignmentQuestion(
-                            content: question.content.text.trim(),
-                            explanation: question.explanation.text.trim(),
-                            options: question.options.map((option) => option.text.trim()).toList(),
-                            correctOptionIndex: question.correctOptionIndex,
-                            excludedFromScore: question.excludedFromScore,
-                          ),
-                        )
-                        .toList(),
                   ),
-                );
-              },
-              child: const Text('Create'),
+                ),
+          icon: const Icon(Icons.copy_outlined, size: 18),
+        ),
+        IconButton(
+          tooltip: 'Remove question',
+          style: iconStyle,
+          onPressed: questions.length > 1 && !saving
+              ? () => setState(() {
+                  questions.removeAt(index);
+                  collapsed.remove(draft);
+                  draft.dispose();
+                })
+              : null,
+          icon: const Icon(Icons.delete_outline, size: 18),
+        ),
+        IconButton(
+          tooltip: isCollapsed ? 'Expand' : 'Collapse',
+          style: iconStyle,
+          onPressed: () => setState(() {
+            if (!collapsed.remove(draft)) collapsed.add(draft);
+          }),
+          icon: Icon(isCollapsed ? Icons.expand_more : Icons.expand_less, size: 20),
+        ),
+      ],
+    );
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Container(
+        padding: EdgeInsets.fromLTRB(20, isCollapsed ? 10 : 14, 12, isCollapsed ? 10 : 20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            head,
+            // Ẩn bằng Offstage để ô lỗi vẫn được validate khi thu gọn.
+            Offstage(
+              offstage: isCollapsed,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 10, right: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  spacing: 14,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _label('Question', required: true),
+                        TextFormField(
+                          controller: draft.content,
+                          enabled: !saving,
+                          minLines: 2,
+                          maxLines: null,
+                          decoration: _decoration('Type the question'),
+                          validator: _required,
+                        ),
+                      ],
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      spacing: 8,
+                      children: [
+                        _label('Options', required: true),
+                        for (var i = 0; i < draft.options.length; i++) _option(draft, i),
+                      ],
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _label('Explanation (optional)'),
+                        TextFormField(
+                          controller: draft.explanation,
+                          enabled: !saving,
+                          maxLines: null,
+                          decoration: _decoration('Why is this the right answer?'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _option(_QuestionDraft draft, int index) {
+    const green = Color(0xFF34A853);
+    final correct = draft.correctOptionIndex == index;
+    final key = String.fromCharCode(65 + index);
+    return Container(
+      padding: const EdgeInsets.only(left: 4, right: 12),
+      decoration: BoxDecoration(
+        color: correct ? const Color(0xFFEAF7EE) : Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: correct ? green : _border),
+      ),
+      child: Row(
+        spacing: 8,
+        children: [
+          IconButton(
+            tooltip: 'Mark option $key as correct',
+            visualDensity: VisualDensity.compact,
+            onPressed: saving ? null : () => setState(() => draft.correctOptionIndex = index),
+            icon: Icon(
+              correct ? Icons.check_circle : Icons.radio_button_unchecked,
+              size: 20,
+              color: correct ? green : const Color(0xFFC9CCD1),
+            ),
+          ),
+          Container(
+            width: 26,
+            height: 26,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: correct ? green : const Color(0xFFF0F2F5),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              key,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: correct ? Colors.white : _muted,
+              ),
+            ),
+          ),
+          Expanded(
+            child: TextFormField(
+              controller: draft.options[index],
+              enabled: !saving,
+              style: const TextStyle(fontSize: 14),
+              decoration: InputDecoration(
+                hintText: 'Option $key',
+                hintStyle: const TextStyle(color: _faint),
+                // Theme app có viền/nền mặc định cho ô nhập; ô đáp án nằm trong khung nên bỏ hết.
+                filled: false,
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                disabledBorder: InputBorder.none,
+                errorBorder: InputBorder.none,
+                focusedErrorBorder: InputBorder.none,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              validator: _required,
+            ),
+          ),
+          if (correct)
+            const Text(
+              'Correct',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF1E8E3E)),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _addQuestion() => InkWell(
+    onTap: saving ? null : () => setState(() => questions.add(_QuestionDraft())),
+    borderRadius: BorderRadius.circular(12),
+    child: CustomPaint(
+      painter: _DashedBorderPainter(),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(color: _selectedFill, borderRadius: BorderRadius.circular(12)),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          spacing: 8,
+          children: [
+            Icon(Icons.add, size: 18, color: ColorName.primary),
+            Text(
+              'Add question',
+              style: TextStyle(fontWeight: FontWeight.w600, color: ColorName.primary),
             ),
           ],
         ),
       ),
     ),
   );
+
+  Widget _assignTo() => _card(
+    spacing: 10,
+    children: [
+      _cardHead('Assign to', 'Tick a class to assign it. Click a class to set its schedule.'),
+      for (final classroom in classrooms) _classRow(classroom),
+    ],
+  );
+
+  Widget _classRow(Classroom classroom) {
+    final selected = selectedClassrooms.contains(classroom.id);
+    final expanded = expandedClassroom == classroom.id;
+    final schedule = schedules[classroom.id]!;
+    final summary = [
+      classroom.code,
+      if (classroom.id == widget.currentClassroomId) 'This class',
+      if (selected && !expanded)
+        '${DateFormat('MMM d').format(schedule.opensAt)} – '
+            '${DateFormat('MMM d').format(schedule.dueAt)} · ${schedule.duration} min',
+    ].join(' · ');
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: selected ? _selectedFill : Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: selected ? _selectedBorder : _border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          InkWell(
+            onTap: () => setState(() => expandedClassroom = expanded ? null : classroom.id),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(2, 6, 10, 6),
+              child: Row(
+                children: [
+                  Checkbox(
+                    value: selected,
+                    onChanged: saving
+                        ? null
+                        : (value) => setState(() {
+                            if (value == true) {
+                              selectedClassrooms.add(classroom.id);
+                            } else {
+                              selectedClassrooms.remove(classroom.id);
+                            }
+                          }),
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      spacing: 2,
+                      children: [
+                        Text(
+                          classroom.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                        ),
+                        Text(
+                          summary,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 12, color: _muted),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(expanded ? Icons.expand_less : Icons.expand_more, size: 20, color: _faint),
+                ],
+              ),
+            ),
+          ),
+          if (expanded)
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(top: BorderSide(color: _border)),
+              ),
+              child: _schedule(schedule),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _dateField(String label, DateTime value, ValueChanged<DateTime> onChanged) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      _label(label),
+      InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: saving
+            ? null
+            : () async {
+                final picked = await pickDateTime(value);
+                if (picked != null) setState(() => onChanged(picked));
+              },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF0F2F5),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            DateFormat('MMM d, HH:mm').format(value),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 14),
+          ),
+        ),
+      ),
+    ],
+  );
+
+  Widget _schedule(_ScheduleDraft schedule) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    spacing: 12,
+    children: [
+      Row(
+        spacing: 10,
+        children: [
+          Expanded(child: _dateField('Opens', schedule.opensAt, (v) => schedule.opensAt = v)),
+          Expanded(child: _dateField('Due', schedule.dueAt, (v) => schedule.dueAt = v)),
+        ],
+      ),
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _label('Time limit'),
+          TextFormField(
+            key: ObjectKey(schedule),
+            initialValue: '${schedule.duration}',
+            enabled: !saving,
+            keyboardType: TextInputType.number,
+            decoration: _decoration('60', suffix: 'minutes'),
+            onChanged: (value) => setState(() => schedule.duration = int.tryParse(value) ?? 0),
+            validator: (value) {
+              final minutes = int.tryParse(value?.trim() ?? '');
+              return minutes == null || minutes < 1 || minutes > 1440
+                  ? 'Enter 1 to 1440 minutes'
+                  : null;
+            },
+          ),
+        ],
+      ),
+      Container(
+        padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF7F8FA),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: 8,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    spacing: 2,
+                    children: [
+                      const Text(
+                        'Proctored',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                      ),
+                      Text(
+                        schedule.proctored
+                            ? 'Suspend after ${schedule.maxViolations} violations'
+                            : 'Off',
+                        style: const TextStyle(fontSize: 12, color: _muted),
+                      ),
+                    ],
+                  ),
+                ),
+                Switch(
+                  value: schedule.proctored,
+                  onChanged: saving ? null : (v) => setState(() => schedule.proctored = v),
+                ),
+              ],
+            ),
+            if (schedule.proctored)
+              TextFormField(
+                key: ValueKey(('violations', schedule)),
+                initialValue: '${schedule.maxViolations}',
+                enabled: !saving,
+                keyboardType: TextInputType.number,
+                decoration: _decoration('2', suffix: 'violations allowed'),
+                validator: ProctoringFields.validateMaxViolations,
+                onChanged: (value) {
+                  final parsed = int.tryParse(value.trim());
+                  if (parsed != null && parsed >= 1) {
+                    setState(() => schedule.maxViolations = parsed);
+                  }
+                },
+              ),
+          ],
+        ),
+      ),
+    ],
+  );
+
+  Widget _note() => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    decoration: BoxDecoration(
+      color: const Color(0xFFFFF8E1),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: const Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: 8,
+      children: [
+        Icon(Icons.info_outline, size: 16, color: Color(0xFF8A6D00)),
+        Expanded(
+          child: Text(
+            'Time limit must fit inside the open–due window. '
+            'Students are notified when the assignment opens.',
+            style: TextStyle(fontSize: 12, color: Color(0xFF8A6D00)),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final main = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _details(),
+        const SizedBox(height: 20),
+        _questionsHeader(),
+        const SizedBox(height: 12),
+        for (var i = 0; i < questions.length; i++)
+          KeyedSubtree(key: ObjectKey(questions[i]), child: _question(i)),
+        _addQuestion(),
+      ],
+    );
+    final aside = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: 16,
+      children: [_assignTo(), _note()],
+    );
+    return Form(
+      key: formKey,
+      child: Padding(
+        padding: const EdgeInsets.only(top: 12, bottom: 32),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: 16,
+          children: [
+            Row(
+              children: [
+                TextButton.icon(
+                  onPressed: saving ? null : widget.onBack,
+                  style: TextButton.styleFrom(foregroundColor: ColorName.primary),
+                  icon: const Icon(Icons.arrow_back, size: 18),
+                  label: const Text('Back'),
+                ),
+                const Spacer(),
+                FilledButton.icon(
+                  onPressed: saving ? null : submit,
+                  style: AppButtonStyles.primary,
+                  icon: saving
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Icon(Icons.add, size: 18),
+                  label: const Text('Create assignment'),
+                ),
+              ],
+            ),
+            LayoutBuilder(
+              builder: (context, constraints) => constraints.maxWidth < 860
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      spacing: 20,
+                      children: [aside, main],
+                    )
+                  : Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      spacing: 24,
+                      children: [
+                        Expanded(child: main),
+                        SizedBox(width: 340, child: aside),
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DashedBorderPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFF9CCBE8)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    final path = Path()
+      ..addRRect(RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(12)));
+    for (final metric in path.computeMetrics()) {
+      for (var d = 0.0; d < metric.length; d += 10) {
+        canvas.drawPath(metric.extractPath(d, d + 6), paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _ScheduleDraft {

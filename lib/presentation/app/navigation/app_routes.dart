@@ -19,6 +19,9 @@ enum AppRoutes {
   classroomGradebook(path: 'assignments/:assignmentId/gradebook'),
   classGradebook(path: 'gradebook'),
   classroomPost(path: 'posts/:postId'),
+  classroomClasswork(path: 'classwork'),
+  classroomCalendar(path: 'calendar'),
+  classroomPeople(path: 'people'),
   studentProgress(path: 'students/:userId/progress'),
   classroomRoom(path: 'rooms/:roomId'),
   roomAttendance(path: 'rooms/:roomId/attendance'),
@@ -66,6 +69,15 @@ String roomAttendancePath(int classroomId, int roomId) =>
 
 String postDetailPath(int postId) => '/posts/$postId';
 
+/// URL của từng tab trang lớp (0 Announcements, 1 Classwork, 2 Calendar, 3 People) để reload
+/// vẫn ở đúng tab.
+String classroomTabPath(int classroomId, int tab) => switch (tab) {
+  1 => '${classroomPath(classroomId)}/${AppRoutes.classroomClasswork.path}',
+  2 => '${classroomPath(classroomId)}/${AppRoutes.classroomCalendar.path}',
+  3 => '${classroomPath(classroomId)}/${AppRoutes.classroomPeople.path}',
+  _ => classroomPath(classroomId),
+};
+
 /// Bài viết của lớp mở ngay trong tab Announcements của lớp đó.
 String classroomPostPath(int classroomId, int postId) =>
     '${classroomPath(classroomId)}/posts/$postId';
@@ -80,7 +92,7 @@ String? notificationPath(Map<String, String> data) {
     case 'CLASSROOM':
       return id == null ? null : classroomPath(id);
     case 'ASSIGNMENT':
-      return classroomId == null ? null : classroomPath(classroomId);
+      return classroomId == null ? null : classroomTabPath(classroomId, 1);
     case 'ATTEMPT':
       return id == null ? null : attemptHistoryDetailPath(id);
     case 'ROOM':

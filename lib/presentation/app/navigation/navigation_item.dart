@@ -142,6 +142,20 @@ class NavigationItem {
               : ClassroomDetailScreen(classroomId: id);
         },
         routes: [
+          for (final (tab, route) in [
+            (1, AppRoutes.classroomClasswork),
+            (2, AppRoutes.classroomCalendar),
+            (3, AppRoutes.classroomPeople),
+          ])
+            GoRoute(
+              path: route.path,
+              builder: (context, state) {
+                final classroomId = int.tryParse(state.pathParameters['id'] ?? '');
+                return classroomId == null
+                    ? const Scaffold(body: Center(child: Text('Invalid classroom ID')))
+                    : ClassroomDetailScreen(classroomId: classroomId, initialTab: tab);
+              },
+            ),
           GoRoute(
             path: AppRoutes.classroomPost.path,
             builder: (context, state) {

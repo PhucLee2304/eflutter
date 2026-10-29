@@ -18,16 +18,26 @@ import 'package:eflutter/presentation/posts/post_list.dart';
 import 'package:eflutter/core/attempt_lock/integrity_consent.dart';
 import 'package:eflutter/presentation/classrooms/integrity_consent_dialog.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 class ClassroomDetailScreen extends StatefulWidget {
-  const ClassroomDetailScreen({super.key, required this.classroomId, this.postId, this.commentId});
+  const ClassroomDetailScreen({
+    super.key,
+    required this.classroomId,
+    this.postId,
+    this.commentId,
+    this.initialTab = 0,
+  });
   final int classroomId;
 
   /// Mở chi tiết một bài viết của lớp ngay trong tab Announcements (`/classrooms/:id/posts/:postId`).
   final int? postId;
   final int? commentId;
+
+  /// Tab mở sẵn theo URL (`/classwork`, `/calendar`, `/people`).
+  final int initialTab;
   @override
   State<ClassroomDetailScreen> createState() => _ClassroomDetailScreenState();
 }
@@ -46,8 +56,29 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
   int assignmentPageCounts = 1;
   bool loading = true;
   bool busy = false;
+
+  /// Khác null khi đang mở form tạo bài trong tab Classwork (danh sách lớp có thể giao).
+  List<Classroom>? creatingFor;
   String? error;
-  int tab = 0;
+  late int tab = widget.initialTab;
+
+  // Bài mở sẵn từ URL; bỏ đi khi đổi tab để quay lại Announcements là danh sách.
+  late int? initialPostId = widget.postId;
+
+  // Đổi tab tại chỗ và cập nhật URL (không đổi trang) để reload vẫn ở tab này.
+  void selectTab(int value) {
+    if (value == tab) return;
+    setState(() {
+      tab = value;
+      initialPostId = null;
+      creatingFor = null;
+    });
+    SystemNavigator.routeInformationUpdated(
+      uri: Uri.parse(classroomTabPath(widget.classroomId, value)),
+      replace: true,
+    );
+  }
+
   StreamSubscription<AppState>? userSubscription;
 
   bool get isTeacher =>
@@ -180,28 +211,29 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
       page++;
     } while (page <= pageCounts);
 
-    final input = await showCreateAssignmentDialog(
-      context,
-      classrooms: teacherClassrooms,
-      currentClassroomId: widget.classroomId,
-    );
-    if (input == null || !mounted) return;
-    setState(() => busy = true);
+    if (!mounted) return;
+    setState(() => creatingFor = teacherClassrooms);
+  }
+
+  // Gửi form tạo bài; thành công thì đóng form và tải lại danh sách Classwork.
+  Future<bool> submitAssignment(CreateAssignmentInput input) async {
     final result = await repository.createAssignments(
       schedules: input.schedules,
       title: input.title,
       description: input.description,
       questions: input.questions,
     );
-    if (!mounted) return;
-    setState(() => busy = false);
+    if (!mounted) return false;
     switch (result) {
       case Success():
+        setState(() => creatingFor = null);
         await loadAssignments();
+        return true;
       case Failure(message: final message):
         showMessage(message ?? 'Could not create the assignment');
+        return false;
       case Cancelled():
-        break;
+        return false;
     }
   }
 
@@ -783,10 +815,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
                                       onEdit: edit,
                                       onArchive: archive,
                                     ),
-                                    ClassroomTabs(
-                                      selected: tab,
-                                      onSelected: (value) => setState(() => tab = value),
-                                    ),
+                                    ClassroomTabs(selected: tab, onSelected: selectTab),
                                   ],
                                 ),
                               ),
@@ -803,14 +832,20 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
                                     isTeacher: isTeacher,
                                     active: item.active,
                                     classroomName: item.name,
-                                    postId: widget.postId,
+                                    postId: initialPostId,
                                     commentId: widget.commentId,
                                     aside: ClassroomStreamAside(
                                       classroom: item,
                                       assignments: assignments,
                                       onOpenAssignment: openAssignment,
-                                      onViewAll: () => setState(() => tab = 1),
+                                      onViewAll: () => selectTab(1),
                                     ),
+                                  ),
+                                  1 when creatingFor != null => CreateAssignmentView(
+                                    classrooms: creatingFor!,
+                                    currentClassroomId: widget.classroomId,
+                                    onBack: () => setState(() => creatingFor = null),
+                                    onSubmit: submitAssignment,
                                   ),
                                   1 => ClassroomAssignmentsView(
                                     assignments: assignments,
@@ -821,6 +856,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
                                     hasMore: assignmentsPage < assignmentPageCounts,
                                     isTeacher: isTeacher,
                                     classroomActive: item.active,
+                                    studentCount: item.countApprovedMembers ?? item.members.length,
                                     onReload: loadAssignments,
                                     onLoadMore: loadMoreAssignments,
                                     onCreate: createAssignment,
