@@ -62,13 +62,10 @@ String createAssignmentPath(int classroomId) => '${classworkPath(classroomId)}/n
 String editAssignmentPath(int classroomId, int assignmentId) =>
     '${classworkPath(classroomId)}/$assignmentId/edit';
 
-/// [fromClassGradebook]: mở từ bảng điểm lớp thì Back quay lại bảng điểm lớp.
-String classroomGradebookPath(
-  int classroomId,
-  int assignmentId, {
-  bool fromClassGradebook = false,
-}) =>
-    '${classworkPath(classroomId)}/$assignmentId/gradebook${fromClassGradebook ? '?from=class' : ''}';
+/// [backTo]: đường dẫn màn đã mở gradebook (bảng điểm lớp, tiến độ học sinh) để Back quay lại.
+String classroomGradebookPath(int classroomId, int assignmentId, {String? backTo}) =>
+    '${classworkPath(classroomId)}/$assignmentId/gradebook'
+    '${backTo == null ? '' : '?from=${Uri.encodeComponent(backTo)}'}';
 
 String classGradebookPath(int classroomId) => '${classworkPath(classroomId)}/gradebook';
 

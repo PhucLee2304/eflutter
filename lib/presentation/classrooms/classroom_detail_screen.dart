@@ -758,11 +758,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
                                       key: ValueKey(('gradebook', widget.classwork.assignmentId)),
                                       classroomId: widget.classroomId,
                                       assignmentId: widget.classwork.assignmentId!,
-                                      onBack: () => goClasswork(
-                                        widget.classwork.fromClassGradebook
-                                            ? classGradebookPath(widget.classroomId)
-                                            : null,
-                                      ),
+                                      onBack: () => goClasswork(widget.classwork.backTo),
                                     ),
                                   1 when widget.classwork.view == ClassworkView.classGradebook =>
                                     ClassGradebookScreen(
@@ -773,7 +769,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
                                         classroomGradebookPath(
                                           widget.classroomId,
                                           id,
-                                          fromClassGradebook: true,
+                                          backTo: classGradebookPath(widget.classroomId),
                                         ),
                                       ),
                                     ),
@@ -784,6 +780,16 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
                                       studentId: widget.classwork.studentId!,
                                       onBack: () =>
                                           goClasswork(classGradebookPath(widget.classroomId)),
+                                      onOpenAssignment: (id) => goClasswork(
+                                        classroomGradebookPath(
+                                          widget.classroomId,
+                                          id,
+                                          backTo: studentProgressPath(
+                                            widget.classroomId,
+                                            widget.classwork.studentId!,
+                                          ),
+                                        ),
+                                      ),
                                     ),
                                   1 when widget.classwork.view == ClassworkView.edit =>
                                     editing == null

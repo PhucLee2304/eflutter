@@ -2,20 +2,15 @@
 enum ClassworkView { list, create, edit, gradebook, classGradebook, student }
 
 class ClassworkPage {
-  const ClassworkPage(
-    this.view, {
-    this.assignmentId,
-    this.studentId,
-    this.fromClassGradebook = false,
-  });
+  const ClassworkPage(this.view, {this.assignmentId, this.studentId, this.backTo});
   const ClassworkPage.list() : this(ClassworkView.list);
 
   final ClassworkView view;
   final int? assignmentId;
   final String? studentId;
 
-  /// Gradebook bài mở từ bảng điểm lớp: Back quay lại bảng điểm lớp.
-  final bool fromClassGradebook;
+  /// Màn đã mở gradebook bài (bảng điểm lớp, tiến độ học sinh): Back quay lại đó.
+  final String? backTo;
 
   @override
   bool operator ==(Object other) =>
@@ -23,8 +18,8 @@ class ClassworkPage {
       other.view == view &&
       other.assignmentId == assignmentId &&
       other.studentId == studentId &&
-      other.fromClassGradebook == fromClassGradebook;
+      other.backTo == backTo;
 
   @override
-  int get hashCode => Object.hash(view, assignmentId, studentId, fromClassGradebook);
+  int get hashCode => Object.hash(view, assignmentId, studentId, backTo);
 }

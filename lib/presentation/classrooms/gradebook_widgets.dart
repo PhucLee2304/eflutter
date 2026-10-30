@@ -115,10 +115,13 @@ class GbStats extends StatelessWidget {
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
       if (constraints.maxWidth >= 640) {
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          spacing: 12,
-          children: [for (final child in children) Expanded(child: child)],
+        // Các ô cao bằng ô cao nhất.
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            spacing: 12,
+            children: [for (final child in children) Expanded(child: child)],
+          ),
         );
       }
       final width = (constraints.maxWidth - 12) / 2;
@@ -175,9 +178,15 @@ class GbHeader extends StatelessWidget {
 }
 
 class GbSearchField extends StatelessWidget {
-  const GbSearchField({super.key, required this.onChanged, this.width = 220});
+  const GbSearchField({
+    super.key,
+    required this.onChanged,
+    this.width = 220,
+    this.hint = 'Search students',
+  });
   final ValueChanged<String> onChanged;
   final double width;
+  final String hint;
 
   @override
   Widget build(BuildContext context) => SizedBox(
@@ -187,7 +196,7 @@ class GbSearchField extends StatelessWidget {
       onChanged: onChanged,
       style: const TextStyle(fontSize: 13),
       decoration: InputDecoration(
-        hintText: 'Search students',
+        hintText: hint,
         hintStyle: const TextStyle(fontSize: 13, color: Gb.faint),
         prefixIcon: const Icon(Icons.search, size: 18, color: Gb.faint),
         prefixIconConstraints: const BoxConstraints(minWidth: 36),

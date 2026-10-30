@@ -352,7 +352,11 @@ Page<void> _classroomPage(GoRouterState state) {
       ? ClassworkPage(
           ClassworkView.gradebook,
           assignmentId: assignmentId,
-          fromClassGradebook: state.uri.queryParameters['from'] == 'class',
+          // Chỉ nhận đường dẫn trong chính lớp này.
+          backTo: switch (state.uri.queryParameters['from']) {
+            final from? when from.startsWith('/classrooms/$classroomId/') => from,
+            _ => null,
+          },
         )
       : const ClassworkPage.list();
   return NoTransitionPage(
