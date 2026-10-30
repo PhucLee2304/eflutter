@@ -348,6 +348,17 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
   }
 
   Future<void> openAssignmentById(int assignmentId) async {
+    // Giáo viên mở bảng điểm của bài, học sinh mới bắt đầu/xem bài làm.
+    if (isTeacher) {
+      context.go(
+        classroomGradebookPath(
+          widget.classroomId,
+          assignmentId,
+          backTo: classroomTabPath(widget.classroomId, 2),
+        ),
+      );
+      return;
+    }
     final cached = assignments.where((item) => item.id == assignmentId);
     if (cached.isNotEmpty) {
       await openAssignment(cached.first);
