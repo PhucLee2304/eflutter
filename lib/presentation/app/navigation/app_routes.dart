@@ -53,13 +53,27 @@ String attemptHistoryDetailPath(int attemptId) =>
 
 String classroomPath(int classroomId) => '${AppRoutes.classrooms.path}/$classroomId';
 
-String classroomGradebookPath(int classroomId, int assignmentId) =>
-    '${classroomPath(classroomId)}/assignments/$assignmentId/gradebook';
+String classworkPath(int classroomId) => '${classroomPath(classroomId)}/classwork';
 
-String classGradebookPath(int classroomId) => '${classroomPath(classroomId)}/gradebook';
+/// Các màn con của tab Classwork: mỗi màn có URL riêng để reload, Back và nút Back của
+/// trình duyệt đều đúng.
+String createAssignmentPath(int classroomId) => '${classworkPath(classroomId)}/new';
+
+String editAssignmentPath(int classroomId, int assignmentId) =>
+    '${classworkPath(classroomId)}/$assignmentId/edit';
+
+/// [fromClassGradebook]: mở từ bảng điểm lớp thì Back quay lại bảng điểm lớp.
+String classroomGradebookPath(
+  int classroomId,
+  int assignmentId, {
+  bool fromClassGradebook = false,
+}) =>
+    '${classworkPath(classroomId)}/$assignmentId/gradebook${fromClassGradebook ? '?from=class' : ''}';
+
+String classGradebookPath(int classroomId) => '${classworkPath(classroomId)}/gradebook';
 
 String studentProgressPath(int classroomId, String userId) =>
-    '${classroomPath(classroomId)}/students/${Uri.encodeComponent(userId)}/progress';
+    '${classGradebookPath(classroomId)}/students/${Uri.encodeComponent(userId)}';
 
 String classroomRoomPath(int classroomId, int roomId) =>
     '${classroomPath(classroomId)}/rooms/$roomId';

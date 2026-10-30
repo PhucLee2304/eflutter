@@ -16,13 +16,14 @@ import 'package:eflutter/presentation/app/cubit/app_cubit.dart';
 import 'package:eflutter/presentation/classrooms/classroom_assignments.dart';
 import 'package:eflutter/presentation/classrooms/class_gradebook_screen.dart';
 import 'package:eflutter/presentation/classrooms/classroom_gradebook_screen.dart';
+import 'package:eflutter/presentation/classrooms/classwork_page.dart';
+import 'package:eflutter/presentation/classrooms/student_progress_screen.dart';
 import 'package:eflutter/presentation/classrooms/classroom_calendar.dart';
 import 'package:eflutter/presentation/classrooms/classroom_detail_header.dart';
 import 'package:eflutter/presentation/posts/post_list.dart';
 import 'package:eflutter/core/attempt_lock/integrity_consent.dart';
 import 'package:eflutter/presentation/classrooms/integrity_consent_dialog.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
@@ -33,6 +34,7 @@ class ClassroomDetailScreen extends StatefulWidget {
     this.postId,
     this.commentId,
     this.initialTab = 0,
+    this.classwork = const ClassworkPage.list(),
   });
   final int classroomId;
 
@@ -42,6 +44,9 @@ class ClassroomDetailScreen extends StatefulWidget {
 
   /// Tab mở sẵn theo URL (`/classwork`, `/calendar`, `/people`).
   final int initialTab;
+
+  /// Màn con của tab Classwork theo URL (tạo/sửa bài, gradebook, tiến độ học sinh).
+  final ClassworkPage classwork;
   @override
   State<ClassroomDetailScreen> createState() => _ClassroomDetailScreenState();
 }
@@ -72,31 +77,52 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
     List<ExamAudit> audits,
   })?
   editing;
-
-  /// Gradebook đang mở trong tab Classwork: id bài, hoặc cả lớp.
-  int? gradebookFor;
-  bool classGradebook = false;
   String? error;
   late int tab = widget.initialTab;
 
   // Bài mở sẵn từ URL; bỏ đi khi đổi tab để quay lại Announcements là danh sách.
   late int? initialPostId = widget.postId;
 
-  // Đổi tab tại chỗ và cập nhật URL (không đổi trang) để reload vẫn ở tab này.
+  // Đổi tab bằng URL; mọi URL của lớp dùng chung trang nên chỉ didUpdateWidget chạy.
   void selectTab(int value) {
-    if (value == tab) return;
+    if (value == tab && widget.classwork.view == ClassworkView.list) return;
+    context.go(classroomTabPath(widget.classroomId, value));
+  }
+
+  void goClasswork([String? path]) => context.go(path ?? classworkPath(widget.classroomId));
+
+  @override
+  void didUpdateWidget(covariant ClassroomDetailScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialTab != widget.initialTab || oldWidget.postId != widget.postId) {
+      setState(() {
+        tab = widget.initialTab;
+        initialPostId = widget.postId;
+      });
+    }
+    if (oldWidget.classwork != widget.classwork) syncClasswork();
+  }
+
+  /// Nạp dữ liệu cho màn con đang mở theo URL; bỏ dữ liệu của màn đã rời.
+  Future<void> syncClasswork() async {
+    final page = widget.classwork;
     setState(() {
-      tab = value;
-      initialPostId = null;
-      creatingFor = null;
-      editing = null;
-      gradebookFor = null;
-      classGradebook = false;
+      if (page.view != ClassworkView.create) creatingFor = null;
+      if (page.view != ClassworkView.edit || editing?.assignment.id != page.assignmentId) {
+        editing = null;
+      }
     });
-    SystemNavigator.routeInformationUpdated(
-      uri: Uri.parse(classroomTabPath(widget.classroomId, value)),
-      replace: true,
-    );
+    switch (page.view) {
+      case ClassworkView.create when creatingFor == null:
+        final classes = await loadTeacherClassrooms();
+        if (!mounted || widget.classwork != page) return;
+        if (classes == null) return goClasswork();
+        setState(() => creatingFor = classes);
+      case ClassworkView.edit when editing == null:
+        await loadEditing(page.assignmentId!);
+      default:
+        break;
+    }
   }
 
   StreamSubscription<AppState>? userSubscription;
@@ -113,6 +139,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
       }
     });
     load();
+    syncClasswork();
   }
 
   @override
@@ -211,7 +238,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
   /// Các lớp đang hoạt động mà người dùng là giáo viên; null khi tải lỗi (đã báo lỗi).
   Future<List<Classroom>?> loadTeacherClassrooms() async {
     final classes = <Classroom>[];
-    final userID = context.read<AppCubit>().state.user?.id.toString();
+    final cubit = context.read<AppCubit>();
     var page = 1;
     var pageCounts = 1;
     do {
@@ -220,7 +247,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
       switch (result) {
         case Success(data: final value):
           pageCounts = value.pageCounts;
-          classes.addAll(value.items.where((item) => item.active && item.teacher?.id == userID));
+          classes.addAll(value.items.where((item) => item.active));
         case Failure(message: final message):
           showMessage(message ?? 'Could not load your classrooms');
           return null;
@@ -229,14 +256,15 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
       }
       page++;
     } while (page <= pageCounts);
-    return classes;
+    // Mở thẳng bằng URL (reload) thì user có thể chưa nạp xong lúc gọi hàm này.
+    final user =
+        cubit.state.user ?? (await cubit.stream.firstWhere((state) => state.user != null)).user;
+    if (!mounted) return null;
+    final userID = user?.id.toString();
+    return classes.where((item) => item.teacher?.id == userID).toList();
   }
 
-  Future<void> createAssignment() async {
-    final classes = await loadTeacherClassrooms();
-    if (classes == null || !mounted) return;
-    setState(() => creatingFor = classes);
-  }
+  void createAssignment() => goClasswork(createAssignmentPath(widget.classroomId));
 
   // Gửi form tạo bài; thành công thì đóng form và tải lại danh sách Classwork.
   Future<bool> submitAssignment(CreateAssignmentInput input) async {
@@ -249,7 +277,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
     if (!mounted) return false;
     switch (result) {
       case Success():
-        setState(() => creatingFor = null);
+        goClasswork();
         await loadAssignments();
         return true;
       case Failure(message: final message):
@@ -374,21 +402,29 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
     }
   }
 
-  Future<void> editAssignmentContent(ClassroomAssignment assignment) async {
+  void editAssignmentContent(ClassroomAssignment assignment) =>
+      goClasswork(editAssignmentPath(widget.classroomId, assignment.id));
+
+  Future<void> loadEditing(int assignmentId) async {
+    final page = widget.classwork;
     setState(() => busy = true);
-    final (editableResult, auditsResult, classes) = await (
-      repository.getEditableAssignment(widget.classroomId, assignment.id),
-      repository.getAssignmentAudits(classroomId: widget.classroomId, assignmentId: assignment.id),
+    final (assignmentResult, editableResult, auditsResult, classes) = await (
+      repository.getAssignment(widget.classroomId, assignmentId),
+      repository.getEditableAssignment(widget.classroomId, assignmentId),
+      repository.getAssignmentAudits(classroomId: widget.classroomId, assignmentId: assignmentId),
       loadTeacherClassrooms(),
     ).wait;
     if (!mounted) return;
     setState(() => busy = false);
+    if (widget.classwork != page) return;
+    final assignment = assignmentResult.dataOrNull;
     final editable = editableResult.dataOrNull;
-    if (editable == null) {
-      if (editableResult case Failure(message: final message)) {
+    if (assignment == null || editable == null) {
+      final failure = editableResult is Failure ? editableResult : assignmentResult;
+      if (failure case Failure(message: final message)) {
         showMessage(message ?? 'Could not load the assignment');
       }
-      return;
+      return goClasswork();
     }
     setState(
       () => editing = (
@@ -426,7 +462,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
     }
     switch (result) {
       case Success():
-        setState(() => editing = null);
+        goClasswork();
         showMessage('Assignment updated', type: ToastType.success);
         await loadAssignments();
         return true;
@@ -490,7 +526,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
   }
 
   void openGradebook(ClassroomAssignment assignment) =>
-      setState(() => gradebookFor = assignment.id);
+      goClasswork(classroomGradebookPath(widget.classroomId, assignment.id));
 
   Future<void> loadRequests() async {
     final result = await repository.joinRequests(widget.classroomId);
@@ -717,34 +753,66 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
                                       onViewAll: () => selectTab(1),
                                     ),
                                   ),
-                                  1 when gradebookFor != null => ClassroomGradebookScreen(
-                                    key: ValueKey(('gradebook', gradebookFor)),
-                                    classroomId: widget.classroomId,
-                                    assignmentId: gradebookFor!,
-                                    onBack: () => setState(() => gradebookFor = null),
-                                  ),
-                                  1 when classGradebook => ClassGradebookScreen(
-                                    classroomId: widget.classroomId,
-                                    classroom: item,
-                                    onBack: () => setState(() => classGradebook = false),
-                                    onOpenAssignment: (id) => setState(() => gradebookFor = id),
-                                  ),
-                                  1 when editing != null => CreateAssignmentView(
-                                    key: ValueKey(('edit', editing!.assignment.id)),
-                                    currentClassroomId: widget.classroomId,
-                                    editing: editing!.editable,
-                                    assignment: editing!.assignment,
-                                    classrooms: editing!.classrooms,
-                                    audits: editing!.audits,
-                                    onBack: () => setState(() => editing = null),
-                                    onSubmit: saveAssignmentContent,
-                                  ),
-                                  1 when creatingFor != null => CreateAssignmentView(
-                                    classrooms: creatingFor!,
-                                    currentClassroomId: widget.classroomId,
-                                    onBack: () => setState(() => creatingFor = null),
-                                    onSubmit: submitAssignment,
-                                  ),
+                                  1 when widget.classwork.view == ClassworkView.gradebook =>
+                                    ClassroomGradebookScreen(
+                                      key: ValueKey(('gradebook', widget.classwork.assignmentId)),
+                                      classroomId: widget.classroomId,
+                                      assignmentId: widget.classwork.assignmentId!,
+                                      onBack: () => goClasswork(
+                                        widget.classwork.fromClassGradebook
+                                            ? classGradebookPath(widget.classroomId)
+                                            : null,
+                                      ),
+                                    ),
+                                  1 when widget.classwork.view == ClassworkView.classGradebook =>
+                                    ClassGradebookScreen(
+                                      classroomId: widget.classroomId,
+                                      classroom: item,
+                                      onBack: goClasswork,
+                                      onOpenAssignment: (id) => goClasswork(
+                                        classroomGradebookPath(
+                                          widget.classroomId,
+                                          id,
+                                          fromClassGradebook: true,
+                                        ),
+                                      ),
+                                    ),
+                                  1 when widget.classwork.view == ClassworkView.student =>
+                                    StudentProgressScreen(
+                                      key: ValueKey(('student', widget.classwork.studentId)),
+                                      classroomId: widget.classroomId,
+                                      studentId: widget.classwork.studentId!,
+                                      onBack: () =>
+                                          goClasswork(classGradebookPath(widget.classroomId)),
+                                    ),
+                                  1 when widget.classwork.view == ClassworkView.edit =>
+                                    editing == null
+                                        ? const Padding(
+                                            padding: EdgeInsets.symmetric(vertical: 48),
+                                            child: AppLoader(),
+                                          )
+                                        : CreateAssignmentView(
+                                            key: ValueKey(('edit', editing!.assignment.id)),
+                                            currentClassroomId: widget.classroomId,
+                                            editing: editing!.editable,
+                                            assignment: editing!.assignment,
+                                            classrooms: editing!.classrooms,
+                                            audits: editing!.audits,
+                                            onBack: goClasswork,
+                                            onSubmit: saveAssignmentContent,
+                                          ),
+                                  1 when widget.classwork.view == ClassworkView.create =>
+                                    creatingFor == null
+                                        ? const Padding(
+                                            padding: EdgeInsets.symmetric(vertical: 48),
+                                            child: AppLoader(),
+                                          )
+                                        : CreateAssignmentView(
+                                            classrooms: creatingFor!,
+                                            currentClassroomId: widget.classroomId,
+                                            onBack: goClasswork,
+                                            onSubmit: submitAssignment,
+                                          ),
                                   1 => ClassroomAssignmentsView(
                                     assignments: assignments,
                                     loading: assignmentsLoading,
@@ -760,7 +828,8 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
                                     onCreate: createAssignment,
                                     onOpen: openAssignment,
                                     onGradebook: openGradebook,
-                                    onClassGradebook: () => setState(() => classGradebook = true),
+                                    onClassGradebook: () =>
+                                        goClasswork(classGradebookPath(widget.classroomId)),
                                     onEditContent: editAssignmentContent,
                                     onSetActive: setAssignmentActive,
                                   ),

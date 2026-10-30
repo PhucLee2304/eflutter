@@ -11,9 +11,7 @@ import 'package:eflutter/presentation/exams/exam_list_screen.dart';
 import 'package:eflutter/presentation/profile/profile_screen.dart';
 import 'package:eflutter/presentation/classrooms/classroom_list_screen.dart';
 import 'package:eflutter/presentation/classrooms/classroom_detail_screen.dart';
-import 'package:eflutter/presentation/classrooms/classroom_gradebook_screen.dart';
-import 'package:eflutter/presentation/classrooms/class_gradebook_screen.dart';
-import 'package:eflutter/presentation/classrooms/student_progress_screen.dart';
+import 'package:eflutter/presentation/classrooms/classwork_page.dart';
 import 'package:eflutter/presentation/notifications/notification_screen.dart';
 import 'package:eflutter/presentation/classrooms/classroom_room_screen.dart';
 import 'package:eflutter/presentation/posts/post_detail_screen.dart';
@@ -132,48 +130,13 @@ class NavigationItem {
     selectedIcon: Icons.groups,
     route: AppRoutes.classrooms,
     screen: const ClassroomListScreen(),
+    // Mọi URL của một lớp dùng chung page key nên đổi tab/màn con chỉ cập nhật
+    // ClassroomDetailScreen tại chỗ (không tải lại lớp), Back của trình duyệt vẫn đúng.
     subRoutes: [
       GoRoute(
         path: AppRoutes.classroomDetail.path,
-        builder: (context, state) {
-          final id = int.tryParse(state.pathParameters['id'] ?? '');
-          return id == null
-              ? const Scaffold(body: Center(child: Text('Invalid classroom ID')))
-              : ClassroomDetailScreen(classroomId: id);
-        },
+        pageBuilder: (context, state) => _classroomPage(state),
         routes: [
-          for (final (tab, route) in [
-            (1, AppRoutes.classroomClasswork),
-            (2, AppRoutes.classroomCalendar),
-            (3, AppRoutes.classroomPeople),
-          ])
-            GoRoute(
-              path: route.path,
-              builder: (context, state) {
-                final classroomId = int.tryParse(state.pathParameters['id'] ?? '');
-                return classroomId == null
-                    ? const Scaffold(body: Center(child: Text('Invalid classroom ID')))
-                    : ClassroomDetailScreen(classroomId: classroomId, initialTab: tab);
-              },
-            ),
-          GoRoute(
-            path: AppRoutes.classroomPost.path,
-            builder: (context, state) {
-              final classroomId = int.tryParse(state.pathParameters['id'] ?? '');
-              final postId = int.tryParse(state.pathParameters['postId'] ?? '');
-              if (classroomId == null || postId == null) {
-                return const Scaffold(body: Center(child: Text('Invalid post URL')));
-              }
-              return ClassroomDetailScreen(
-                classroomId: classroomId,
-                postId: postId,
-                // Như /posts/:id: comment cần mở tới qua extra hoặc ?comment=.
-                commentId: state.extra is int
-                    ? state.extra! as int
-                    : int.tryParse(state.uri.queryParameters['comment'] ?? ''),
-              );
-            },
-          ),
           GoRoute(
             path: AppRoutes.classroomRoom.path,
             builder: (context, state) {
@@ -196,37 +159,38 @@ class NavigationItem {
               ),
             ],
           ),
-          GoRoute(
-            path: AppRoutes.classGradebook.path,
-            builder: (context, state) {
-              final classroomId = int.tryParse(state.pathParameters['id'] ?? '');
-              return classroomId == null
-                  ? const Scaffold(body: Center(child: Text('Invalid classroom ID')))
-                  : ClassGradebookScreen(classroomId: classroomId);
-            },
-          ),
-          GoRoute(
-            path: AppRoutes.studentProgress.path,
-            builder: (context, state) {
-              final classroomId = int.tryParse(state.pathParameters['id'] ?? '');
-              final studentId = state.pathParameters['userId'];
-              return classroomId == null || studentId == null
-                  ? const Scaffold(body: Center(child: Text('Invalid student progress URL')))
-                  : StudentProgressScreen(classroomId: classroomId, studentId: studentId);
-            },
-          ),
-          GoRoute(
-            path: AppRoutes.classroomGradebook.path,
-            builder: (context, state) {
-              final classroomId = int.tryParse(state.pathParameters['id'] ?? '');
-              final assignmentId = int.tryParse(state.pathParameters['assignmentId'] ?? '');
-              if (classroomId == null || assignmentId == null) {
-                return const Scaffold(body: Center(child: Text('Invalid gradebook URL')));
-              }
-              return ClassroomGradebookScreen(classroomId: classroomId, assignmentId: assignmentId);
-            },
-          ),
         ],
+      ),
+      for (final path in [
+        ':id/classwork',
+        ':id/calendar',
+        ':id/people',
+        ':id/posts/:postId',
+        ':id/classwork/new',
+        ':id/classwork/gradebook',
+        ':id/classwork/gradebook/students/:userId',
+        ':id/classwork/:assignmentId/edit',
+        ':id/classwork/:assignmentId/gradebook',
+      ])
+        GoRoute(path: path, pageBuilder: (context, state) => _classroomPage(state)),
+      // URL cũ trước khi các màn con nằm trong tab Classwork.
+      GoRoute(
+        path: ':id/gradebook',
+        redirect: (context, state) =>
+            '${state.uri.path.replaceFirst('/gradebook', '')}'
+            '/classwork/gradebook',
+      ),
+      GoRoute(
+        path: ':id/assignments/:assignmentId/gradebook',
+        redirect: (context, state) =>
+            '/classrooms/${state.pathParameters['id']}/classwork/'
+            '${state.pathParameters['assignmentId']}/gradebook',
+      ),
+      GoRoute(
+        path: ':id/students/:userId/progress',
+        redirect: (context, state) =>
+            '/classrooms/${state.pathParameters['id']}/classwork/gradebook/students/'
+            '${state.pathParameters['userId']}',
       ),
     ],
   );
@@ -360,4 +324,53 @@ class NavigationItem {
 
   @override
   int get hashCode => route.hashCode;
+}
+
+/// Trang chi tiết lớp cho mọi URL `/classrooms/:id/...`: tab và màn con lấy từ đường dẫn.
+Page<void> _classroomPage(GoRouterState state) {
+  final params = state.pathParameters;
+  final classroomId = int.tryParse(params['id'] ?? '');
+  if (classroomId == null) {
+    return const NoTransitionPage(
+      child: Scaffold(body: Center(child: Text('Invalid classroom ID'))),
+    );
+  }
+  final segments = state.uri.pathSegments.skip(2).toList();
+  final section = segments.firstOrNull;
+  final assignmentId = int.tryParse(params['assignmentId'] ?? '');
+  final classwork = section != 'classwork'
+      ? const ClassworkPage.list()
+      : params['userId'] != null
+      ? ClassworkPage(ClassworkView.student, studentId: params['userId'])
+      : segments.length == 2 && segments[1] == 'new'
+      ? const ClassworkPage(ClassworkView.create)
+      : segments.length == 2 && segments[1] == 'gradebook'
+      ? const ClassworkPage(ClassworkView.classGradebook)
+      : assignmentId != null && segments.last == 'edit'
+      ? ClassworkPage(ClassworkView.edit, assignmentId: assignmentId)
+      : assignmentId != null
+      ? ClassworkPage(
+          ClassworkView.gradebook,
+          assignmentId: assignmentId,
+          fromClassGradebook: state.uri.queryParameters['from'] == 'class',
+        )
+      : const ClassworkPage.list();
+  return NoTransitionPage(
+    key: ValueKey('classroom-$classroomId'),
+    child: ClassroomDetailScreen(
+      classroomId: classroomId,
+      initialTab: switch (section) {
+        'classwork' => 1,
+        'calendar' => 2,
+        'people' => 3,
+        _ => 0,
+      },
+      classwork: classwork,
+      postId: int.tryParse(params['postId'] ?? ''),
+      // Như /posts/:id: comment cần mở tới qua extra hoặc ?comment=.
+      commentId: state.extra is int
+          ? state.extra! as int
+          : int.tryParse(state.uri.queryParameters['comment'] ?? ''),
+    ),
+  );
 }

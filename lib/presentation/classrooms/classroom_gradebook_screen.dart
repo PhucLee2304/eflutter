@@ -210,11 +210,14 @@ class _ClassroomGradebookScreenState extends State<ClassroomGradebookScreen>
             ],
           ),
         ),
-        FilledButton.icon(
+        IconButton(
+          tooltip: 'Sync grades',
           onPressed: reconcile,
-          style: AppButtonStyles.secondary,
-          icon: const Icon(Icons.sync, size: 18),
-          label: const Text('Sync grades'),
+          style: IconButton.styleFrom(
+            backgroundColor: AppButtonStyles.tint,
+            foregroundColor: ColorName.primary,
+          ),
+          icon: const Icon(Icons.sync, size: 20),
         ),
       ],
     );
