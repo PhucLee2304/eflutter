@@ -14,6 +14,8 @@ import 'package:eflutter/data/repositories/exam_repository.dart';
 import 'package:eflutter/presentation/app/navigation/app_routes.dart';
 import 'package:eflutter/presentation/app/cubit/app_cubit.dart';
 import 'package:eflutter/presentation/classrooms/classroom_assignments.dart';
+import 'package:eflutter/presentation/classrooms/class_gradebook_screen.dart';
+import 'package:eflutter/presentation/classrooms/classroom_gradebook_screen.dart';
 import 'package:eflutter/presentation/classrooms/classroom_calendar.dart';
 import 'package:eflutter/presentation/classrooms/classroom_detail_header.dart';
 import 'package:eflutter/presentation/posts/post_list.dart';
@@ -70,6 +72,10 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
     List<ExamAudit> audits,
   })?
   editing;
+
+  /// Gradebook đang mở trong tab Classwork: id bài, hoặc cả lớp.
+  int? gradebookFor;
+  bool classGradebook = false;
   String? error;
   late int tab = widget.initialTab;
 
@@ -84,6 +90,8 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
       initialPostId = null;
       creatingFor = null;
       editing = null;
+      gradebookFor = null;
+      classGradebook = false;
     });
     SystemNavigator.routeInformationUpdated(
       uri: Uri.parse(classroomTabPath(widget.classroomId, value)),
@@ -482,7 +490,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
   }
 
   void openGradebook(ClassroomAssignment assignment) =>
-      context.go(classroomGradebookPath(widget.classroomId, assignment.id));
+      setState(() => gradebookFor = assignment.id);
 
   Future<void> loadRequests() async {
     final result = await repository.joinRequests(widget.classroomId);
@@ -709,6 +717,18 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
                                       onViewAll: () => selectTab(1),
                                     ),
                                   ),
+                                  1 when gradebookFor != null => ClassroomGradebookScreen(
+                                    key: ValueKey(('gradebook', gradebookFor)),
+                                    classroomId: widget.classroomId,
+                                    assignmentId: gradebookFor!,
+                                    onBack: () => setState(() => gradebookFor = null),
+                                  ),
+                                  1 when classGradebook => ClassGradebookScreen(
+                                    classroomId: widget.classroomId,
+                                    classroom: item,
+                                    onBack: () => setState(() => classGradebook = false),
+                                    onOpenAssignment: (id) => setState(() => gradebookFor = id),
+                                  ),
                                   1 when editing != null => CreateAssignmentView(
                                     key: ValueKey(('edit', editing!.assignment.id)),
                                     currentClassroomId: widget.classroomId,
@@ -740,8 +760,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
                                     onCreate: createAssignment,
                                     onOpen: openAssignment,
                                     onGradebook: openGradebook,
-                                    onClassGradebook: () =>
-                                        context.go(classGradebookPath(widget.classroomId)),
+                                    onClassGradebook: () => setState(() => classGradebook = true),
                                     onEditContent: editAssignmentContent,
                                     onSetActive: setAssignmentActive,
                                   ),

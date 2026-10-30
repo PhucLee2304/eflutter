@@ -106,7 +106,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Violations'), findsOneWidget);
+    expect(find.text('VIOLATIONS'), findsOneWidget);
     expect(find.text('1/2'), findsOneWidget);
     expect(find.text('Away'), findsOneWidget);
     expect(find.text('Suspended'), findsOneWidget);
