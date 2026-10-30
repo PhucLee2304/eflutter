@@ -19,6 +19,7 @@ import 'package:eflutter/presentation/classrooms/classroom_gradebook_screen.dart
 import 'package:eflutter/presentation/classrooms/classwork_page.dart';
 import 'package:eflutter/presentation/classrooms/student_progress_screen.dart';
 import 'package:eflutter/presentation/classrooms/classroom_calendar.dart';
+import 'package:eflutter/presentation/classrooms/classroom_people.dart';
 import 'package:eflutter/presentation/classrooms/classroom_detail_header.dart';
 import 'package:eflutter/presentation/posts/post_list.dart';
 import 'package:eflutter/core/attempt_lock/integrity_consent.dart';
@@ -660,6 +661,22 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
     }
   }
 
+  /// Duyệt lần lượt mọi yêu cầu đang chờ rồi tải lại một lần.
+  Future<void> approveAll() async {
+    setState(() => busy = true);
+    var failed = 0;
+    for (final member in [...requests]) {
+      final userId = member.user?.id;
+      if (userId == null) continue;
+      final result = await repository.review(widget.classroomId, userId, true);
+      if (result is! Success) failed++;
+    }
+    if (!mounted) return;
+    setState(() => busy = false);
+    if (failed > 0) showMessage('Could not approve $failed request(s)');
+    await load();
+  }
+
   Future<void> remove(ClassroomMember member) async {
     final userId = member.user?.id;
     if (userId == null) return;
@@ -857,72 +874,14 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
                                     classroomActive: item.active,
                                     onOpenAssignment: openAssignmentById,
                                   ),
-                                  _ => Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Teacher',
-                                        style: Theme.of(context).textTheme.titleMedium,
-                                      ),
-                                      ListTile(
-                                        title: Text(
-                                          item.teacher?.name ?? 'Information unavailable',
-                                        ),
-                                        subtitle: Text(item.teacher?.email ?? ''),
-                                      ),
-                                      const Divider(),
-                                      Text(
-                                        'Students (${item.members.length})',
-                                        style: Theme.of(context).textTheme.titleMedium,
-                                      ),
-                                      ...item.members.map(
-                                        (member) => ListTile(
-                                          title: Text(
-                                            member.user?.name ?? 'User no longer available',
-                                          ),
-                                          subtitle: Text(member.user?.email ?? ''),
-                                          trailing: isTeacher && item.active
-                                              ? IconButton(
-                                                  tooltip: 'Remove from classroom',
-                                                  onPressed: busy ? null : () => remove(member),
-                                                  icon: const Icon(Icons.person_remove_outlined),
-                                                )
-                                              : null,
-                                        ),
-                                      ),
-                                      if (isTeacher && item.active) ...[
-                                        const Divider(),
-                                        Text(
-                                          'Pending requests (${requests.length})',
-                                          style: Theme.of(context).textTheme.titleMedium,
-                                        ),
-                                        ...requests.map(
-                                          (member) => ListTile(
-                                            title: Text(member.user?.name ?? 'Student'),
-                                            subtitle: Text(member.user?.email ?? ''),
-                                            trailing: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                IconButton(
-                                                  tooltip: 'Reject',
-                                                  onPressed: busy
-                                                      ? null
-                                                      : () => review(member, false),
-                                                  icon: const Icon(Icons.close),
-                                                ),
-                                                IconButton(
-                                                  tooltip: 'Approve',
-                                                  onPressed: busy
-                                                      ? null
-                                                      : () => review(member, true),
-                                                  icon: const Icon(Icons.check),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ],
+                                  _ => ClassroomPeopleView(
+                                    members: item.members,
+                                    requests: requests,
+                                    canManage: isTeacher && item.active,
+                                    busy: busy,
+                                    onRemove: remove,
+                                    onReview: review,
+                                    onApproveAll: approveAll,
                                   ),
                                 },
                               ),
