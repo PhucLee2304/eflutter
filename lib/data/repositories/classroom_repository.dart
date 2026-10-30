@@ -466,7 +466,8 @@ class ClassroomRepository {
                   'content': question.content.trim(),
                   'explanation': question.explanation.trim(),
                   'options': question.options.map((option) => option.trim()).toList(),
-                  'optionIds': question.optionIds,
+                  // Câu mới chưa có optionIds: bỏ hẳn trường, backend bắt đủ 4 nếu có gửi.
+                  if (question.optionIds.isNotEmpty) 'optionIds': question.optionIds,
                   'correctOptionIndex': question.correctOptionIndex,
                   'excludedFromScore': question.excludedFromScore,
                 },

@@ -606,12 +606,6 @@ class _CreateAssignmentViewState extends State<CreateAssignmentView> {
   /// Lớp đã dùng bài này (chế độ sửa): luôn được tích, không bỏ được.
   final assigned = <int>{};
 
-  /// Lớp có lịch sửa được: lớp hiện tại và các lớp mới tích; lớp khác đã giao không có dữ liệu lịch.
-  bool _hasSchedule(int classroomId) =>
-      widget.editing == null ||
-      classroomId == widget.currentClassroomId ||
-      !assigned.contains(classroomId);
-
   List<Classroom> get classrooms {
     final list = [...widget.classrooms];
     list.sort(
@@ -667,6 +661,16 @@ class _CreateAssignmentViewState extends State<CreateAssignmentView> {
               )
               ..proctored = current.proctored
               ..maxViolations = current.maxViolations;
+      }
+      // Lịch các lớp khác đã giao: sửa được ngay tại đây, như lúc tạo bài.
+      for (final item in editing.affectedAssignments) {
+        if (item.classroomId == widget.currentClassroomId) continue;
+        final (duration, opensAt, dueAt) = (item.duration, item.opensAt, item.dueAt);
+        if (duration == null || opensAt == null || dueAt == null) continue;
+        schedules[item.classroomId] =
+            _ScheduleDraft(duration: duration, opensAt: opensAt, dueAt: dueAt)
+              ..proctored = item.proctored
+              ..maxViolations = item.maxViolations;
       }
       return;
     }
@@ -738,8 +742,8 @@ class _CreateAssignmentViewState extends State<CreateAssignmentView> {
     if (widget.editing != null) {
       final ids = [
         widget.currentClassroomId,
-        ...selectedClassrooms.where((id) => !assigned.contains(id)),
-      ];
+        ...selectedClassrooms.where((id) => id != widget.currentClassroomId),
+      ].where(schedules.containsKey).toList();
       if (!_validSchedules(ids.map((id) => schedules[id]!))) return;
       setState(() => saving = true);
       final ok = await widget.onSubmit(
@@ -1197,14 +1201,13 @@ class _CreateAssignmentViewState extends State<CreateAssignmentView> {
   Widget _classRow(Classroom classroom) {
     final selected = selectedClassrooms.contains(classroom.id);
     final isAssigned = assigned.contains(classroom.id);
-    final canSchedule = _hasSchedule(classroom.id);
-    final expanded = canSchedule && expandedClassroom == classroom.id;
+    final expanded = expandedClassroom == classroom.id;
     final schedule = schedules[classroom.id]!;
     final summary = [
       classroom.code,
       if (classroom.id == widget.currentClassroomId) 'This class',
       if (isAssigned && classroom.id != widget.currentClassroomId) 'Already assigned',
-      if (selected && !expanded && canSchedule)
+      if (selected && !expanded)
         '${DateFormat('MMM d').format(schedule.opensAt)} – '
             '${DateFormat('MMM d').format(schedule.dueAt)} · ${schedule.duration} min',
     ].join(' · ');
@@ -1219,9 +1222,7 @@ class _CreateAssignmentViewState extends State<CreateAssignmentView> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           InkWell(
-            onTap: canSchedule
-                ? () => setState(() => expandedClassroom = expanded ? null : classroom.id)
-                : null,
+            onTap: () => setState(() => expandedClassroom = expanded ? null : classroom.id),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(2, 6, 10, 6),
               child: Row(
@@ -1258,8 +1259,7 @@ class _CreateAssignmentViewState extends State<CreateAssignmentView> {
                       ],
                     ),
                   ),
-                  if (canSchedule)
-                    Icon(expanded ? Icons.expand_less : Icons.expand_more, size: 20, color: _faint),
+                  Icon(expanded ? Icons.expand_less : Icons.expand_more, size: 20, color: _faint),
                 ],
               ),
             ),
@@ -1421,7 +1421,7 @@ class _CreateAssignmentViewState extends State<CreateAssignmentView> {
   Widget _history() => _card(
     spacing: 12,
     children: [
-      _cardHead('Change history', 'Content corrections and re-grades.'),
+      _cardHead('Change history', 'Every saved edit, newest first.'),
       if (widget.audits.isEmpty)
         const Text('No changes recorded yet', style: TextStyle(fontSize: 13, color: _faint))
       else
@@ -1445,18 +1445,33 @@ class _CreateAssignmentViewState extends State<CreateAssignmentView> {
                   spacing: 2,
                   children: [
                     Text(
-                      audit.reason.isEmpty ? 'Assignment updated' : audit.reason,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-                    ),
-                    Text(
                       [
                         DateFormat('MMM d, HH:mm').format(audit.regradedAt ?? audit.createdAt),
                         audit.actor?.name ?? audit.actorId,
-                        if (audit.scoreChanges.isNotEmpty)
-                          '${audit.scoreChanges.length} scores changed',
                       ].join(' · '),
-                      style: const TextStyle(fontSize: 12, color: _muted),
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
                     ),
+                    if (audit.reason.isNotEmpty)
+                      Text(
+                        '“${audit.reason}”',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontStyle: FontStyle.italic,
+                          color: _muted,
+                        ),
+                      ),
+                    for (final change in audit.changes)
+                      Text('• $change', style: const TextStyle(fontSize: 12, color: _muted)),
+                    if (audit.changes.isEmpty && audit.reason.isEmpty)
+                      const Text(
+                        'Assignment updated',
+                        style: TextStyle(fontSize: 12, color: _muted),
+                      ),
+                    if (audit.scoreChanges.isNotEmpty)
+                      Text(
+                        '${audit.scoreChanges.length} submissions regraded',
+                        style: const TextStyle(fontSize: 12, color: _muted),
+                      ),
                   ],
                 ),
               ),
