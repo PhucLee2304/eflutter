@@ -24,6 +24,7 @@ import 'package:eflutter/presentation/classrooms/classroom_detail_header.dart';
 import 'package:eflutter/presentation/posts/post_list.dart';
 import 'package:eflutter/core/attempt_lock/integrity_consent.dart';
 import 'package:eflutter/presentation/classrooms/integrity_consent_dialog.dart';
+import 'package:eflutter/presentation/classrooms/create_classroom_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -554,67 +555,8 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
   }
 
   Future<void> edit() async {
-    final current = classroom!;
-    var name = current.name;
-    var description = current.description ?? '';
-    final form = GlobalKey<FormState>();
-    final values = await showDialog<(String, String)>(
-      context: context,
-      builder: (context) => AlertDialog(
-        scrollable: true,
-        title: const Text('Edit classroom'),
-        content: SizedBox(
-          width: 400,
-          child: Form(
-            key: form,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  initialValue: name,
-                  onChanged: (value) => name = value,
-                  decoration: const InputDecoration(labelText: 'Classroom name'),
-                  validator: (v) => v == null || v.trim().isEmpty ? 'Enter a classroom name' : null,
-                ),
-                TextFormField(
-                  initialValue: description,
-                  onChanged: (value) => description = value,
-                  keyboardType: TextInputType.multiline,
-                  minLines: 1,
-                  // Không giới hạn nội dung; ô cao tối đa 6 dòng rồi cuộn bên trong.
-                  maxLines: 6,
-                  decoration: const InputDecoration(labelText: 'Description'),
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () {
-              if (form.currentState!.validate()) {
-                Navigator.pop(context, (name, description));
-              }
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-    if (values == null || !mounted) return;
-    setState(() => busy = true);
-    final result = await repository.update(current.id, name: values.$1, description: values.$2);
-    if (!mounted) return;
-    setState(() => busy = false);
-    switch (result) {
-      case Success():
-        await load();
-      case Failure(message: final message):
-        showMessage(message ?? 'Could not update the classroom');
-      case Cancelled():
-        break;
-    }
+    final saved = await showEditClassroomDialog(context, classroom!);
+    if (saved != null && mounted) await load();
   }
 
   Future<void> archive() async {

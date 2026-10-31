@@ -17,8 +17,19 @@ Future<Classroom?> showCreateClassroomDialog(BuildContext context) => showDialog
   builder: (_) => const _CreateClassroomDialog(),
 );
 
+/// Popup sửa lớp (Figma 30:469): cùng kiểu với popup tạo, chỉ sửa tên và mô tả; trả về lớp đã lưu.
+Future<Classroom?> showEditClassroomDialog(BuildContext context, Classroom classroom) =>
+    showDialog<Classroom>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _CreateClassroomDialog(editing: classroom),
+    );
+
 class _CreateClassroomDialog extends StatefulWidget {
-  const _CreateClassroomDialog();
+  const _CreateClassroomDialog({this.editing});
+
+  /// Có giá trị thì popup ở chế độ sửa: không có ảnh, điền sẵn tên và mô tả.
+  final Classroom? editing;
 
   @override
   State<_CreateClassroomDialog> createState() => _CreateClassroomDialogState();
@@ -28,8 +39,8 @@ class _CreateClassroomDialogState extends State<_CreateClassroomDialog> {
   static const _fill = Color(0xFFF0F2F5);
   static const _muted = Color(0xFF65676B);
 
-  final name = TextEditingController();
-  final description = TextEditingController();
+  late final name = TextEditingController(text: widget.editing?.name ?? '');
+  late final description = TextEditingController(text: widget.editing?.description ?? '');
   final nameFocus = FocusNode();
   LocalPickedFile? photo;
   bool saving = false;
@@ -102,9 +113,15 @@ class _CreateClassroomDialogState extends State<_CreateClassroomDialog> {
       }
     }
     final text = description.text.trim();
-    final result = await ClassroomRepository(
-      getIt<Dio>(),
-    ).create(name.text, description: text.isEmpty ? null : text, avatar: avatar);
+    final repository = ClassroomRepository(getIt<Dio>());
+    final editing = widget.editing;
+    final result = editing == null
+        ? await repository.create(
+            name.text,
+            description: text.isEmpty ? null : text,
+            avatar: avatar,
+          )
+        : await repository.update(editing.id, name: name.text, description: text);
     if (!mounted) return;
     switch (result) {
       case Success(data: final classroom):
@@ -112,7 +129,11 @@ class _CreateClassroomDialogState extends State<_CreateClassroomDialog> {
       case Failure(message: final message):
         setState(() {
           saving = false;
-          error = message ?? 'Could not create the classroom';
+          error =
+              message ??
+              (widget.editing == null
+                  ? 'Could not create the classroom'
+                  : 'Could not update the classroom');
         });
       case Cancelled():
         setState(() => saving = false);
@@ -234,9 +255,9 @@ class _CreateClassroomDialogState extends State<_CreateClassroomDialog> {
               child: Row(
                 children: [
                   const SizedBox(width: 36),
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'Create classroom',
+                      widget.editing == null ? 'Create classroom' : 'Edit classroom',
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
                     ),
@@ -262,8 +283,7 @@ class _CreateClassroomDialogState extends State<_CreateClassroomDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _photoRow(),
-                    const SizedBox(height: 18),
+                    if (widget.editing == null) ...[_photoRow(), const SizedBox(height: 18)],
                     _label('Classroom name', required: true),
                     TextField(
                       controller: name,
@@ -291,16 +311,18 @@ class _CreateClassroomDialogState extends State<_CreateClassroomDialog> {
                         color: const Color(0xFFF7F8FA),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Row(
+                      child: Row(
                         spacing: 8,
                         children: [
-                          Icon(Icons.info_outline, size: 16, color: _muted),
+                          const Icon(Icons.info_outline, size: 16, color: _muted),
                           Expanded(
-                            child: Text(
-                              'A join code is generated automatically. '
-                              'Share it with your students.',
-                              style: TextStyle(fontSize: 12, color: _muted),
-                            ),
+                            child: Text(switch (widget.editing) {
+                              null =>
+                                'A join code is generated automatically. '
+                                    'Share it with your students.',
+                              final item =>
+                                'The join code ${item.code} and the members stay the same.',
+                            }, style: const TextStyle(fontSize: 12, color: _muted)),
                           ),
                         ],
                       ),
@@ -341,7 +363,7 @@ class _CreateClassroomDialogState extends State<_CreateClassroomDialog> {
                             height: 16,
                             child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                           )
-                        : const Text('Create'),
+                        : Text(widget.editing == null ? 'Create' : 'Save changes'),
                   ),
                 ],
               ),
