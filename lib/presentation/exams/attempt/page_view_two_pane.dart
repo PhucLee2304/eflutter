@@ -1,6 +1,5 @@
 import 'package:eflutter/data/models/attempt_page.dart';
 import 'package:eflutter/generated/colors.gen.dart';
-import 'package:eflutter/presentation/exams/attempt/attempt_header.dart';
 import 'package:eflutter/presentation/exams/attempt/question_palette.dart';
 import 'package:eflutter/presentation/exams/cubit/attempt_session_cubit.dart';
 import 'package:flutter/material.dart';
@@ -132,7 +131,6 @@ class _PageQuestions extends StatelessWidget {
           _PageQuestionCard(
             question: question,
             selected: session.selectedOptions[question.id],
-            sync: session.syncStatuses[question.id],
             locked: locked || session.isLocked,
             onSelect: onSelect,
           ),
@@ -145,14 +143,12 @@ class _PageQuestionCard extends StatelessWidget {
   const _PageQuestionCard({
     required this.question,
     required this.selected,
-    required this.sync,
     required this.locked,
     required this.onSelect,
   });
 
   final AttemptPageQuestion question;
   final int? selected;
-  final AnswerSyncStatus? sync;
   final bool locked;
   final void Function(int, int?) onSelect;
 
@@ -180,7 +176,6 @@ class _PageQuestionCard extends StatelessWidget {
                 ),
               ),
               if (question.excludedFromScore) const NotScoredBadge(),
-              if (sync != null) AttemptSyncIcon(status: sync!),
             ],
           ),
           const SizedBox(height: 10),

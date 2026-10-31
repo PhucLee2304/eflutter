@@ -33,59 +33,125 @@ class AttemptSessionScope extends StatelessWidget {
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _handleBack(context, lock);
       },
-      child: BlocListener<AttemptSessionCubit, AttemptSessionState>(
-        bloc: cubit,
-        listener: (context, state) {
-          final attempt = state.attempt;
-          if (state.resetByTeacher) {
-            lock.unlock();
-          } else if (attempt != null &&
-              attempt.status.toUpperCase() == 'ACTIVE' &&
-              state.completedAttempt == null) {
-            lock.lock(attempt.id);
-          }
-          if (state.failure != null) context.handleFailure(state.failure);
-          if (state.socketMessage != null) {
-            context.showToast(state.socketMessage!, type: ToastType.error);
-          }
-          final completed = state.completedAttempt;
-          if (completed != null) {
-            notifyExamHistoryChanged();
-            lock.unlock();
-            // Bị đình chỉ: ở lại màn đình chỉ, học sinh tự bấm xem kết quả.
-            if (!state.terminated) _openResult(context, state);
-          }
-        },
-        child: BlocConsumer<AttemptSessionCubit, AttemptSessionState>(
-          bloc: cubit,
-          listenWhen: (previous, current) =>
-              current.violationAlerts > previous.violationAlerts &&
-              !current.terminated,
-          listener: (context, state) {
-            final integrity = state.integrity;
-            if (integrity != null) showViolationWarning(context, integrity);
-          },
-          buildWhen: (previous, current) =>
-              IntegrityOverlay.covers(previous) !=
-                  IntegrityOverlay.covers(current) ||
-              (IntegrityOverlay.covers(current) &&
-                  (previous.sessionStatus != current.sessionStatus ||
-                      previous.completedAttempt != current.completedAttempt ||
-                      previous.sessionRetryAfter != current.sessionRetryAfter)),
-          builder: (context, state) => Stack(
-            children: [
-              child,
-              if (IntegrityOverlay.covers(state))
-                Positioned.fill(
-                  child: IntegrityOverlay(
-                    state: state,
-                    cubit: cubit,
-                    onViewResult: () => _openResult(context, state),
-                    onLeave: () => leaveAttempt(context),
-                  ),
-                ),
-            ],
+      child: MultiBlocListener(
+        listeners: [
+          // Chuyển trang đúng một lần khi bài vừa nộp xong; server tự nộp thì báo lý do trước.
+          BlocListener<AttemptSessionCubit, AttemptSessionState>(
+            bloc: cubit,
+            listenWhen: (previous, current) =>
+                previous.completedAttempt == null &&
+                current.completedAttempt != null,
+            listener: (context, state) async {
+              notifyExamHistoryChanged();
+              lock.unlock();
+              // Bị đình chỉ: ở lại màn đình chỉ, học sinh tự bấm xem kết quả.
+              if (state.terminated) return;
+              if (state.submitReason case final reason?) {
+                await _showSubmittedNotice(context, reason);
+                if (!context.mounted) return;
+              }
+              _openResult(context, state);
+            },
           ),
+        ],
+        child: BlocListener<AttemptSessionCubit, AttemptSessionState>(
+          bloc: cubit,
+          listener: (context, state) {
+            final attempt = state.attempt;
+            if (state.resetByTeacher) {
+              lock.unlock();
+            } else if (attempt != null &&
+                attempt.status.toUpperCase() == 'ACTIVE' &&
+                state.completedAttempt == null) {
+              lock.lock(attempt.id);
+            }
+            if (state.failure != null) context.handleFailure(state.failure);
+            if (state.socketMessage != null) {
+              context.showToast(state.socketMessage!, type: ToastType.error);
+            }
+          },
+          child: BlocConsumer<AttemptSessionCubit, AttemptSessionState>(
+            bloc: cubit,
+            listenWhen: (previous, current) =>
+                current.violationAlerts > previous.violationAlerts &&
+                !current.terminated,
+            listener: (context, state) {
+              final integrity = state.integrity;
+              if (integrity != null) showViolationWarning(context, integrity);
+            },
+            buildWhen: (previous, current) =>
+                IntegrityOverlay.covers(previous) !=
+                    IntegrityOverlay.covers(current) ||
+                (IntegrityOverlay.covers(current) &&
+                    (previous.sessionStatus != current.sessionStatus ||
+                        previous.completedAttempt != current.completedAttempt ||
+                        previous.sessionRetryAfter !=
+                            current.sessionRetryAfter)),
+            builder: (context, state) => Stack(
+              children: [
+                child,
+                if (IntegrityOverlay.covers(state))
+                  Positioned.fill(
+                    child: IntegrityOverlay(
+                      state: state,
+                      cubit: cubit,
+                      onViewResult: () => _openResult(context, state),
+                      onLeave: () => leaveAttempt(context),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Hộp báo vì sao bài bị nộp; chỉ chuyển trang sau khi học sinh bấm "Got it".
+  static Future<void> _showSubmittedNotice(
+    BuildContext context,
+    String reason,
+  ) {
+    final (title, message) = switch (reason) {
+      'EXAM_UPDATED' => (
+        'Your teacher updated this assignment',
+        'Your attempt was submitted with the answers you had saved, so it is graded '
+            'against one version of the questions.',
+      ),
+      'ASSIGNMENT_PAUSED' => (
+        'This assignment was closed',
+        'Your teacher paused the assignment. Your attempt was submitted with the answers '
+            'you had saved.',
+      ),
+      'REMOVED_FROM_CLASS' => (
+        'You were removed from the class',
+        'Your attempt was submitted with the answers you had saved.',
+      ),
+      _ => (
+        'Your attempt was submitted',
+        'It was submitted with the answers you had saved.',
+      ),
+    };
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          icon: const Icon(
+            SolarIconsOutline.infoCircle,
+            size: 36,
+            color: ColorName.primary,
+          ),
+          title: Text(title, textAlign: TextAlign.center),
+          content: Text(message, textAlign: TextAlign.center),
+          actionsAlignment: MainAxisAlignment.center,
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Got it, view result'),
+            ),
+          ],
         ),
       ),
     );

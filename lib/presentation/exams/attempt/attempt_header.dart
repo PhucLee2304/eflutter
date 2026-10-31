@@ -10,7 +10,7 @@ import 'package:solar_icons/solar_icons.dart';
 class AttemptHeader extends StatelessWidget {
   const AttemptHeader({
     super.key,
-    required this.title,
+    this.title,
     required this.state,
     required this.answeredCount,
     required this.totalQuestions,
@@ -18,9 +18,11 @@ class AttemptHeader extends StatelessWidget {
     required this.onCancel,
     this.onOpenPalette,
     this.subtitle,
+    this.showSubmit = true,
   });
 
-  final String title;
+  /// Null thì bỏ khối tên + tiến độ bên trái (màn đã có thẻ đầu bài và cột tiến độ).
+  final String? title;
   final AttemptSessionState state;
   final int answeredCount;
   final int totalQuestions;
@@ -33,93 +35,143 @@ class AttemptHeader extends StatelessWidget {
   /// Dòng phụ thêm, vd "Listening · Part 2".
   final String? subtitle;
 
+  /// Tắt khi màn đã có nút nộp riêng (cột tiến độ của màn làm bài dạng cuộn).
+  final bool showSubmit;
+
   @override
   Widget build(BuildContext context) {
     final busy = state.isSubmitting || state.isCancelling;
+    final actions = [
+      _SavePill(status: state.socketStatus),
+      if (state.integrity case final integrity?) IntegrityBadge(integrity: integrity),
+      if (onOpenPalette != null)
+        IconButton.outlined(
+          tooltip: 'Question palette',
+          onPressed: onOpenPalette,
+          icon: const Icon(SolarIconsOutline.widget, size: 20),
+        ),
+      if (onCancel != null)
+        IconButton.outlined(
+          tooltip: 'Cancel attempt',
+          onPressed: busy ? null : onCancel,
+          icon: state.isCancelling
+              ? const SizedBox.square(dimension: 18, child: AppLoader())
+              : const Icon(SolarIconsOutline.closeCircle, size: 20),
+        ),
+      if (showSubmit)
+        FilledButton.icon(
+          onPressed: busy ? null : onSubmit,
+          style: FilledButton.styleFrom(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          icon: state.isSubmitting
+              ? const SizedBox.square(dimension: 18, child: AppLoader())
+              : const Icon(SolarIconsOutline.checkCircle, size: 18),
+          label: const Text('Submit'),
+        ),
+    ];
+    final name = title;
+    final Widget titleBlock = name == null
+        ? const SizedBox.shrink()
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+              ),
+              Text(
+                [?subtitle, '$answeredCount/$totalQuestions answered'].join(' · '),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12, color: ColorName.labelSecondary),
+              ),
+            ],
+          );
+    // Thanh trên (Figma 30:676): tên bài trái, đồng hồ giữa, trạng thái lưu + nộp bên phải.
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       decoration: const BoxDecoration(
         color: ColorName.white,
         border: Border(bottom: BorderSide(color: ColorName.gray5)),
       ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 760) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              spacing: 8,
+              children: [
+                if (name != null) titleBlock,
+                Row(
                   children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    Text(
-                      [
-                        ?subtitle,
-                        '$answeredCount/$totalQuestions answered',
-                        _socketLabel(state.socketStatus),
-                      ].join('  |  '),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: ColorName.labelSecondary,
+                    AttemptTimerBadge(remaining: state.remaining),
+                    const Spacer(),
+                    Flexible(
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        alignment: WrapAlignment.end,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: actions,
                       ),
                     ),
                   ],
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
+              ],
+            );
+          }
+          return Row(
             children: [
+              Expanded(child: titleBlock),
               AttemptTimerBadge(remaining: state.remaining),
-              if (state.integrity case final integrity?) ...[
-                const SizedBox(width: 8),
-                Flexible(child: IntegrityBadge(integrity: integrity)),
-              ],
-              const Spacer(),
-              if (onOpenPalette != null) ...[
-                IconButton.outlined(
-                  tooltip: 'Question palette',
-                  onPressed: onOpenPalette,
-                  icon: const Icon(SolarIconsOutline.widget),
+              Expanded(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  spacing: 10,
+                  children: actions,
                 ),
-                const SizedBox(width: 8),
-              ],
-              if (onCancel != null) ...[
-                IconButton.outlined(
-                  tooltip: 'Cancel attempt',
-                  onPressed: busy ? null : onCancel,
-                  icon: state.isCancelling
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: AppLoader(),
-                        )
-                      : const Icon(SolarIconsOutline.closeCircle),
-                ),
-                const SizedBox(width: 8),
-              ],
-              FilledButton.icon(
-                onPressed: busy ? null : onSubmit,
-                icon: state.isSubmitting
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: AppLoader(),
-                      )
-                    : const Icon(SolarIconsOutline.checkCircle),
-                label: const Text('Submit'),
               ),
             ],
-          ),
-        ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Trạng thái tự lưu đáp án lên server.
+class _SavePill extends StatelessWidget {
+  const _SavePill({required this.status});
+  final AttemptSocketStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, foreground, background) = switch (status) {
+      AttemptSocketStatus.connected => ('Saved', const Color(0xFF475467), const Color(0xFFF2F4F7)),
+      AttemptSocketStatus.connecting => (
+        'Connecting…',
+        const Color(0xFF475467),
+        const Color(0xFFF2F4F7),
+      ),
+      AttemptSocketStatus.disconnected => (
+        'Offline · kept on this device',
+        const Color(0xFFB26A00),
+        const Color(0xFFFFF4E5),
+      ),
+    };
+    return Tooltip(
+      message: 'Answers are saved automatically while you work.',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(12)),
+        child: Text(
+          label,
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: foreground),
+        ),
       ),
     );
   }
@@ -134,46 +186,25 @@ class AttemptTimerBadge extends StatelessWidget {
         ? 'No limit'
         : '${remaining!.inHours.toString().padLeft(2, '0')}:${(remaining!.inMinutes % 60).toString().padLeft(2, '0')}:${(remaining!.inSeconds % 60).toString().padLeft(2, '0')}';
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: ColorName.gray6,
-        borderRadius: BorderRadius.circular(8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+      decoration: BoxDecoration(color: ColorName.gray6, borderRadius: BorderRadius.circular(8)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        spacing: 8,
+        children: [
+          const Icon(SolarIconsOutline.clockCircle, size: 16, color: ColorName.labelSecondary),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              fontFeatures: [FontFeature.tabularFigures()],
+            ),
+          ),
+          if (remaining != null)
+            const Text('left', style: TextStyle(fontSize: 12, color: ColorName.labelSecondary)),
+        ],
       ),
-      child: Text(value, style: const TextStyle(fontWeight: FontWeight.w700)),
     );
   }
 }
-
-class AttemptSyncIcon extends StatelessWidget {
-  const AttemptSyncIcon({super.key, required this.status});
-  final AnswerSyncStatus status;
-  @override
-  Widget build(BuildContext context) => Tooltip(
-    message: switch (status) {
-      AnswerSyncStatus.pending => 'Saving',
-      AnswerSyncStatus.synced => 'Saved',
-      AnswerSyncStatus.failed => 'Will retry',
-      AnswerSyncStatus.rejected => 'Locked, not saved',
-    },
-    child: Icon(
-      switch (status) {
-        AnswerSyncStatus.pending => SolarIconsOutline.clockCircle,
-        AnswerSyncStatus.synced => SolarIconsOutline.checkCircle,
-        AnswerSyncStatus.failed => SolarIconsOutline.refreshCircle,
-        AnswerSyncStatus.rejected => SolarIconsOutline.lock,
-      },
-      size: 20,
-      color:
-          status == AnswerSyncStatus.failed ||
-              status == AnswerSyncStatus.rejected
-          ? ColorName.orange
-          : ColorName.labelSecondary,
-    ),
-  );
-}
-
-String _socketLabel(AttemptSocketStatus status) => switch (status) {
-  AttemptSocketStatus.connected => 'Saved online',
-  AttemptSocketStatus.connecting => 'Connecting',
-  AttemptSocketStatus.disconnected => 'Offline, answers kept locally',
-};

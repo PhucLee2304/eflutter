@@ -269,15 +269,15 @@ class NotScoredBadge extends StatelessWidget {
     margin: const EdgeInsets.only(left: 8),
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
     decoration: BoxDecoration(
-      color: ColorName.purple,
+      color: Color(0xFFF2F4F7),
       borderRadius: BorderRadius.circular(10),
     ),
     child: const Text(
       'Not scored',
       style: TextStyle(
-        color: ColorName.white,
+        color: Color(0xFF475467),
         fontSize: 11,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w500,
       ),
     ),
   );

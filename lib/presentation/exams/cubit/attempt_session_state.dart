@@ -30,6 +30,10 @@ class AttemptSessionState {
   /// Giáo viên reset bài (hoặc attempt không còn) trong lúc đang làm.
   final bool resetByTeacher;
 
+  /// Lý do server tự nộp bài (EXAM_UPDATED, ASSIGNMENT_PAUSED, REMOVED_FROM_CLASS);
+  /// có giá trị thì báo cho học sinh trước khi chuyển sang trang kết quả.
+  final String? submitReason;
+
   const AttemptSessionState({
     this.attempt,
     this.selectedOptions = const {},
@@ -50,6 +54,7 @@ class AttemptSessionState {
     this.terminated = false,
     this.terminationReason,
     this.resetByTeacher = false,
+    this.submitReason,
   });
 
   /// Bài có giám sát mà kết nối này chưa (hoặc không còn) là chủ phiên.
@@ -81,6 +86,7 @@ class AttemptSessionState {
     bool? terminated,
     Object? terminationReason = _sentinel,
     bool? resetByTeacher,
+    String? submitReason,
   }) => AttemptSessionState(
     attempt: identical(attempt, _sentinel)
         ? this.attempt
@@ -115,6 +121,7 @@ class AttemptSessionState {
         ? this.terminationReason
         : terminationReason as String?,
     resetByTeacher: resetByTeacher ?? this.resetByTeacher,
+    submitReason: submitReason ?? this.submitReason,
   );
 }
 

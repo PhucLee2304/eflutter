@@ -242,13 +242,27 @@ class AttemptSessionCubit extends Cubit<AttemptSessionState>
     if (event.type == 'ATTEMPT_SUBMITTING' &&
         event.attemptId == state.attempt?.id) {
       _countdownTimer?.cancel();
-      emit(state.copyWith(isLocked: true, isSubmitting: true, failure: null));
+      emit(
+        state.copyWith(
+          isLocked: true,
+          isSubmitting: true,
+          failure: null,
+          submitReason: event.payload?['reason'] as String?,
+        ),
+      );
       _waitForBackendSubmission();
       return;
     }
     if (event.type == 'ATTEMPT_SUBMITTED' &&
         event.attemptId == state.attempt?.id) {
-      emit(state.copyWith(isLocked: true, isSubmitting: true, failure: null));
+      emit(
+        state.copyWith(
+          isLocked: true,
+          isSubmitting: true,
+          failure: null,
+          submitReason: event.payload?['reason'] as String?,
+        ),
+      );
       _waitForBackendSubmission();
       return;
     }
