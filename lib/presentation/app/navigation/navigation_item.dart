@@ -14,6 +14,7 @@ import 'package:eflutter/presentation/classrooms/classroom_detail_screen.dart';
 import 'package:eflutter/presentation/classrooms/classwork_page.dart';
 import 'package:eflutter/presentation/notifications/notification_screen.dart';
 import 'package:eflutter/presentation/classrooms/classroom_room_screen.dart';
+import 'package:eflutter/presentation/classrooms/classroom_attendance_screen.dart';
 import 'package:eflutter/presentation/posts/post_detail_screen.dart';
 import 'package:eflutter/presentation/posts/post_list.dart';
 import 'package:eflutter/presentation/topics/cubit/lesson_detail_cubit.dart';
