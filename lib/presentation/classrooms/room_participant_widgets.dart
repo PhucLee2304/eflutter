@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:livekit_client/livekit_client.dart' show VideoTrack, VideoTrackRenderer;
 
 const _tileBackground = Color(0xff303134);
-const _panelBackground = Color(0xff202124);
+const _panelBackground = Color(0xff22252B);
 
 String roomParticipantLabel(RoomParticipantView participant) =>
     participant.isLocal ? '${participant.displayName} (You)' : participant.displayName;
@@ -154,95 +154,133 @@ class _RoomParticipantPanelState extends State<RoomParticipantPanel> {
       ..sort(compareRoomParticipants);
     final hosts = visible.where((p) => p.isHost).toList();
     final students = visible.where((p) => !p.isHost).toList();
-    return Material(
-      color: _panelBackground,
-      child: Theme(
-        data: ThemeData.dark(useMaterial3: true),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 4, 0),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Semantics(
+    // Ô video có viền trong suốt 3px, nên lề và bo góc ở đây lệch 3px để mép trùng nhau.
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 7, 19, 11),
+      child: Material(
+        color: _panelBackground,
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(5),
+          side: const BorderSide(color: Color(0x14FFFFFF)),
+        ),
+        child: Theme(
+          data: ThemeData.dark(useMaterial3: true),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 8, 4),
+                child: Row(
+                  spacing: 8,
+                  children: [
+                    Semantics(
                       header: true,
+                      child: const Text(
+                        'People',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: const Color(0x1FFFFFFF),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                       child: Text(
-                        'People (${widget.participants.length})',
-                        style: Theme.of(
-                          context,
-                        ).textTheme.titleMedium?.copyWith(color: Colors.white),
+                        '${widget.participants.length}',
+                        style: const TextStyle(fontSize: 12, color: Colors.white70),
+                      ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      tooltip: 'Close participants',
+                      onPressed: widget.onClose,
+                      iconSize: 18,
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.close, color: Colors.white70),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+                child: SizedBox(
+                  height: 36,
+                  child: TextField(
+                    controller: searchController,
+                    onChanged: (value) => setState(() => query = value),
+                    style: const TextStyle(fontSize: 13, color: Colors.white),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      filled: true,
+                      fillColor: const Color(0x0FFFFFFF),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                      hintText: 'Search by name',
+                      hintStyle: const TextStyle(fontSize: 13, color: Colors.white38),
+                      prefixIcon: const Icon(Icons.search, size: 18, color: Colors.white54),
+                      suffixIcon: query.isEmpty
+                          ? null
+                          : IconButton(
+                              tooltip: 'Clear search',
+                              iconSize: 16,
+                              onPressed: () {
+                                searchController.clear();
+                                setState(() => query = '');
+                              },
+                              icon: const Icon(Icons.clear),
+                            ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide.none,
                       ),
                     ),
                   ),
-                  IconButton(
-                    tooltip: 'Close participants',
-                    onPressed: widget.onClose,
-                    icon: const Icon(Icons.close, color: Colors.white),
-                  ),
-                ],
-              ),
-            ),
-            // Thao tác cho cả lớp nằm ở hàng riêng để vừa panel trên màn hình hẹp.
-            if (_bulkActions case final actions when actions.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Wrap(spacing: 4, children: actions),
-              ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
-              child: TextField(
-                controller: searchController,
-                onChanged: (value) => setState(() => query = value),
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  isDense: true,
-                  hintText: 'Search by name',
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: query.isEmpty
-                      ? null
-                      : IconButton(
-                          tooltip: 'Clear search',
-                          onPressed: () {
-                            searchController.clear();
-                            setState(() => query = '');
-                          },
-                          icon: const Icon(Icons.clear),
-                        ),
-                  border: const OutlineInputBorder(),
                 ),
               ),
-            ),
-            Expanded(
-              child: visible.isEmpty
-                  ? const Center(
-                      child: Text('No participants found', style: TextStyle(color: Colors.white70)),
-                    )
-                  : ListView(
-                      children: [
-                        if (hosts.isNotEmpty) ...[
-                          const _SectionHeader('Teacher'),
-                          for (final p in hosts)
-                            _ParticipantRow(
-                              participant: p,
-                              onLowerHand: widget.onLowerHand,
-                              onModerate: widget.onModerate,
-                            ),
+              // Thao tác cho cả lớp nằm ở hàng riêng để vừa panel trên màn hình hẹp.
+              if (_bulkActions case final actions when actions.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 2, 8, 0),
+                  child: Wrap(spacing: 4, children: actions),
+                ),
+              Expanded(
+                child: visible.isEmpty
+                    ? const Center(
+                        child: Text(
+                          'No participants found',
+                          style: TextStyle(color: Colors.white70),
+                        ),
+                      )
+                    : ListView(
+                        children: [
+                          if (hosts.isNotEmpty) ...[
+                            const _SectionHeader('Teacher'),
+                            for (final p in hosts)
+                              _ParticipantRow(
+                                participant: p,
+                                onLowerHand: widget.onLowerHand,
+                                onModerate: widget.onModerate,
+                              ),
+                          ],
+                          if (students.isNotEmpty) ...[
+                            _SectionHeader('Students · ${students.length}'),
+                            for (final p in students)
+                              _ParticipantRow(
+                                participant: p,
+                                onLowerHand: widget.onLowerHand,
+                                onModerate: widget.onModerate,
+                              ),
+                          ],
                         ],
-                        if (students.isNotEmpty) ...[
-                          _SectionHeader('Students (${students.length})'),
-                          for (final p in students)
-                            _ParticipantRow(
-                              participant: p,
-                              onLowerHand: widget.onLowerHand,
-                              onModerate: widget.onModerate,
-                            ),
-                        ],
-                      ],
-                    ),
-            ),
-          ],
+                      ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -254,16 +292,24 @@ extension on _RoomParticipantPanelState {
     if (widget.onLowerAllHands != null && widget.participants.any((p) => p.handRaisedAt != null))
       TextButton.icon(
         onPressed: widget.onLowerAllHands,
-        style: TextButton.styleFrom(foregroundColor: const Color(0xfffdd663)),
-        icon: const Icon(Icons.back_hand_outlined, size: 18),
+        style: TextButton.styleFrom(
+          foregroundColor: const Color(0xfffdd663),
+          visualDensity: VisualDensity.compact,
+          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+        ),
+        icon: const Icon(Icons.back_hand_outlined, size: 16),
         label: const Text('Lower all'),
       ),
     if (widget.onMuteAll != null &&
         widget.participants.any((p) => !p.isHost && !p.isLocal && p.microphoneAllowed))
       TextButton.icon(
         onPressed: widget.onMuteAll,
-        style: TextButton.styleFrom(foregroundColor: Colors.white),
-        icon: const Icon(Icons.mic_off_outlined, size: 18),
+        style: TextButton.styleFrom(
+          foregroundColor: Colors.white70,
+          visualDensity: VisualDensity.compact,
+          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+        ),
+        icon: const Icon(Icons.mic_off_outlined, size: 16),
         label: const Text('Mute all'),
       ),
   ];
@@ -279,8 +325,13 @@ class _SectionHeader extends StatelessWidget {
     child: Semantics(
       header: true,
       child: Text(
-        title,
-        style: Theme.of(context).textTheme.labelLarge?.copyWith(color: Colors.white70),
+        title.toUpperCase(),
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.4,
+          color: Colors.white54,
+        ),
       ),
     ),
   );
@@ -314,13 +365,13 @@ class _ParticipantRow extends StatelessWidget {
         roomParticipantLabel(participant),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(color: Colors.white),
+        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.white),
       ),
       subtitle: Text(
         subtitle,
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(color: Colors.white70),
+        style: const TextStyle(fontSize: 11, color: Colors.white54),
       ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
@@ -351,31 +402,50 @@ class _ParticipantRow extends StatelessWidget {
           if (canModerate)
             PopupMenuButton<RoomParticipantAction>(
               tooltip: 'More actions for ${participant.displayName}',
-              icon: const Icon(Icons.more_vert, color: Colors.white70),
+              iconSize: 18,
+              icon: const Icon(Icons.more_horiz, color: Colors.white70),
               onSelected: (action) => moderate(participant.identity, action),
+              position: PopupMenuPosition.under,
+              offset: const Offset(0, 6),
+              color: const Color(0xff2A2D34),
+              surfaceTintColor: Colors.transparent,
+              elevation: 8,
+              shadowColor: Colors.black54,
+              menuPadding: const EdgeInsets.all(6),
+              constraints: const BoxConstraints(minWidth: 200),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+                side: const BorderSide(color: Color(0x1FFFFFFF)),
+              ),
               itemBuilder: (context) => [
                 participant.microphoneAllowed
-                    ? const PopupMenuItem(
-                        value: RoomParticipantAction.mute,
-                        child: Text('Mute microphone'),
+                    ? _menuItem(
+                        RoomParticipantAction.mute,
+                        Icons.mic_off_outlined,
+                        'Mute microphone',
                       )
-                    : const PopupMenuItem(
-                        value: RoomParticipantAction.allowMicrophone,
-                        child: Text('Allow microphone'),
+                    : _menuItem(
+                        RoomParticipantAction.allowMicrophone,
+                        Icons.mic_none,
+                        'Allow microphone',
                       ),
                 participant.cameraAllowed
-                    ? const PopupMenuItem(
-                        value: RoomParticipantAction.disableCamera,
-                        child: Text('Turn off camera'),
+                    ? _menuItem(
+                        RoomParticipantAction.disableCamera,
+                        Icons.videocam_off_outlined,
+                        'Turn off camera',
                       )
-                    : const PopupMenuItem(
-                        value: RoomParticipantAction.allowCamera,
-                        child: Text('Allow camera'),
+                    : _menuItem(
+                        RoomParticipantAction.allowCamera,
+                        Icons.videocam_outlined,
+                        'Allow camera',
                       ),
-                const PopupMenuDivider(),
-                const PopupMenuItem(
-                  value: RoomParticipantAction.remove,
-                  child: Text('Remove from session', style: TextStyle(color: Colors.redAccent)),
+                const PopupMenuDivider(height: 9, thickness: 1, color: Color(0x1AFFFFFF)),
+                _menuItem(
+                  RoomParticipantAction.remove,
+                  Icons.person_remove_outlined,
+                  'Remove from session',
+                  color: const Color(0xffF28B82),
                 ),
               ],
             ),
@@ -384,6 +454,27 @@ class _ParticipantRow extends StatelessWidget {
     );
   }
 }
+
+PopupMenuItem<RoomParticipantAction> _menuItem(
+  RoomParticipantAction value,
+  IconData icon,
+  String label, {
+  Color color = Colors.white,
+}) => PopupMenuItem(
+  value: value,
+  height: 36,
+  padding: const EdgeInsets.symmetric(horizontal: 10),
+  child: Row(
+    spacing: 10,
+    children: [
+      Icon(icon, size: 17, color: color.withValues(alpha: 0.85)),
+      Text(
+        label,
+        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: color),
+      ),
+    ],
+  ),
+);
 
 class _StateIcon extends StatelessWidget {
   const _StateIcon({required this.icon, required this.label, this.color});

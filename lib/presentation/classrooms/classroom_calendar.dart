@@ -468,18 +468,14 @@ class _ClassroomCalendarViewState extends State<ClassroomCalendarView> {
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Gb.text),
         ),
         const SizedBox(height: 14),
-        if (events.isEmpty)
-          const Text(
-            'Nothing scheduled on this day.',
-            style: TextStyle(fontSize: 12, color: Gb.faint),
-          ),
+        if (events.isEmpty) _emptyDay(),
         for (final event in events) _detailItem(event),
-        if (widget.isTeacher && widget.classroomActive) ...[
+        if (widget.isTeacher && widget.classroomActive && !selected.isBefore(_today())) ...[
           const SizedBox(height: 2),
           Align(
             alignment: Alignment.centerLeft,
             child: OutlinedButton.icon(
-              onPressed: busy || selected.isBefore(_today()) ? null : () => edit(),
+              onPressed: busy ? null : () => edit(),
               icon: const Icon(Icons.add, size: 18),
               label: Text('Add session on ${DateFormat('MMM d').format(selected)}'),
               style: OutlinedButton.styleFrom(
@@ -494,6 +490,33 @@ class _ClassroomCalendarViewState extends State<ClassroomCalendarView> {
     );
   }
 
+  Widget _emptyDay() {
+    final past = selected.isBefore(_today());
+    final canAdd = widget.isTeacher && widget.classroomActive && !past;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
+      decoration: BoxDecoration(color: Gb.soft, borderRadius: BorderRadius.circular(10)),
+      child: Column(
+        spacing: 4,
+        children: [
+          Text(
+            past ? 'Nothing on this day' : 'Nothing scheduled',
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Gb.text),
+          ),
+          if (canAdd || (past && widget.isTeacher))
+            Text(
+              past ? 'Past days can’t get new sessions' : 'Add a session for this day',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 12, color: Gb.faint),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Một mục trong khung ngày (Figma 29:4): nhãn trạng thái góc phải, nút chính bên trái,
+  /// sửa/xoá dạng icon bên phải.
   Widget _detailItem(CalendarEntry event) {
     final (color, _) = _calendarColors(event);
     final deadline = _isDeadline(event);
@@ -502,97 +525,176 @@ class _ClassroomCalendarViewState extends State<ClassroomCalendarView> {
     final assignmentId = event.relatedAssignmentId;
     final room = event.room;
     final editable = widget.isTeacher && widget.classroomActive && event.editable;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          spacing: 10,
+    final status = deadline ? null : _sessionStatus(event);
+    final meta = _sessionMeta(room);
+    final actions = [
+      if (assignmentId != null)
+        _entryButton(
+          widget.isTeacher ? 'Open gradebook' : 'Open assignment',
+          Icons.arrow_forward,
+          () => widget.onOpenAssignment(assignmentId),
+        ),
+      if (room != null) ..._roomActions(event, room),
+    ];
+    final tools = [
+      // Buổi đã bắt đầu không đổi giờ được nữa; buổi đang live không xoá được.
+      if (editable && event.startsAt.isAfter(DateTime.now()))
+        _toolButton(Icons.edit_outlined, 'Edit class schedule', Gb.muted, () => edit(event)),
+      if (editable && room?.status != 'LIVE')
+        _toolButton(Icons.delete_outline, 'Delete class schedule', Gb.red, () => remove(event)),
+    ];
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: deadline ? const Color(0xFFFEF6F5) : const Color(0xFFF3F8FC),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+        decoration: BoxDecoration(
+          border: Border(left: BorderSide(color: color, width: 3)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          spacing: 4,
           children: [
-            Container(
-              width: 3,
-              decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2)),
+            Row(
+              spacing: 8,
+              children: [
+                Expanded(
+                  child: Text(
+                    deadline ? 'Deadline · $time' : 'Class session · $time$end',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: color),
+                  ),
+                ),
+                ?status,
+              ],
             ),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                spacing: 3,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          deadline ? 'DEADLINE · $time' : 'CLASS SESSION · $time$end',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: color),
-                        ),
-                      ),
-                      if (editable) ...[
-                        // Buổi đã bắt đầu không đổi giờ được nữa, chỉ còn xoá.
-                        if (event.startsAt.isAfter(DateTime.now()))
-                          _smallAction(
-                            Icons.edit_outlined,
-                            'Edit class schedule',
-                            () => edit(event),
-                          ),
-                        _smallAction(
-                          Icons.delete_outline,
-                          'Delete class schedule',
-                          () => remove(event),
-                        ),
-                      ],
-                    ],
-                  ),
-                  Text(
-                    _title(event),
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: Gb.text,
-                    ),
-                  ),
-                  if (event.description?.trim().isNotEmpty == true)
-                    Text(
-                      event.description!.trim(),
-                      style: const TextStyle(fontSize: 12, color: Gb.muted),
-                    ),
-                  if (assignmentId != null)
-                    InkWell(
-                      onTap: () => widget.onOpenAssignment(assignmentId),
-                      child: Text(
-                        widget.isTeacher ? 'Open gradebook →' : 'Open assignment →',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: ColorName.primary,
-                        ),
-                      ),
-                    ),
-                  if (room != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Wrap(
-                        spacing: 4,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: _roomActions(event, room),
-                      ),
-                    ),
-                ],
+            Text(
+              _title(event),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Gb.text),
+            ),
+            if (event.description?.trim().isNotEmpty == true)
+              Text(
+                event.description!.trim(),
+                style: const TextStyle(fontSize: 12, color: Gb.muted),
               ),
-            ),
+            if (meta != null) Text(meta, style: const TextStyle(fontSize: 12, color: Gb.muted)),
+            if (actions.isNotEmpty || tools.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Row(
+                  spacing: 6,
+                  children: [
+                    Expanded(child: Wrap(spacing: 6, runSpacing: 6, children: actions)),
+                    ...tools,
+                  ],
+                ),
+              ),
           ],
         ),
       ),
     );
   }
 
-  Widget _smallAction(IconData icon, String tooltip, VoidCallback onPressed) => IconButton(
-    tooltip: tooltip,
-    onPressed: busy ? null : onPressed,
-    visualDensity: VisualDensity.compact,
-    iconSize: 16,
-    color: Gb.muted,
-    icon: Icon(icon),
-  );
+  /// Nhãn trạng thái buổi học, màu Live/Waiting giống màn pre-join.
+  Widget _sessionStatus(CalendarEntry event) {
+    final room = event.room;
+    final now = DateTime.now();
+    final ended = room?.status == 'ENDED' || (event.endsAt ?? event.startsAt).isBefore(now);
+    return switch (room?.status) {
+      'LIVE' => _statusPill('Live', const Color(0xFF1E8E3E), const Color(0xFFE7F6EC), dot: true),
+      _ when ended => _statusPill('Ended', const Color(0xFF475467), const Color(0xFFF2F4F7)),
+      _ when !now.isBefore(event.startsAt.subtract(const Duration(minutes: 30))) => _statusPill(
+        'Waiting',
+        const Color(0xFFB26A00),
+        const Color(0xFFFFF4E5),
+        dot: true,
+      ),
+      _ => _statusPill('Scheduled', const Color(0xFF475467), const Color(0xFFF2F4F7)),
+    };
+  }
+
+  String? _sessionMeta(ClassroomRoom? room) {
+    final started = room?.startedAt?.toLocal();
+    if (room == null || started == null) return null;
+    if (room.status == 'LIVE') return 'Started ${DateFormat('HH:mm').format(started)}';
+    final ended = room.endedAt?.toLocal();
+    if (room.status != 'ENDED' || ended == null) return null;
+    final minutes = ended.difference(started).inMinutes;
+    final hours = minutes ~/ 60;
+    return 'Lasted ${hours > 0 ? '${hours}h ' : ''}${minutes % 60}m';
+  }
+
+  Widget _statusPill(String label, Color foreground, Color background, {bool dot = false}) =>
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(10)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          spacing: 5,
+          children: [
+            if (dot) _dot(foreground, 6),
+            Text(
+              label,
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: foreground),
+            ),
+          ],
+        ),
+      );
+
+  Widget _entryButton(String label, IconData icon, VoidCallback onPressed, {bool primary = false}) {
+    final style = ButtonStyle(
+      visualDensity: VisualDensity.compact,
+      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 12)),
+      minimumSize: const WidgetStatePropertyAll(Size(0, 32)),
+      shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+      textStyle: const WidgetStatePropertyAll(TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+    );
+    final onTap = busy ? null : onPressed;
+    final iconWidget = Icon(icon, size: 16);
+    if (primary) {
+      return FilledButton.icon(
+        onPressed: onTap,
+        style: style.merge(FilledButton.styleFrom(backgroundColor: ColorName.primary)),
+        icon: iconWidget,
+        label: Text(label),
+      );
+    }
+    return OutlinedButton.icon(
+      onPressed: onTap,
+      style: style.merge(
+        OutlinedButton.styleFrom(
+          foregroundColor: Gb.text,
+          backgroundColor: Colors.white,
+          side: const BorderSide(color: Gb.border),
+        ),
+      ),
+      icon: iconWidget,
+      label: Text(label),
+    );
+  }
+
+  Widget _toolButton(IconData icon, String tooltip, Color color, VoidCallback onPressed) =>
+      SizedBox.square(
+        dimension: 30,
+        child: Tooltip(
+          message: tooltip,
+          child: Material(
+            color: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+              side: const BorderSide(color: Gb.border),
+            ),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: busy ? null : onPressed,
+              child: Icon(icon, size: 16, color: color),
+            ),
+          ),
+        ),
+      );
 
   Widget _upcoming() => GbCard(
     padding: const EdgeInsets.all(18),
@@ -652,56 +754,36 @@ class _ClassroomCalendarViewState extends State<ClassroomCalendarView> {
     return '$day · ${DateFormat('HH:mm').format(value)}';
   }
 
+  /// Nút chính theo trạng thái phòng; trạng thái chờ/đã qua đã nằm ở nhãn nên không lặp lại.
   List<Widget> _roomActions(CalendarEntry entry, ClassroomRoom room) {
     if (room.status == 'LIVE') {
       return [
-        _attendanceAction(room),
-        FilledButton.icon(
-          onPressed: busy
-              ? null
-              : () => context.push(classroomRoomPath(widget.classroomId, room.id)),
-          icon: const Icon(Icons.video_call_outlined),
-          label: const Text('Join'),
+        _entryButton(
+          'Join class',
+          Icons.video_call_outlined,
+          () => context.push(classroomRoomPath(widget.classroomId, room.id)),
+          primary: true,
         ),
       ];
     }
     if (room.status == 'ENDED') {
       return [
-        const Padding(padding: EdgeInsets.all(12), child: Text('Ended')),
-        _attendanceAction(room),
-      ];
-    }
-    if (widget.isTeacher && widget.classroomActive) {
-      final now = DateTime.now();
-      if (now.isBefore(room.startsAt.subtract(const Duration(minutes: 30)))) {
-        return [
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Text('Starts ${DateFormat('MMM d, HH:mm').format(room.startsAt)}'),
-          ),
-        ];
-      }
-      if (!room.canStartAt(now)) {
-        return [const Padding(padding: EdgeInsets.all(12), child: Text('Start window ended'))];
-      }
-      return [
-        FilledButton.icon(
-          onPressed: busy ? null : () => startRoom(entry),
-          icon: const Icon(Icons.play_arrow),
-          label: const Text('Start'),
+        _entryButton(
+          widget.isTeacher ? 'Attendance' : 'My attendance',
+          Icons.fact_check_outlined,
+          () => context.push(roomAttendancePath(widget.classroomId, room.id)),
         ),
       ];
     }
-    return [
-      const Padding(padding: EdgeInsets.all(12), child: Text('Waiting for the teacher to start')),
-    ];
+    final now = DateTime.now();
+    if (widget.isTeacher &&
+        widget.classroomActive &&
+        !now.isBefore(room.startsAt.subtract(const Duration(minutes: 30))) &&
+        room.canStartAt(now)) {
+      return [_entryButton('Start class', Icons.play_arrow, () => startRoom(entry), primary: true)];
+    }
+    return const [];
   }
-
-  Widget _attendanceAction(ClassroomRoom room) => IconButton(
-    tooltip: widget.isTeacher ? 'Attendance' : 'My attendance',
-    onPressed: () => context.push(roomAttendancePath(widget.classroomId, room.id)),
-    icon: const Icon(Icons.fact_check_outlined),
-  );
 }
 
 DateTime _today() => DateUtils.dateOnly(DateTime.now());

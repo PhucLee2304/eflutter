@@ -18,6 +18,9 @@ import 'package:livekit_client/livekit_client.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:eflutter/presentation/app/navigation/app_routes.dart';
+import 'package:eflutter/presentation/app/theme/app_button_styles.dart';
+import 'package:eflutter/generated/colors.gen.dart';
+import 'package:eflutter/presentation/classrooms/classroom_detail_header.dart';
 import 'package:eflutter/presentation/classrooms/room_connection_recovery.dart';
 import 'package:eflutter/presentation/classrooms/room_device_preferences.dart';
 import 'package:eflutter/presentation/classrooms/room_device_settings.dart';
@@ -50,12 +53,18 @@ class _Presenter {
   final VideoTrack? track;
 }
 
+const _roomText = Color(0xFF1C1E21);
+const _roomMuted = Color(0xFF65676B);
+const _roomFaint = Color(0xFF8A8D91);
+const _roomBorder = Color(0xFFE4E6EB);
+const _stageColor = Color(0xFF16181D);
+
 class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
   static const _reconnectTimeout = Duration(seconds: 45);
   static const _roomStatusRetryDelay = Duration(seconds: 5);
   static const _controlsHideDelay = Duration(seconds: 4);
   static const _controlsAnimation = Duration(milliseconds: 200);
-  static const _controlBarHeight = 72.0;
+  static const _controlBarHeight = 92.0;
   static const _sidePanelBreakpoint = 900.0;
   static const _sidePanelWidth = 320.0;
 
@@ -84,6 +93,9 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
   bool cameraEnabled = true;
   bool microphoneEnabled = true;
   bool loading = true;
+  // Ngữ cảnh hiển thị: banner lớp ở màn chuẩn bị và tên buổi học.
+  Classroom? classroom;
+  String? sessionTitle;
   bool connecting = false;
   String? error;
   String? deviceWarning;
@@ -201,6 +213,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
           roomInfo = value;
           loading = false;
         });
+        unawaited(_loadContext(value));
       case Failure(message: final message):
         setState(() {
           error = message ?? 'Could not load the room';
@@ -209,6 +222,25 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
       case Cancelled():
         setState(() => loading = false);
     }
+  }
+
+  /// Lớp (cho banner) và tên buổi học (từ lịch); thiếu thì vẫn vào phòng bình thường.
+  Future<void> _loadContext(ClassroomRoom room) async {
+    final results = await Future.wait([
+      repository.get(widget.classroomId),
+      repository.getCalendar(
+        classroomId: widget.classroomId,
+        from: room.startsAt.subtract(const Duration(minutes: 1)),
+        to: room.endsAt.add(const Duration(minutes: 1)),
+      ),
+    ]);
+    if (!mounted) return;
+    setState(() {
+      if (results[0] case Success(data: final Classroom value)) classroom = value;
+      if (results[1] case Success(data: final List<CalendarEntry> entries)) {
+        sessionTitle = entries.where((entry) => entry.room?.id == widget.roomId).firstOrNull?.title;
+      }
+    });
   }
 
   void _syncDeviceOptions() {
@@ -289,6 +321,10 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
             if (event.reason == DisconnectReason.participantRemoved) {
               mediaRemovalPending = true;
               unawaited(_handleMediaRemoval());
+            } else if (event.reason == DisconnectReason.roomDeleted && roomInfo?.isHost != true) {
+              // Giáo viên kết thúc lớp: không reconnect, về lịch.
+              _showRoomMessage('The teacher ended this class.');
+              unawaited(_exitClosedRoom());
             }
           })
           ..on<TrackMutedEvent>((event) {
@@ -666,7 +702,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
     leavingRoom = true;
     reconnectTimer?.cancel();
     await _disposeLiveRoom();
-    if (mounted) context.pop();
+    if (mounted) _backToCalendar();
   }
 
   Future<void> _leave({bool end = false}) async {
@@ -682,7 +718,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
     leavingRoom = true;
     reconnectTimer?.cancel();
     await liveRoom?.disconnect();
-    if (mounted) context.pop();
+    if (mounted) _backToCalendar();
   }
 
   Future<void> _toggleMicrophone() async {
@@ -1287,7 +1323,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 24),
-              FilledButton(onPressed: () => context.pop(), child: const Text('Back to class')),
+              FilledButton(onPressed: _backToCalendar, child: const Text('Back to class')),
             ],
           ),
         ),
@@ -1295,127 +1331,463 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
     ),
   );
 
-  Widget _prejoin(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Online classroom')),
-    body: Center(
-      child: SingleChildScrollView(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text('Ready to join?', style: Theme.of(context).textTheme.headlineSmall),
-                const SizedBox(height: 24),
-                AspectRatio(
-                  aspectRatio: 16 / 9,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: ColoredBox(
-                      color: const Color(0xff303134),
-                      child: previewTrack == null
-                          ? const Center(
-                              child: Icon(
-                                Icons.videocam_off,
-                                size: 56,
-                                color: Colors.white54,
-                                semanticLabel: 'Camera preview is off',
-                              ),
-                            )
-                          : VideoTrackRenderer(previewTrack!),
+  /// Màn chuẩn bị (Figma 26:1861): nằm trong tab Calendar của lớp — banner, tab, rồi
+  /// xem trước camera + chọn thiết bị bên trái, trạng thái phòng và nút vào bên phải.
+  Widget _prejoin(BuildContext context) {
+    final item = classroom;
+    final cameraLocked = _ownActivityState?.cameraAllowed == false;
+    final microphoneLocked = _ownActivityState?.microphoneAllowed == false;
+    return Scaffold(
+      backgroundColor: const Color(0xFFF7F9FB),
+      appBar: ClassroomTopBar(onBack: _backToCalendar),
+      body: ListView(
+        children: [
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1128),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (item != null) ...[
+                      ClassroomBanner(
+                        classroom: item,
+                        canManage: false,
+                        busy: false,
+                        onEdit: () {},
+                        onArchive: () {},
+                      ),
+                      ClassroomTabs(
+                        selected: 2,
+                        onSelected: (tab) => context.go(classroomTabPath(widget.classroomId, tab)),
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+                    _sessionHeader(),
+                    const SizedBox(height: 20),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final wide = constraints.maxWidth >= 860;
+                        final preview = _preview(
+                          cameraLocked: cameraLocked,
+                          microphoneLocked: microphoneLocked,
+                        );
+                        final panel = _joinPanel();
+                        if (!wide) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [preview, const SizedBox(height: 24), panel],
+                          );
+                        }
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(child: preview),
+                            const SizedBox(width: 32),
+                            SizedBox(width: 340, child: panel),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sessionHeader() {
+    final info = roomInfo;
+    final time = info == null
+        ? ''
+        : '${DateFormat('EEE, MMM d · HH:mm').format(info.startsAt)} – ${DateFormat('HH:mm').format(info.endsAt)}';
+    return Row(
+      spacing: 14,
+      children: [
+        SizedBox.square(
+          dimension: 32,
+          child: OutlinedButton(
+            onPressed: _backToCalendar,
+            style: OutlinedButton.styleFrom(
+              padding: EdgeInsets.zero,
+              foregroundColor: _roomText,
+              side: const BorderSide(color: _roomBorder),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Tooltip(
+              message: 'Back to calendar',
+              child: Icon(Icons.arrow_back, size: 18),
+            ),
+          ),
+        ),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            spacing: 2,
+            children: [
+              Text(
+                sessionTitle ?? 'Online class',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: _roomText),
+              ),
+              Text(
+                'Class session · $time',
+                style: const TextStyle(fontSize: 12, color: _roomMuted),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _preview({required bool cameraLocked, required bool microphoneLocked}) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      AspectRatio(
+        aspectRatio: 16 / 9,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              ColoredBox(
+                color: const Color(0xFF2A2F37),
+                child: previewTrack == null
+                    ? const Center(
+                        child: Icon(
+                          Icons.videocam_off,
+                          size: 56,
+                          color: Colors.white54,
+                          semanticLabel: 'Camera preview is off',
+                        ),
+                      )
+                    : VideoTrackRenderer(previewTrack!),
+              ),
+              Positioned(left: 14, top: 14, child: _videoTag(const Text('You'))),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 18,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  spacing: 14,
+                  children: [
+                    _previewToggle(
+                      on: microphoneEnabled,
+                      locked: microphoneLocked,
+                      onIcon: Icons.mic,
+                      offIcon: Icons.mic_off,
+                      label: 'microphone',
+                      onPressed: () => setState(() => microphoneEnabled = !microphoneEnabled),
+                    ),
+                    _previewToggle(
+                      on: cameraEnabled,
+                      locked: cameraLocked,
+                      onIcon: Icons.videocam,
+                      offIcon: Icons.videocam_off,
+                      label: 'camera',
+                      onPressed: () async {
+                        setState(() => cameraEnabled = !cameraEnabled);
+                        await _startPreview();
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      if (deviceWarning != null || cameraLocked || microphoneLocked)
+        Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: Text(
+            deviceWarning ??
+                'The teacher turned off your ${cameraLocked && microphoneLocked
+                    ? 'camera and microphone'
+                    : cameraLocked
+                    ? 'camera'
+                    : 'microphone'}.',
+            style: const TextStyle(fontSize: 13, color: Color(0xFFD93025)),
+          ),
+        ),
+      const SizedBox(height: 14),
+      LayoutBuilder(
+        builder: (context, constraints) {
+          final fields = [
+            _deviceField(
+              'Camera',
+              Icons.videocam_outlined,
+              cameras,
+              camera,
+              (device) => _selectCamera(device),
+            ),
+            _deviceField(
+              'Microphone',
+              Icons.mic_none,
+              microphones,
+              microphone,
+              (device) => _selectMicrophone(device),
+            ),
+            _deviceField(
+              'Speaker',
+              Icons.volume_up_outlined,
+              speakers,
+              speaker,
+              (device) => _selectSpeaker(device),
+            ),
+          ];
+          if (constraints.maxWidth < 560) {
+            return Column(spacing: 12, children: fields);
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            spacing: 12,
+            children: [for (final field in fields) Expanded(child: field)],
+          );
+        },
+      ),
+    ],
+  );
+
+  Widget _previewToggle({
+    required bool on,
+    required bool locked,
+    required IconData onIcon,
+    required IconData offIcon,
+    required String label,
+    required VoidCallback onPressed,
+  }) => Tooltip(
+    message: locked
+        ? 'The teacher turned off your $label'
+        : on
+        ? 'Turn off $label'
+        : 'Turn on $label',
+    child: Material(
+      color: on ? Colors.white.withValues(alpha: 0.18) : const Color(0xFFD93025),
+      shape: CircleBorder(
+        side: on ? BorderSide(color: Colors.white.withValues(alpha: 0.35)) : BorderSide.none,
+      ),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: locked ? null : onPressed,
+        child: SizedBox.square(
+          dimension: 52,
+          child: Icon(on ? onIcon : offIcon, color: locked ? Colors.white54 : Colors.white),
+        ),
+      ),
+    ),
+  );
+
+  /// Ô chọn thiết bị: menu xổ ngay dưới ô, cùng kiểu menu Sort (nền trắng, viền, mục đang chọn có ✓).
+  Widget _deviceField(
+    String label,
+    IconData icon,
+    List<MediaDevice> devices,
+    MediaDevice? value,
+    ValueChanged<MediaDevice> onChanged,
+  ) {
+    String name(MediaDevice device, int index) =>
+        device.label.isEmpty ? '$label ${index + 1}' : device.label;
+    final selectedIndex = value == null
+        ? -1
+        : devices.indexWhere((device) => device.deviceId == value.deviceId);
+    final text = selectedIndex < 0
+        ? 'No ${label.toLowerCase()} found'
+        : name(devices[selectedIndex], selectedIndex);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: 6,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: _roomMuted),
+        ),
+        LayoutBuilder(
+          builder: (context, constraints) => PopupMenuButton<MediaDevice>(
+            tooltip: 'Choose ${label.toLowerCase()}',
+            enabled: devices.isNotEmpty,
+            onSelected: onChanged,
+            position: PopupMenuPosition.under,
+            offset: const Offset(0, 6),
+            color: Colors.white,
+            surfaceTintColor: Colors.transparent,
+            elevation: 6,
+            shadowColor: Colors.black26,
+            menuPadding: const EdgeInsets.all(6),
+            constraints: BoxConstraints(
+              minWidth: constraints.maxWidth,
+              maxWidth: math.max(constraints.maxWidth, 320),
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+              side: const BorderSide(color: _roomBorder),
+            ),
+            itemBuilder: (context) => [
+              for (final (index, device) in devices.indexed)
+                PopupMenuItem(
+                  value: device,
+                  height: 38,
+                  padding: EdgeInsets.zero,
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(vertical: 1),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: index == selectedIndex ? AppButtonStyles.tint : null,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      spacing: 10,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            name(device, index),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: index == selectedIndex
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
+                              color: index == selectedIndex ? ColorName.primary : _roomText,
+                            ),
+                          ),
+                        ),
+                        if (index == selectedIndex)
+                          const Icon(Icons.check, size: 16, color: ColorName.primary),
+                      ],
                     ),
                   ),
                 ),
-                if (deviceWarning != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
+            ],
+            child: Container(
+              height: 44,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: _roomBorder),
+              ),
+              child: Row(
+                spacing: 10,
+                children: [
+                  Icon(icon, size: 18, color: _roomMuted),
+                  Expanded(
                     child: Text(
-                      deviceWarning!,
-                      style: TextStyle(color: Theme.of(context).colorScheme.error),
+                      text,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: selectedIndex < 0 ? _roomFaint : _roomText,
+                      ),
                     ),
                   ),
-                const SizedBox(height: 12),
-                SwitchListTile(
-                  value: cameraEnabled,
-                  onChanged: _ownActivityState?.cameraAllowed == false
-                      ? null
-                      : (value) async {
-                          setState(() => cameraEnabled = value);
-                          await _startPreview();
-                        },
-                  title: const Text('Camera'),
-                  subtitle: _ownActivityState?.cameraAllowed == false
-                      ? const Text('Turned off by the teacher')
-                      : null,
-                  secondary: const Icon(Icons.videocam_outlined),
+                  const Icon(Icons.expand_more, size: 18, color: _roomMuted),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _joinPanel() {
+    final info = roomInfo;
+    final (label, foreground, background) = switch (info?.status) {
+      'LIVE' => (
+        info?.startedAt == null ? 'Live now' : 'Live now · started ${_ago(info!.startedAt!)}',
+        const Color(0xFF1E8E3E),
+        const Color(0xFFE7F6EC),
+      ),
+      'ENDED' => ('This class has ended', _roomMuted, const Color(0xFFF0F2F5)),
+      _ => ('Waiting for the teacher to start', const Color(0xFFB26A00), const Color(0xFFFFF4E5)),
+    };
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text(
+          'Ready to join?',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 26, fontWeight: FontWeight.w600, color: _roomText),
+        ),
+        const SizedBox(height: 14),
+        Center(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(999)),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              spacing: 8,
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(color: foreground, shape: BoxShape.circle),
                 ),
-                if (cameraEnabled && cameras.isNotEmpty)
-                  DropdownButtonFormField<MediaDevice>(
-                    key: ValueKey('prejoin_camera_${camera?.deviceId}'),
-                    initialValue: camera,
-                    isExpanded: true,
-                    items: cameras
-                        .map(
-                          (device) => DropdownMenuItem(
-                            value: device,
-                            child: Text(
-                              device.label.isEmpty ? 'Camera' : device.label,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (value) {
-                      if (value != null) _selectCamera(value);
-                    },
-                    decoration: const InputDecoration(labelText: 'Camera device'),
-                  ),
-                SwitchListTile(
-                  value: microphoneEnabled,
-                  onChanged: _ownActivityState?.microphoneAllowed == false
-                      ? null
-                      : (value) => setState(() => microphoneEnabled = value),
-                  title: const Text('Microphone'),
-                  subtitle: _ownActivityState?.microphoneAllowed == false
-                      ? const Text('Turned off by the teacher')
-                      : null,
-                  secondary: const Icon(Icons.mic_outlined),
-                ),
-                if (microphoneEnabled && microphones.isNotEmpty)
-                  DropdownButtonFormField<MediaDevice>(
-                    key: ValueKey('prejoin_microphone_${microphone?.deviceId}'),
-                    initialValue: microphone,
-                    isExpanded: true,
-                    items: microphones
-                        .map(
-                          (device) => DropdownMenuItem(
-                            value: device,
-                            child: Text(
-                              device.label.isEmpty ? 'Microphone' : device.label,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (value) {
-                      if (value != null) _selectMicrophone(value);
-                    },
-                    decoration: const InputDecoration(labelText: 'Microphone device'),
-                  ),
-                const SizedBox(height: 24),
-                RoomJoinControl(
-                  status: roomInfo?.status,
-                  connecting: connecting,
-                  error: error,
-                  onJoin: _connect,
+                Text(
+                  label,
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: foreground),
                 ),
               ],
             ),
           ),
         ),
-      ),
+        const SizedBox(height: 22),
+        FilledButtonTheme(
+          data: FilledButtonThemeData(
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(48),
+              shape: const StadiumBorder(),
+              textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            ),
+          ),
+          child: RoomJoinControl(
+            status: info?.status,
+            connecting: connecting,
+            error: error,
+            onJoin: _connect,
+          ),
+        ),
+        const SizedBox(height: 14),
+        Text(
+          switch (info?.status) {
+            'LIVE' =>
+              'Your device choices are kept for next time. Attendance is recorded when you join.',
+            'ENDED' => 'Go back to the calendar to see the next sessions.',
+            _ => 'This page updates automatically when the class starts.',
+          },
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 12, color: _roomFaint),
+        ),
+      ],
+    );
+  }
+
+  /// Rời màn phòng: luôn về tab Calendar của lớp.
+  void _backToCalendar() => context.go(classroomTabPath(widget.classroomId, 2));
+
+  static String _ago(DateTime value) {
+    final minutes = DateTime.now().difference(value).inMinutes;
+    if (minutes < 1) return 'just now';
+    if (minutes < 60) return '$minutes min ago';
+    return '${minutes ~/ 60} h ${minutes % 60} min ago';
+  }
+
+  Widget _videoTag(Widget child) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+    decoration: BoxDecoration(
+      color: Colors.black.withValues(alpha: 0.45),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: DefaultTextStyle(
+      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.white),
+      child: child,
     ),
   );
 
@@ -1496,123 +1868,201 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
         controlsVisible || participantsOpen || room.connectionState != ConnectionState.connected;
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     final barHeight = _controlBarHeight + bottomInset;
+    // Phòng phủ kín vùng nội dung (Figma 26:2183): bỏ banner lớp, chỉ còn thanh trên của phòng.
     return Scaffold(
-      backgroundColor: const Color(0xff151719),
-      appBar: AppBar(
-        backgroundColor: const Color(0xff202124),
-        foregroundColor: Colors.white,
-        title: const Text('Online classroom'),
-        actions: [
-          IconButton(
-            tooltip: roomInfo?.isHost == true ? 'Attendance' : 'My attendance',
-            onPressed: () => context.push(roomAttendancePath(widget.classroomId, widget.roomId)),
-            icon: const Icon(Icons.fact_check_outlined),
-          ),
-          if (roomInfo?.isHost == true)
-            TextButton.icon(
-              onPressed: () => _leave(end: true),
-              icon: const Icon(Icons.stop_circle_outlined),
-              label: const Text('End class'),
-              style: TextButton.styleFrom(foregroundColor: Colors.red.shade200),
-            ),
-        ],
-      ),
-      body: MouseRegion(
-        onHover: (_) => _showControls(),
-        child: Listener(
-          behavior: HitTestBehavior.translucent,
-          onPointerDown: (_) => _showControls(),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final sidePanel = participantsOpen && constraints.maxWidth >= _sidePanelBreakpoint;
-              final panel = participantsOpen
-                  ? RoomParticipantPanel(
-                      participants: views,
-                      onClose: _toggleParticipants,
-                      onLowerHand: isHost ? (userId) => _lowerHands(userId: userId) : null,
-                      onLowerAllHands: isHost ? _lowerHands : null,
-                      onModerate: isHost ? _moderate : null,
-                      onMuteAll: isHost ? _muteAll : null,
-                    )
-                  : null;
-              return Stack(
-                children: [
-                  Positioned.fill(
-                    child: AnimatedPadding(
-                      duration: _controlsAnimation,
-                      padding: EdgeInsets.only(bottom: showControls ? barHeight : 0),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Expanded(
-                            child: presenter == null
-                                ? _participantGrid(entries)
-                                : _presentationLayout(
-                                    presenter,
-                                    entries,
-                                    canStop: presenter.isLocal || isHost,
+      backgroundColor: const Color(0xFFF7F9FB),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: ColoredBox(
+            color: _stageColor,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _roomTopBar(views.length),
+                Expanded(
+                  child: MouseRegion(
+                    onHover: (_) => _showControls(),
+                    child: Listener(
+                      behavior: HitTestBehavior.translucent,
+                      onPointerDown: (_) => _showControls(),
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final sidePanel =
+                              participantsOpen && constraints.maxWidth >= _sidePanelBreakpoint;
+                          final panel = participantsOpen
+                              ? RoomParticipantPanel(
+                                  participants: views,
+                                  onClose: _toggleParticipants,
+                                  onLowerHand: isHost
+                                      ? (userId) => _lowerHands(userId: userId)
+                                      : null,
+                                  onLowerAllHands: isHost ? _lowerHands : null,
+                                  onModerate: isHost ? _moderate : null,
+                                  onMuteAll: isHost ? _muteAll : null,
+                                )
+                              : null;
+                          return Stack(
+                            children: [
+                              Positioned.fill(
+                                child: AnimatedPadding(
+                                  duration: _controlsAnimation,
+                                  padding: EdgeInsets.only(bottom: showControls ? barHeight : 0),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: [
+                                      Expanded(
+                                        child: presenter == null
+                                            ? _participantGrid(entries)
+                                            : _presentationLayout(
+                                                presenter,
+                                                entries,
+                                                canStop: presenter.isLocal || isHost,
+                                              ),
+                                      ),
+                                      if (sidePanel) SizedBox(width: _sidePanelWidth, child: panel),
+                                    ],
                                   ),
-                          ),
-                          if (sidePanel) SizedBox(width: _sidePanelWidth, child: panel),
-                        ],
+                                ),
+                              ),
+                              Positioned(
+                                left: 16,
+                                bottom: (showControls ? barHeight : 0) + 16,
+                                child: RoomReactionOverlay(bubbles: reactionBubbles),
+                              ),
+                              if (requests.isNotEmpty)
+                                Positioned(
+                                  top: room.connectionState == ConnectionState.reconnecting
+                                      ? 56
+                                      : 12,
+                                  left: 12,
+                                  right: sidePanel ? _sidePanelWidth + 12 : 12,
+                                  child: Align(
+                                    alignment: Alignment.topRight,
+                                    child: ConstrainedBox(
+                                      constraints: const BoxConstraints(maxWidth: 460),
+                                      child: RoomScreenShareRequests(
+                                        requests: requests,
+                                        nameOf: _participantName,
+                                        reviewing: reviewingScreenShares,
+                                        onReview: _reviewScreenShare,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              // Trên màn hình hẹp panel phủ vùng video nhưng dừng phía trên
+                              // thanh điều khiển để không che các nút.
+                              if (panel != null && !sidePanel)
+                                Positioned(
+                                  left: 0,
+                                  right: 0,
+                                  top: 0,
+                                  bottom: barHeight,
+                                  child: panel,
+                                ),
+                              if (room.connectionState == ConnectionState.reconnecting)
+                                const Positioned(
+                                  top: 12,
+                                  left: 0,
+                                  right: 0,
+                                  child: Center(
+                                    child: Chip(
+                                      avatar: SizedBox.square(dimension: 14, child: AppLoader()),
+                                      label: Text('Reconnecting...'),
+                                    ),
+                                  ),
+                                ),
+                              Positioned(
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                child: _controlBar(
+                                  room,
+                                  visible: showControls,
+                                  participantCount: views.length,
+                                  bottomInset: bottomInset,
+                                ),
+                              ),
+                            ],
+                          );
+                        },
                       ),
                     ),
                   ),
-                  Positioned(
-                    left: 16,
-                    bottom: (showControls ? barHeight : 0) + 16,
-                    child: RoomReactionOverlay(bubbles: reactionBubbles),
-                  ),
-                  if (requests.isNotEmpty)
-                    Positioned(
-                      top: room.connectionState == ConnectionState.reconnecting ? 56 : 12,
-                      left: 12,
-                      right: sidePanel ? _sidePanelWidth + 12 : 12,
-                      child: Align(
-                        alignment: Alignment.topRight,
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 460),
-                          child: RoomScreenShareRequests(
-                            requests: requests,
-                            nameOf: _participantName,
-                            reviewing: reviewingScreenShares,
-                            onReview: _reviewScreenShare,
-                          ),
-                        ),
-                      ),
-                    ),
-                  // Trên màn hình hẹp panel phủ vùng video nhưng dừng phía trên
-                  // thanh điều khiển để không che các nút.
-                  if (panel != null && !sidePanel)
-                    Positioned(left: 0, right: 0, top: 0, bottom: barHeight, child: panel),
-                  if (room.connectionState == ConnectionState.reconnecting)
-                    const Positioned(
-                      top: 12,
-                      left: 0,
-                      right: 0,
-                      child: Center(
-                        child: Chip(
-                          avatar: SizedBox.square(dimension: 14, child: AppLoader()),
-                          label: Text('Reconnecting...'),
-                        ),
-                      ),
-                    ),
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    child: _controlBar(
-                      room,
-                      visible: showControls,
-                      participantCount: views.length,
-                      bottomInset: bottomInset,
-                    ),
-                  ),
-                ],
-              );
-            },
+                ),
+              ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _roomTopBar(int participantCount) {
+    final info = roomInfo;
+    final isHost = info?.isHost == true;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 12, 8),
+      child: Row(
+        spacing: 12,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFFD93025),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              spacing: 6,
+              children: [
+                Icon(Icons.circle, size: 7, color: Colors.white),
+                Text(
+                  'LIVE',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white),
+                ),
+              ],
+            ),
+          ),
+          if (info?.startedAt case final startedAt?) _ElapsedTime(since: startedAt),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  sessionTitle ?? 'Online class',
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+                Text(
+                  [
+                    ?classroom?.name,
+                    '$participantCount ${participantCount == 1 ? 'participant' : 'participants'}',
+                  ].join(' · '),
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 11, color: Color(0xFF9AA0A6)),
+                ),
+              ],
+            ),
+          ),
+          if (isHost)
+            TextButton.icon(
+              onPressed: () => _leave(end: true),
+              icon: const Icon(Icons.stop_circle_outlined, size: 18),
+              label: const Text('End class for all'),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFFFF8A80),
+                backgroundColor: const Color(0xFFD93025).withValues(alpha: 0.16),
+                shape: const StadiumBorder(),
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -1673,6 +2123,10 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
 
   Widget _participantGrid(List<_RoomEntry> entries) => LayoutBuilder(
     builder: (context, constraints) {
+      // Màn rộng có từ 2 người: một ô lớn (người đang nói, mặc định giáo viên) + dải bên phải.
+      if (entries.length > 1 && constraints.maxWidth >= 900 && constraints.maxHeight >= 360) {
+        return _speakerLayout(entries);
+      }
       const padding = 12.0;
       const spacing = 10.0;
       final area = Size(
@@ -1704,6 +2158,58 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
     },
   );
 
+  Widget _speakerLayout(List<_RoomEntry> entries) {
+    final main =
+        entries.where((entry) => entry.view.isSpeaking && !entry.view.isLocal).firstOrNull ??
+        entries.where((entry) => entry.view.isHost).firstOrNull ??
+        entries.first;
+    final others = [
+      for (final entry in entries)
+        if (entry.view.identity != main.view.identity) entry,
+    ];
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: RoomParticipantTile(
+              key: ValueKey(main.view.identity),
+              participant: main.view,
+              video: main.video,
+            ),
+          ),
+          const SizedBox(width: 12),
+          SizedBox(
+            width: 280,
+            child: ListView.separated(
+              itemCount: others.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 10),
+              itemBuilder: (context, index) => AspectRatio(
+                key: ValueKey(others[index].view.identity),
+                aspectRatio: 16 / 9,
+                child: RoomParticipantTile(
+                  participant: others[index].view,
+                  video: others[index].video,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Nút trên thanh điều khiển kèm nhãn chữ bên dưới.
+  Widget _labeled(String label, Widget button) => Column(
+    mainAxisSize: MainAxisSize.min,
+    spacing: 4,
+    children: [
+      button,
+      Text(label, style: const TextStyle(fontSize: 10, color: Color(0xFF9AA0A6))),
+    ],
+  );
+
   Widget _controlBar(
     Room room, {
     required bool visible,
@@ -1724,9 +2230,9 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
     final microphoneLocked = ownState?.microphoneAllowed == false && !microphoneOn;
     final cameraLocked = ownState?.cameraAllowed == false && !cameraOn;
     final onStyle = IconButton.styleFrom(
-      backgroundColor: const Color(0xff3c4043),
+      backgroundColor: Colors.white.withValues(alpha: 0.1),
       foregroundColor: Colors.white,
-      disabledBackgroundColor: const Color(0xff3c4043),
+      disabledBackgroundColor: Colors.white.withValues(alpha: 0.06),
       disabledForegroundColor: Colors.white54,
     );
     final shareControl = roomScreenShareControl(
@@ -1762,7 +2268,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
           child: FocusScope(
             node: controlsFocus,
             child: Material(
-              color: const Color(0xff202124),
+              color: _stageColor,
               child: Padding(
                 padding: EdgeInsets.fromLTRB(12, 12, 12, 12 + bottomInset),
                 child: SizedBox(
@@ -1776,87 +2282,105 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            IconButton.filled(
-                              isSelected: microphoneOn,
-                              tooltip: microphoneLocked
-                                  ? 'The teacher turned off your microphone'
-                                  : _withShortcut(
-                                      microphoneOn ? 'Turn off microphone' : 'Turn on microphone',
-                                      RoomShortcut.toggleMicrophone,
-                                    ),
-                              style: microphoneOn ? onStyle : offStyle,
-                              onPressed: microphoneLocked ? null : _toggleMicrophone,
-                              icon: const Icon(Icons.mic_off),
-                              selectedIcon: const Icon(Icons.mic),
+                            _labeled(
+                              'Mic',
+                              IconButton.filled(
+                                isSelected: microphoneOn,
+                                tooltip: microphoneLocked
+                                    ? 'The teacher turned off your microphone'
+                                    : _withShortcut(
+                                        microphoneOn ? 'Turn off microphone' : 'Turn on microphone',
+                                        RoomShortcut.toggleMicrophone,
+                                      ),
+                                style: microphoneOn ? onStyle : offStyle,
+                                onPressed: microphoneLocked ? null : _toggleMicrophone,
+                                icon: const Icon(Icons.mic_off),
+                                selectedIcon: const Icon(Icons.mic),
+                              ),
                             ),
                             gapBox,
-                            IconButton.filled(
-                              isSelected: cameraOn,
-                              tooltip: cameraLocked
-                                  ? 'The teacher turned off your camera'
-                                  : _withShortcut(
-                                      cameraOn ? 'Turn off camera' : 'Turn on camera',
-                                      RoomShortcut.toggleCamera,
-                                    ),
-                              style: cameraOn ? onStyle : offStyle,
-                              onPressed: cameraLocked ? null : _toggleCamera,
-                              icon: const Icon(Icons.videocam_off),
-                              selectedIcon: const Icon(Icons.videocam),
+                            _labeled(
+                              'Camera',
+                              IconButton.filled(
+                                isSelected: cameraOn,
+                                tooltip: cameraLocked
+                                    ? 'The teacher turned off your camera'
+                                    : _withShortcut(
+                                        cameraOn ? 'Turn off camera' : 'Turn on camera',
+                                        RoomShortcut.toggleCamera,
+                                      ),
+                                style: cameraOn ? onStyle : offStyle,
+                                onPressed: cameraLocked ? null : _toggleCamera,
+                                icon: const Icon(Icons.videocam_off),
+                                selectedIcon: const Icon(Icons.videocam),
+                              ),
                             ),
                             gapBox,
                             if (shareControl != RoomScreenShareControl.unavailable) ...[
-                              _screenShareButton(shareControl, onStyle),
+                              _labeled('Share', _screenShareButton(shareControl, onStyle)),
                               gapBox,
                             ],
                             if (!isHost) ...[
-                              IconButton.filled(
-                                isSelected: handRaised,
-                                tooltip: _withShortcut(
-                                  handRaised ? 'Lower hand' : 'Raise hand',
-                                  RoomShortcut.toggleHand,
+                              _labeled(
+                                'Raise hand',
+                                IconButton.filled(
+                                  isSelected: handRaised,
+                                  tooltip: _withShortcut(
+                                    handRaised ? 'Lower hand' : 'Raise hand',
+                                    RoomShortcut.toggleHand,
+                                  ),
+                                  style: handRaised
+                                      ? IconButton.styleFrom(
+                                          backgroundColor: const Color(0xfffdd663),
+                                          foregroundColor: Colors.black,
+                                        )
+                                      : onStyle,
+                                  onPressed: handBusy ? null : _toggleHand,
+                                  icon: const Icon(Icons.back_hand_outlined),
+                                  selectedIcon: const Icon(Icons.back_hand),
                                 ),
-                                style: handRaised
-                                    ? IconButton.styleFrom(
-                                        backgroundColor: const Color(0xfffdd663),
-                                        foregroundColor: Colors.black,
-                                      )
-                                    : onStyle,
-                                onPressed: handBusy ? null : _toggleHand,
-                                icon: const Icon(Icons.back_hand_outlined),
-                                selectedIcon: const Icon(Icons.back_hand),
                               ),
                               gapBox,
                             ],
-                            _reactionButton(onStyle),
+                            _labeled('React', _reactionButton(onStyle)),
                             gapBox,
-                            IconButton.filled(
-                              isSelected: participantsOpen,
-                              tooltip: participantsOpen
-                                  ? 'Hide participants'
-                                  : raisedHands > 0
-                                  ? 'Show participants ($raisedHands hands raised)'
-                                  : 'Show participants ($participantCount)',
-                              style: onStyle,
-                              onPressed: _toggleParticipants,
-                              icon: peopleBadge(Icons.people_outline),
-                              selectedIcon: peopleBadge(Icons.people),
-                            ),
-                            gapBox,
-                            IconButton.filled(
-                              tooltip: 'Audio and video settings',
-                              style: onStyle,
-                              onPressed: _openDeviceSettings,
-                              icon: const Icon(Icons.settings_outlined),
-                            ),
-                            gapBox,
-                            IconButton.filled(
-                              tooltip: 'Leave',
-                              style: IconButton.styleFrom(
-                                backgroundColor: Colors.red,
-                                foregroundColor: Colors.white,
+                            _labeled(
+                              'People',
+                              IconButton.filled(
+                                isSelected: participantsOpen,
+                                tooltip: participantsOpen
+                                    ? 'Hide participants'
+                                    : raisedHands > 0
+                                    ? 'Show participants ($raisedHands hands raised)'
+                                    : 'Show participants ($participantCount)',
+                                style: onStyle,
+                                onPressed: _toggleParticipants,
+                                icon: peopleBadge(Icons.people_outline),
+                                selectedIcon: peopleBadge(Icons.people),
                               ),
-                              onPressed: _leave,
-                              icon: const Icon(Icons.call_end),
+                            ),
+                            gapBox,
+                            _labeled(
+                              'Settings',
+                              IconButton.filled(
+                                tooltip: 'Audio and video settings',
+                                style: onStyle,
+                                onPressed: _openDeviceSettings,
+                                icon: const Icon(Icons.settings_outlined),
+                              ),
+                            ),
+                            gapBox,
+                            _labeled(
+                              'Leave',
+                              IconButton.filled(
+                                tooltip: 'Leave',
+                                style: IconButton.styleFrom(
+                                  backgroundColor: Colors.red,
+                                  foregroundColor: Colors.white,
+                                ),
+                                onPressed: _leave,
+                                icon: const Icon(Icons.call_end),
+                              ),
                             ),
                           ],
                         ),
@@ -2075,6 +2599,50 @@ class _RoomAttendanceScreenState extends State<RoomAttendanceScreen> {
                 );
               },
             ),
+    );
+  }
+}
+
+/// Đồng hồ thời gian đã live, tự cập nhật mỗi giây mà không dựng lại cả phòng.
+class _ElapsedTime extends StatefulWidget {
+  const _ElapsedTime({required this.since});
+  final DateTime since;
+
+  @override
+  State<_ElapsedTime> createState() => _ElapsedTimeState();
+}
+
+class _ElapsedTimeState extends State<_ElapsedTime> {
+  late final Timer timer = Timer.periodic(const Duration(seconds: 1), (_) => setState(() {}));
+
+  @override
+  void initState() {
+    super.initState();
+    timer;
+  }
+
+  @override
+  void dispose() {
+    timer.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final elapsed = DateTime.now().difference(widget.since);
+    final safe = elapsed.isNegative ? Duration.zero : elapsed;
+    String two(int value) => value.toString().padLeft(2, '0');
+    final text = safe.inHours > 0
+        ? '${safe.inHours}:${two(safe.inMinutes % 60)}:${two(safe.inSeconds % 60)}'
+        : '${two(safe.inMinutes)}:${two(safe.inSeconds % 60)}';
+    return Text(
+      text,
+      style: const TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w500,
+        color: Color(0xFFC9CDD4),
+        fontFeatures: [FontFeature.tabularFigures()],
+      ),
     );
   }
 }
