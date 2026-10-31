@@ -5,6 +5,7 @@ import 'package:eflutter/presentation/app/navigation/navigation_item.dart';
 import 'package:eflutter/presentation/app/widgets/mobile_layout.dart';
 import 'package:eflutter/presentation/app/widgets/web_layout.dart';
 import 'package:eflutter/presentation/auth/cubit/login_screen.dart';
+import 'package:eflutter/presentation/dictionary/flashcards_screen.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -32,6 +33,10 @@ class AppRouter {
       path: AppRoutes.log.path,
       builder: (context, state) => TalkerScreen(talker: getIt<Talker>()),
     ),
+    GoRoute(
+      path: AppRoutes.flashcards.path,
+      builder: (context, state) => const FlashcardsScreen(),
+    ),
     StatefulShellRoute.indexedStack(
       builder: (context, state, navigationShell) =>
           MobileLayout(navigationShell: navigationShell),
@@ -50,6 +55,10 @@ class AppRouter {
     GoRoute(
       path: AppRoutes.log.path,
       builder: (context, state) => TalkerScreen(talker: getIt<Talker>()),
+    ),
+    GoRoute(
+      path: AppRoutes.flashcards.path,
+      builder: (context, state) => const FlashcardsScreen(),
     ),
     StatefulShellRoute.indexedStack(
       builder: (context, state, navigationShell) =>

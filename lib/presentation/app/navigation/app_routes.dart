@@ -11,7 +11,11 @@ enum AppRoutes {
   attemptPractice(path: 'attempts/:id/practice'),
   attemptHistoryDetail(path: 'attempts/:id/history'),
   profile(path: '/profile'),
-
+  dictionary(path: '/dictionary'),
+  flashcards(path: '/flashcards'),
+  dictionaryWord(path: ':word'),
+  grammar(path: '/grammar'),
+  grammarUnit(path: 'units/:id'),
   other(path: '/other'),
   subOther(path: 'other-sub-route');
 
@@ -36,3 +40,6 @@ String attemptPracticePath(int attemptId) =>
 
 String attemptHistoryDetailPath(int attemptId) =>
     '${AppRoutes.histories.path}/attempts/$attemptId/history';
+
+String grammarUnitPath(int unitId) =>
+    '${AppRoutes.grammar.path}/units/$unitId';
