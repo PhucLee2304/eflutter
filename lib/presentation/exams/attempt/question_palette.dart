@@ -47,10 +47,7 @@ List<PaletteGroup> paletteGroupsFromNavigator(AttemptNavigatorState state) {
       );
     }
   }
-  return [
-    for (final entry in groups.entries)
-      PaletteGroup(title: entry.key, items: entry.value),
-  ];
+  return [for (final entry in groups.entries) PaletteGroup(title: entry.key, items: entry.value)];
 }
 
 /// Số hiển thị của từng câu (flow FREE): `number` gốc, không có thì thứ tự toàn bài.
@@ -99,8 +96,7 @@ List<PaletteGroup> paletteGroupsForReview(
   for (final section in sections) {
     for (final question in orderedSectionQuestions(section)) {
       final title =
-          partLabel(question.part) ??
-          (section.title.isEmpty ? section.code : section.title);
+          partLabel(question.part) ?? (section.title.isEmpty ? section.code : section.title);
       groups
           .putIfAbsent(title, () => [])
           .add(
@@ -120,10 +116,7 @@ List<PaletteGroup> paletteGroupsForReview(
           );
     }
   }
-  return [
-    for (final entry in groups.entries)
-      PaletteGroup(title: entry.key, items: entry.value),
-  ];
+  return [for (final entry in groups.entries) PaletteGroup(title: entry.key, items: entry.value)];
 }
 
 /// Câu của section theo thứ tự hiển thị: các group trước, câu lẻ sau.
@@ -155,12 +148,7 @@ String _sectionLabel(String section) => switch (section) {
 
 /// Bảng số câu. [onTap] null thì chỉ để xem (vd đang nghe).
 class QuestionPalette extends StatelessWidget {
-  const QuestionPalette({
-    super.key,
-    required this.groups,
-    this.onTap,
-    this.review = false,
-  });
+  const QuestionPalette({super.key, required this.groups, this.onTap, this.review = false});
 
   final List<PaletteGroup> groups;
   final ValueChanged<int>? onTap;
@@ -175,13 +163,11 @@ class QuestionPalette extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         for (final group in groups) ...[
-          Padding(
-            padding: const EdgeInsets.only(top: 12, bottom: 8),
-            child: Text(
-              group.title,
-              style: const TextStyle(fontWeight: FontWeight.w700),
+          if (group.title.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 12, bottom: 8),
+              child: Text(group.title, style: const TextStyle(fontWeight: FontWeight.w700)),
             ),
-          ),
           Wrap(
             spacing: 6,
             runSpacing: 6,
@@ -189,9 +175,7 @@ class QuestionPalette extends StatelessWidget {
               for (final item in group.items)
                 _PaletteCell(
                   item: item,
-                  onTap: onTap == null || !item.enabled
-                      ? null
-                      : () => onTap!(item.questionId),
+                  onTap: onTap == null || !item.enabled ? null : () => onTap!(item.questionId),
                 ),
             ],
           ),
@@ -227,11 +211,7 @@ class _PaletteCell extends StatelessWidget {
           child: Center(
             child: Text(
               '${item.number}',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: foreground,
-              ),
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: foreground),
             ),
           ),
         ),
@@ -241,23 +221,11 @@ class _PaletteCell extends StatelessWidget {
 }
 
 (Color, Color, Color) _colors(PaletteStatus status) => switch (status) {
-  PaletteStatus.answered => (
-    ColorName.primary,
-    ColorName.white,
-    ColorName.primary,
-  ),
-  PaletteStatus.empty => (
-    ColorName.white,
-    ColorName.labelPrimary,
-    ColorName.gray4,
-  ),
+  PaletteStatus.answered => (ColorName.primary, ColorName.white, ColorName.primary),
+  PaletteStatus.empty => (ColorName.white, ColorName.labelPrimary, ColorName.gray4),
   PaletteStatus.correct => (ColorName.green, ColorName.white, ColorName.green),
   PaletteStatus.wrong => (ColorName.red, ColorName.white, ColorName.red),
-  PaletteStatus.notScored => (
-    ColorName.purple,
-    ColorName.white,
-    ColorName.purple,
-  ),
+  PaletteStatus.notScored => (ColorName.purple, ColorName.white, ColorName.purple),
 };
 
 /// Nhãn tím "Not scored" cạnh câu không tính điểm, cùng màu với ô trong bảng câu hỏi.
@@ -268,17 +236,10 @@ class NotScoredBadge extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     margin: const EdgeInsets.only(left: 8),
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-    decoration: BoxDecoration(
-      color: Color(0xFFF2F4F7),
-      borderRadius: BorderRadius.circular(10),
-    ),
+    decoration: BoxDecoration(color: Color(0xFFF2F4F7), borderRadius: BorderRadius.circular(10)),
     child: const Text(
       'Not scored',
-      style: TextStyle(
-        color: Color(0xFF475467),
-        fontSize: 11,
-        fontWeight: FontWeight.w500,
-      ),
+      style: TextStyle(color: Color(0xFF475467), fontSize: 11, fontWeight: FontWeight.w500),
     ),
   );
 }
@@ -304,13 +265,7 @@ class _PaletteLegend extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 6),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              color: ColorName.labelSecondary,
-            ),
-          ),
+          Text(label, style: const TextStyle(fontSize: 12, color: ColorName.labelSecondary)),
         ],
       );
     }
@@ -325,10 +280,7 @@ class _PaletteLegend extends StatelessWidget {
               entry(PaletteStatus.empty, 'Blank'),
               entry(PaletteStatus.notScored, 'Not scored'),
             ]
-          : [
-              entry(PaletteStatus.answered, 'Answered'),
-              entry(PaletteStatus.empty, 'Not answered'),
-            ],
+          : [entry(PaletteStatus.answered, 'Answered'), entry(PaletteStatus.empty, 'Not answered')],
     );
   }
 }
@@ -359,10 +311,7 @@ Future<void> showQuestionPalette(
     child: Row(
       children: [
         const Expanded(
-          child: Text(
-            'Questions',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-          ),
+          child: Text('Questions', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
         ),
         IconButton(
           tooltip: 'Close',
@@ -398,10 +347,7 @@ Future<void> showQuestionPalette(
         ),
       ),
       transitionBuilder: (_, animation, _, child) => SlideTransition(
-        position: Tween(
-          begin: const Offset(1, 0),
-          end: Offset.zero,
-        ).animate(animation),
+        position: Tween(begin: const Offset(1, 0), end: Offset.zero).animate(animation),
         child: child,
       ),
     );
@@ -411,9 +357,7 @@ Future<void> showQuestionPalette(
     isScrollControlled: true,
     backgroundColor: ColorName.white,
     builder: (sheetContext) => ConstrainedBox(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.8,
-      ),
+      constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.8),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

@@ -16,11 +16,7 @@ import 'package:solar_icons/solar_icons.dart';
 /// Bài có giám sát: cảnh báo vi phạm và che màn khi phiên ở nơi khác, bị đình chỉ
 /// hoặc bị reset (PLAN_ATTEMPT_INTEGRITY.md I3).
 class AttemptSessionScope extends StatelessWidget {
-  const AttemptSessionScope({
-    super.key,
-    required this.cubit,
-    required this.child,
-  });
+  const AttemptSessionScope({super.key, required this.cubit, required this.child});
 
   final AttemptSessionCubit cubit;
   final Widget child;
@@ -39,8 +35,7 @@ class AttemptSessionScope extends StatelessWidget {
           BlocListener<AttemptSessionCubit, AttemptSessionState>(
             bloc: cubit,
             listenWhen: (previous, current) =>
-                previous.completedAttempt == null &&
-                current.completedAttempt != null,
+                previous.completedAttempt == null && current.completedAttempt != null,
             listener: (context, state) async {
               notifyExamHistoryChanged();
               lock.unlock();
@@ -73,20 +68,17 @@ class AttemptSessionScope extends StatelessWidget {
           child: BlocConsumer<AttemptSessionCubit, AttemptSessionState>(
             bloc: cubit,
             listenWhen: (previous, current) =>
-                current.violationAlerts > previous.violationAlerts &&
-                !current.terminated,
+                current.violationAlerts > previous.violationAlerts && !current.terminated,
             listener: (context, state) {
               final integrity = state.integrity;
               if (integrity != null) showViolationWarning(context, integrity);
             },
             buildWhen: (previous, current) =>
-                IntegrityOverlay.covers(previous) !=
-                    IntegrityOverlay.covers(current) ||
+                IntegrityOverlay.covers(previous) != IntegrityOverlay.covers(current) ||
                 (IntegrityOverlay.covers(current) &&
                     (previous.sessionStatus != current.sessionStatus ||
                         previous.completedAttempt != current.completedAttempt ||
-                        previous.sessionRetryAfter !=
-                            current.sessionRetryAfter)),
+                        previous.sessionRetryAfter != current.sessionRetryAfter)),
             builder: (context, state) => Stack(
               children: [
                 child,
@@ -108,10 +100,7 @@ class AttemptSessionScope extends StatelessWidget {
   }
 
   /// Hộp báo vì sao bài bị nộp; chỉ chuyển trang sau khi học sinh bấm "Got it".
-  static Future<void> _showSubmittedNotice(
-    BuildContext context,
-    String reason,
-  ) {
+  static Future<void> _showSubmittedNotice(BuildContext context, String reason) {
     final (title, message) = switch (reason) {
       'EXAM_UPDATED' => (
         'Your teacher updated this assignment',
@@ -127,10 +116,7 @@ class AttemptSessionScope extends StatelessWidget {
         'You were removed from the class',
         'Your attempt was submitted with the answers you had saved.',
       ),
-      _ => (
-        'Your attempt was submitted',
-        'It was submitted with the answers you had saved.',
-      ),
+      _ => ('Your attempt was submitted', 'It was submitted with the answers you had saved.'),
     };
     return showDialog<void>(
       context: context,
@@ -138,11 +124,7 @@ class AttemptSessionScope extends StatelessWidget {
       builder: (context) => PopScope(
         canPop: false,
         child: AlertDialog(
-          icon: const Icon(
-            SolarIconsOutline.infoCircle,
-            size: 36,
-            color: ColorName.primary,
-          ),
+          icon: const Icon(SolarIconsOutline.infoCircle, size: 36, color: ColorName.primary),
           title: Text(title, textAlign: TextAlign.center),
           content: Text(message, textAlign: TextAlign.center),
           actionsAlignment: MainAxisAlignment.center,
@@ -160,6 +142,12 @@ class AttemptSessionScope extends StatelessWidget {
   static void _openResult(BuildContext context, AttemptSessionState state) {
     final completed = state.completedAttempt;
     if (completed == null) return;
+    // Bài giao mở từ lớp thì xem lại trong tab Classwork của lớp đó.
+    final review = assignmentReviewPaths[completed.id];
+    if (review != null) {
+      context.go(review);
+      return;
+    }
     context.go(attemptHistoryDetailPath(completed.id), extra: completed);
   }
 
@@ -198,14 +186,9 @@ Future<bool> confirmAttemptAction(
         title: Text(title),
         content: Text(message),
         actions: [
-          TextButton(
-            onPressed: () => context.pop(false),
-            child: const Text('Back'),
-          ),
+          TextButton(onPressed: () => context.pop(false), child: const Text('Back')),
           FilledButton(
-            style: destructive
-                ? FilledButton.styleFrom(backgroundColor: ColorName.red)
-                : null,
+            style: destructive ? FilledButton.styleFrom(backgroundColor: ColorName.red) : null,
             onPressed: () => context.pop(true),
             child: Text(action),
           ),
@@ -228,10 +211,7 @@ Future<void> confirmSubmitAttempt(
   if (accepted) await cubit.submit();
 }
 
-Future<void> confirmCancelAttempt(
-  BuildContext context,
-  AttemptSessionCubit cubit,
-) async {
+Future<void> confirmCancelAttempt(BuildContext context, AttemptSessionCubit cubit) async {
   final accepted = await confirmAttemptAction(
     context,
     title: 'Cancel attempt?',

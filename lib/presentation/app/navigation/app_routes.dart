@@ -67,6 +67,14 @@ String classroomGradebookPath(int classroomId, int assignmentId, {String? backTo
     '${classworkPath(classroomId)}/$assignmentId/gradebook'
     '${backTo == null ? '' : '?from=${Uri.encodeComponent(backTo)}'}';
 
+/// Học sinh xem lại bài làm của một bài giao, ngay trong tab Classwork.
+String assignmentReviewPath(int classroomId, int assignmentId, int attemptId) =>
+    '${classworkPath(classroomId)}/$assignmentId/attempts/$attemptId';
+
+/// Bài làm mở từ một bài giao → trang xem lại trong Classwork, để sau khi nộp mở đúng màn đó
+/// thay vì lịch sử chung. Chỉ giữ trong phiên (reload thì về lịch sử chung).
+final assignmentReviewPaths = <int, String>{};
+
 String classGradebookPath(int classroomId) => '${classworkPath(classroomId)}/gradebook';
 
 String studentProgressPath(int classroomId, String userId) =>

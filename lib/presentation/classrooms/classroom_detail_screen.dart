@@ -14,6 +14,7 @@ import 'package:eflutter/data/repositories/exam_repository.dart';
 import 'package:eflutter/presentation/app/navigation/app_routes.dart';
 import 'package:eflutter/presentation/app/cubit/app_cubit.dart';
 import 'package:eflutter/presentation/classrooms/classroom_assignments.dart';
+import 'package:eflutter/presentation/classrooms/assignment_review_view.dart';
 import 'package:eflutter/presentation/classrooms/class_gradebook_screen.dart';
 import 'package:eflutter/presentation/classrooms/classroom_gradebook_screen.dart';
 import 'package:eflutter/presentation/classrooms/classwork_page.dart';
@@ -291,12 +292,20 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
     }
   }
 
+  void rememberReview(ClassroomAssignment assignment, int attemptId) =>
+      assignmentReviewPaths[attemptId] = assignmentReviewPath(
+        widget.classroomId,
+        assignment.id,
+        attemptId,
+      );
+
   Future<void> openAssignment(ClassroomAssignment assignment) async {
     final submission = assignment.submission;
     if (submission?.attemptId != 0 && submission?.attemptId != null) {
-      final path = submission!.status == 'IN_PROGRESS'
+      rememberReview(assignment, submission!.attemptId);
+      final path = submission.status == 'IN_PROGRESS'
           ? attemptPracticePath(submission.attemptId)
-          : attemptHistoryDetailPath(submission.attemptId);
+          : assignmentReviewPath(widget.classroomId, assignment.id, submission.attemptId);
       context.go(path);
       return;
     }
@@ -322,6 +331,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
     setState(() => busy = false);
     switch (result) {
       case Success(data: final attempt):
+        rememberReview(assignment, attempt.id);
         context.go(attemptPracticePath(attempt.id), extra: attempt);
       case Failure(code: 409, message: final message):
         final activeResult = await examRepository.getAttempts(
@@ -337,6 +347,9 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
                 .firstOrNull;
             final activeAttempt = matching ?? page.attempts.firstOrNull;
             if (activeAttempt != null) {
+              if (activeAttempt.examId == assignment.examId) {
+                rememberReview(assignment, activeAttempt.id);
+              }
               context.go(attemptPracticePath(activeAttempt.id), extra: activeAttempt);
               return;
             }
@@ -726,6 +739,18 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
                                       onViewAll: () => selectTab(1),
                                     ),
                                   ),
+                                  1
+                                      when widget.classwork.view == ClassworkView.review &&
+                                          widget.classwork.attemptId != null =>
+                                    AssignmentReviewView(
+                                      key: ValueKey(('review', widget.classwork.attemptId)),
+                                      attemptId: widget.classwork.attemptId!,
+                                      title: assignments
+                                          .where((a) => a.id == widget.classwork.assignmentId)
+                                          .firstOrNull
+                                          ?.title,
+                                      onBack: goClasswork,
+                                    ),
                                   1 when widget.classwork.view == ClassworkView.gradebook =>
                                     ClassroomGradebookScreen(
                                       key: ValueKey(('gradebook', widget.classwork.assignmentId)),

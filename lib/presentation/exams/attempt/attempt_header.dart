@@ -38,17 +38,33 @@ class AttemptHeader extends StatelessWidget {
   /// Tắt khi màn đã có nút nộp riêng (cột tiến độ của màn làm bài dạng cuộn).
   final bool showSubmit;
 
+  static final _paletteStyle = FilledButton.styleFrom(
+    backgroundColor: const Color(0xFFEEF7FD),
+    foregroundColor: ColorName.primary,
+    minimumSize: const Size(36, 36),
+    fixedSize: const Size.fromHeight(36),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+    textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+  );
+
   @override
   Widget build(BuildContext context) {
     final busy = state.isSubmitting || state.isCancelling;
     final actions = [
       _SavePill(status: state.socketStatus),
       if (state.integrity case final integrity?) IntegrityBadge(integrity: integrity),
+      // Nút mở bảng câu hỏi kèm tiến độ (màn hẹp không có cột tiến độ).
       if (onOpenPalette != null)
-        IconButton.outlined(
-          tooltip: 'Question palette',
+        FilledButton.icon(
           onPressed: onOpenPalette,
-          icon: const Icon(SolarIconsOutline.widget, size: 20),
+          style: _paletteStyle.copyWith(
+            padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 12)),
+          ),
+          icon: const Icon(SolarIconsOutline.widget, size: 18),
+          label: Text(
+            '$answeredCount/$totalQuestions',
+            style: const TextStyle(fontFeatures: [FontFeature.tabularFigures()]),
+          ),
         ),
       if (onCancel != null)
         IconButton.outlined(

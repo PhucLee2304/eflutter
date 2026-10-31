@@ -172,6 +172,7 @@ class NavigationItem {
         ':id/classwork/gradebook/students/:userId',
         ':id/classwork/:assignmentId/edit',
         ':id/classwork/:assignmentId/gradebook',
+        ':id/classwork/:assignmentId/attempts/:attemptId',
       ])
         GoRoute(path: path, pageBuilder: (context, state) => _classroomPage(state)),
       // URL cũ trước khi các màn con nằm trong tab Classwork.
@@ -347,6 +348,12 @@ Page<void> _classroomPage(GoRouterState state) {
       ? const ClassworkPage(ClassworkView.create)
       : segments.length == 2 && segments[1] == 'gradebook'
       ? const ClassworkPage(ClassworkView.classGradebook)
+      : assignmentId != null && params['attemptId'] != null
+      ? ClassworkPage(
+          ClassworkView.review,
+          assignmentId: assignmentId,
+          attemptId: int.tryParse(params['attemptId']!),
+        )
       : assignmentId != null && segments.last == 'edit'
       ? ClassworkPage(ClassworkView.edit, assignmentId: assignmentId)
       : assignmentId != null

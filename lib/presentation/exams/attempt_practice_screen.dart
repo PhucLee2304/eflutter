@@ -156,8 +156,8 @@ class _AttemptBody extends StatelessWidget {
         return Column(
           children: [
             AttemptHeader(
-              // Màn rộng đã có thẻ đầu bài và cột tiến độ nên bỏ khối bên trái; màn hẹp giữ tiến độ.
-              title: wide ? null : (attempt.isAssignment ? 'Assignment' : 'Practice'),
+              // Đã có thẻ đầu bài; tiến độ nằm ở cột bên (màn rộng) hoặc nút bảng câu hỏi (màn hẹp).
+              title: null,
               state: state,
               answeredCount: state.answeredCount,
               totalQuestions: attempt.totalQuestions,
