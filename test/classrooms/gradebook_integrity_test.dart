@@ -22,20 +22,19 @@ AssignmentSubmission _submission(
   integrityOutcome: outcome,
 );
 
-ClassroomAssignment _assignment(List<AssignmentSubmission> submissions) =>
-    ClassroomAssignment(
-      id: 1,
-      classroomId: 2,
-      title: 'Proctored quiz',
-      examId: 3,
-      duration: 30,
-      opensAt: DateTime(2026, 10, 27, 8),
-      dueAt: DateTime(2026, 10, 27, 10),
-      active: true,
-      proctored: true,
-      maxViolations: 2,
-      submissions: submissions,
-    );
+ClassroomAssignment _assignment(List<AssignmentSubmission> submissions) => ClassroomAssignment(
+  id: 1,
+  classroomId: 2,
+  title: 'Proctored quiz',
+  examId: 3,
+  duration: 30,
+  opensAt: DateTime(2026, 10, 27, 8),
+  dueAt: DateTime(2026, 10, 27, 10),
+  active: true,
+  proctored: true,
+  maxViolations: 2,
+  submissions: submissions,
+);
 
 void main() {
   test('schedule input gửi proctored và maxViolations', () {
@@ -85,9 +84,7 @@ void main() {
     expect(update.event?.studentId, 's1');
   });
 
-  testWidgets('bảng điểm có cột vi phạm, chấm chờ xử lý và Away', (
-    tester,
-  ) async {
+  testWidgets('bảng điểm có cột Proctoring, đang rời màn và đình chỉ', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1200, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     AssignmentSubmission? opened;
@@ -99,24 +96,49 @@ void main() {
               _submission('s1', violations: 1, pending: 1),
               _submission('s2', violations: 3, outcome: 'TERMINATED'),
             ]),
-            awayStudents: const {'s1'},
+            awaySince: {'s1': DateTime.now()},
             onOpenIntegrity: (submission) => opened = submission,
           ),
         ),
       ),
     );
 
-    expect(find.text('VIOLATIONS'), findsOneWidget);
-    expect(find.text('1/2'), findsOneWidget);
-    expect(find.text('Away'), findsOneWidget);
-    expect(find.text('Suspended'), findsOneWidget);
-    await tester.tap(find.text('1/2'));
+    expect(find.text('PROCTORING · 2 ALLOWED'), findsOneWidget);
+    expect(find.text('● Left the exam · 0:00'), findsOneWidget);
+    expect(find.text('Suspended · score 0'), findsOneWidget);
+    await tester.tap(find.text('● Left the exam · 0:00'));
     expect(opened?.student?.id, 's1');
   });
 
-  testWidgets('panel vi phạm gọi Cấm và Cho tiếp tục', (tester) async {
-    final banned = <String>[];
+  testWidgets('ô Proctoring mô tả số lần bằng chữ và nút Review', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: GradebookView(
+            assignment: _assignment([
+              _submission('s1'),
+              _submission('s2', violations: 1, pending: 1),
+              _submission('s3', violations: 2),
+              _submission('s4', violations: 3, outcome: 'REINSTATED'),
+            ]),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('No violations'), findsOneWidget);
+    expect(find.text('1 violation'), findsOneWidget);
+    expect(find.text('Review 1 new'), findsOneWidget);
+    expect(find.text('Limit reached'), findsOneWidget);
+    expect(find.text('Reinstated'), findsOneWidget);
+  });
+
+  testWidgets('panel gọi Don\'t count it, Keep it và Open log', (tester) async {
+    final kept = <String>[];
     final allowed = <String>[];
+    AssignmentSubmission? opened;
     final event = IntegrityEventRecord(
       eventId: 'e1',
       attemptId: 10,
@@ -135,37 +157,37 @@ void main() {
               events: [event],
               submissions: [_submission('s1', violations: 1, pending: 1)],
               maxViolations: 2,
-              onBan: (event) => banned.add(event.eventId),
-              onAllowContinue: (events) =>
-                  allowed.addAll(events.map((event) => event.eventId)),
+              onDontCount: (events) => allowed.addAll(events.map((event) => event.eventId)),
+              onKeep: (events) => kept.addAll(events.map((event) => event.eventId)),
+              onOpenLog: (submission) => opened = submission,
             ),
           ),
         ),
       ),
     );
 
-    expect(find.text('Pending violations (1)'), findsOneWidget);
-    expect(find.text('Removes it: 1 → 0/2'), findsOneWidget);
-    await tester.tap(find.text('Allow to continue'));
-    await tester.tap(find.text('Ban'));
+    expect(find.text('1 student needs a decision now'), findsOneWidget);
+    expect(find.text('1 violation'), findsOneWidget);
+    expect(find.text('Ban'), findsNothing);
+    await tester.tap(find.text("Don't count it"));
+    await tester.tap(find.text('Keep it'));
+    await tester.tap(find.text('Open log'));
     expect(allowed, ['e1']);
-    expect(banned, ['e1']);
+    expect(kept, ['e1']);
+    expect(opened?.student?.id, 's1');
   });
 
-  testWidgets('gộp nhiều vi phạm của một học sinh thành một thẻ', (
-    tester,
-  ) async {
+  testWidgets('gộp nhiều vi phạm của một học sinh thành một dòng', (tester) async {
     final allowed = <String>[];
-    IntegrityEventRecord violation(String id, int no, int minute) =>
-        IntegrityEventRecord(
-          eventId: id,
-          attemptId: 10,
-          studentId: 's1',
-          type: 'AWAY_END',
-          level: IntegrityLevel.violation,
-          violationNo: no,
-          receivedAt: DateTime(2026, 10, 27, 8, minute),
-        );
+    IntegrityEventRecord violation(String id, int no, int minute) => IntegrityEventRecord(
+      eventId: id,
+      attemptId: 10,
+      studentId: 's1',
+      type: 'AWAY_END',
+      level: IntegrityLevel.violation,
+      violationNo: no,
+      receivedAt: DateTime(2026, 10, 27, 8, minute),
+    );
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -174,19 +196,19 @@ void main() {
               events: [violation('e1', 1, 1), violation('e2', 2, 5)],
               submissions: [_submission('s1', violations: 2, pending: 2)],
               maxViolations: 2,
-              onBan: (_) {},
-              onAllowContinue: (events) =>
-                  allowed.addAll(events.map((event) => event.eventId)),
+              onDontCount: (events) => allowed.addAll(events.map((event) => event.eventId)),
+              onKeep: (_) {},
+              onOpenLog: (_) {},
             ),
           ),
         ),
       ),
     );
 
-    expect(find.text('Pending violations (1)'), findsOneWidget);
-    expect(find.textContaining('Violation 2/2'), findsOneWidget);
-    expect(find.text('2 unreviewed'), findsOneWidget);
-    await tester.tap(find.text('Allow to continue'));
+    expect(find.text('1 student needs a decision now'), findsOneWidget);
+    expect(find.text('Limit reached'), findsOneWidget);
+    expect(find.textContaining('2 new'), findsOneWidget);
+    await tester.tap(find.text("Don't count it"));
     expect(allowed, ['e2', 'e1']);
   });
 }

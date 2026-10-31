@@ -144,6 +144,7 @@ class AssignmentSubmission {
     this.violationCount = 0,
     this.pendingViolations = 0,
     this.integrityOutcome,
+    this.terminationReason,
   });
 
   final int id;
@@ -160,6 +161,9 @@ class AssignmentSubmission {
   final int pendingViolations;
   final String? integrityOutcome;
 
+  /// MAX_VIOLATIONS | TEACHER_BANNED khi bị đình chỉ.
+  final String? terminationReason;
+
   factory AssignmentSubmission.fromJson(Map<String, dynamic> json) => AssignmentSubmission(
     id: (json['id'] as num?)?.toInt() ?? 0,
     assignmentId: (json['assignmentId'] as num?)?.toInt() ?? 0,
@@ -174,6 +178,7 @@ class AssignmentSubmission {
     violationCount: (json['violationCount'] as num?)?.toInt() ?? 0,
     pendingViolations: (json['pendingViolations'] as num?)?.toInt() ?? 0,
     integrityOutcome: json['integrityOutcome'] as String?,
+    terminationReason: json['terminationReason'] as String?,
   );
 }
 

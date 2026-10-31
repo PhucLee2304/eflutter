@@ -8,11 +8,13 @@ class IntegrityEventRecord {
     required this.level,
     required this.receivedAt,
     this.violationNo,
+    this.startEventId,
     this.serverDurationMs,
     this.replayed = false,
     this.stale = false,
     this.detail,
     this.review,
+    this.reviewedAt,
   });
 
   final String eventId;
@@ -24,36 +26,41 @@ class IntegrityEventRecord {
   final String level;
   final DateTime receivedAt;
   final int? violationNo;
+
+  /// AWAY_END trỏ về AWAY_START của cùng lần rời màn.
+  final String? startEventId;
   final int? serverDurationMs;
   final bool replayed;
   final bool stale;
   final String? detail;
 
-  /// CONTINUE_ALLOWED | BANNED; null là chưa xử lý.
+  /// CONTINUE_ALLOWED | KEPT | BANNED; null là chưa xử lý.
   final String? review;
+  final DateTime? reviewedAt;
 
   bool get isViolation => level == IntegrityLevel.violation;
   bool get isPending => isViolation && review == null;
 
-  factory IntegrityEventRecord.fromJson(Map<String, dynamic> json) =>
-      IntegrityEventRecord(
-        eventId: json['eventId'] as String? ?? '',
-        attemptId: (json['attemptId'] as num?)?.toInt() ?? 0,
-        studentId: json['studentId'] as String? ?? '',
-        type: json['type'] as String? ?? '',
-        level: json['level'] as String? ?? IntegrityLevel.log,
-        receivedAt:
-            DateTime.tryParse(
-              json['receivedAt'] as String? ?? json['at'] as String? ?? '',
-            )?.toLocal() ??
-            DateTime.now(),
-        violationNo: (json['violationNo'] as num?)?.toInt(),
-        serverDurationMs: (json['serverDurationMs'] as num?)?.toInt(),
-        replayed: json['replayed'] as bool? ?? false,
-        stale: json['stale'] as bool? ?? false,
-        detail: json['detail'] as String?,
-        review: json['review'] as String?,
-      );
+  factory IntegrityEventRecord.fromJson(Map<String, dynamic> json) => IntegrityEventRecord(
+    eventId: json['eventId'] as String? ?? '',
+    attemptId: (json['attemptId'] as num?)?.toInt() ?? 0,
+    studentId: json['studentId'] as String? ?? '',
+    type: json['type'] as String? ?? '',
+    level: json['level'] as String? ?? IntegrityLevel.log,
+    receivedAt:
+        DateTime.tryParse(
+          json['receivedAt'] as String? ?? json['at'] as String? ?? '',
+        )?.toLocal() ??
+        DateTime.now(),
+    violationNo: (json['violationNo'] as num?)?.toInt(),
+    startEventId: json['startEventId'] as String?,
+    serverDurationMs: (json['serverDurationMs'] as num?)?.toInt(),
+    replayed: json['replayed'] as bool? ?? false,
+    stale: json['stale'] as bool? ?? false,
+    detail: json['detail'] as String?,
+    review: json['review'] as String?,
+    reviewedAt: DateTime.tryParse(json['reviewedAt'] as String? ?? '')?.toLocal(),
+  );
 }
 
 abstract final class IntegrityLevel {
@@ -64,6 +71,9 @@ abstract final class IntegrityLevel {
 
 abstract final class IntegrityReviewAction {
   static const allowContinue = 'CONTINUE';
+
+  /// Đã xem, vẫn tính vi phạm.
+  static const keep = 'KEEP';
   static const ban = 'BAN';
 }
 
@@ -72,16 +82,12 @@ class IntegrityEventPage {
   final List<IntegrityEventRecord> items;
   final int pageCounts;
 
-  factory IntegrityEventPage.fromJson(Map<String, dynamic> json) =>
-      IntegrityEventPage(
-        items: (json['data'] as List<dynamic>? ?? const [])
-            .map(
-              (item) =>
-                  IntegrityEventRecord.fromJson(item as Map<String, dynamic>),
-            )
-            .toList(),
-        pageCounts: (json['pageCounts'] as num?)?.toInt() ?? 1,
-      );
+  factory IntegrityEventPage.fromJson(Map<String, dynamic> json) => IntegrityEventPage(
+    items: (json['data'] as List<dynamic>? ?? const [])
+        .map((item) => IntegrityEventRecord.fromJson(item as Map<String, dynamic>))
+        .toList(),
+    pageCounts: (json['pageCounts'] as num?)?.toInt() ?? 1,
+  );
 }
 
 /// Push ATTEMPT_INTEGRITY_UPDATED trên /ws/classrooms.

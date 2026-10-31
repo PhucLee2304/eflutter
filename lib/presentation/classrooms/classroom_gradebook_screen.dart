@@ -231,8 +231,8 @@ class _ClassroomGradebookScreenState extends State<ClassroomGradebookScreen>
             assignment: assignment!,
             analytics: analytics,
             onResetAttempt: resetAttempt,
-            integrityPanel: pendingViolations.isEmpty ? null : integrityPanel(),
-            awayStudents: awayStudents,
+            integrityPanel: integrityPanel(),
+            awaySince: awaySince,
             onOpenIntegrity: openIntegrityLog,
             scrollable: false,
           );
@@ -268,7 +268,7 @@ class GradebookView extends StatefulWidget {
     this.onRefresh,
     this.onResetAttempt,
     this.integrityPanel,
-    this.awayStudents = const {},
+    this.awaySince = const {},
     this.onOpenIntegrity,
     this.scrollable = true,
   });
@@ -280,7 +280,7 @@ class GradebookView extends StatefulWidget {
 
   /// Giám sát: panel vi phạm chờ xử lý, học sinh đang rời màn, mở log.
   final Widget? integrityPanel;
-  final Set<String> awayStudents;
+  final Map<String, DateTime> awaySince;
   final ValueChanged<AssignmentSubmission>? onOpenIntegrity;
 
   /// false khi nằm trong một danh sách cuộn khác (tab Classwork).
@@ -550,7 +550,7 @@ class _GradebookViewState extends State<GradebookView> {
     Widget integrity(AssignmentSubmission submission) => IntegrityStatusCell(
       submission: submission,
       maxViolations: widget.assignment.maxViolations,
-      away: widget.awayStudents.contains(submission.student?.id),
+      awaySince: widget.awaySince[submission.student?.id],
       onTap: widget.onOpenIntegrity == null || submission.attemptId == 0
           ? null
           : () => widget.onOpenIntegrity!(submission),
@@ -574,7 +574,10 @@ class _GradebookViewState extends State<GradebookView> {
               onResetAttempt: widget.onResetAttempt,
             )
         else ...[
-          _GradebookRow.header(proctored: proctored),
+          _GradebookRow.header(
+            proctored: proctored,
+            maxViolations: widget.assignment.maxViolations,
+          ),
           for (final submission in visible)
             _GradebookRow(
               submission: submission,
@@ -658,13 +661,15 @@ class _GradebookViewState extends State<GradebookView> {
     final content = LayoutBuilder(
       builder: (context, constraints) {
         final wide = constraints.maxWidth >= 900;
-        final aside = [?_hardest(), ?widget.integrityPanel];
+        final aside = [?_hardest()];
         final students = _students(constraints.maxWidth < 700);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           spacing: 20,
           children: [
             _summary(),
+            // Panel T2: cần quyết định ngay nên đặt rộng, ngay trên bảng.
+            ?widget.integrityPanel,
             if (wide && aside.isNotEmpty)
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -699,8 +704,9 @@ class _GradebookViewState extends State<GradebookView> {
 class _GradebookRow extends StatelessWidget {
   const _GradebookRow({required this.submission, this.integrity, this.onResetAttempt})
     : proctored = integrity != null,
+      maxViolations = 0,
       isHeader = false;
-  const _GradebookRow.header({required this.proctored})
+  const _GradebookRow.header({required this.proctored, required this.maxViolations})
     : submission = null,
       integrity = null,
       onResetAttempt = null,
@@ -710,6 +716,7 @@ class _GradebookRow extends StatelessWidget {
   final Widget? integrity;
   final ValueChanged<AssignmentSubmission>? onResetAttempt;
   final bool proctored;
+  final int maxViolations;
   final bool isHeader;
 
   static const _head = TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Gb.muted);
@@ -765,8 +772,10 @@ class _GradebookRow extends StatelessWidget {
           ),
           if (proctored)
             SizedBox(
-              width: 140,
-              child: isHeader ? const Text('VIOLATIONS', style: _head) : integrity,
+              width: 300,
+              child: isHeader
+                  ? Text('PROCTORING · $maxViolations ALLOWED', style: _head)
+                  : integrity,
             ),
           SizedBox(
             width: 80,
