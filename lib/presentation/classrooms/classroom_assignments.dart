@@ -4,6 +4,7 @@ import 'package:eflutter/generated/colors.gen.dart';
 import 'package:eflutter/data/models/classroom.dart';
 import 'package:eflutter/presentation/classrooms/proctoring_fields.dart';
 import 'package:eflutter/presentation/app/theme/app_button_styles.dart';
+import 'package:eflutter/presentation/classrooms/assignment_start_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -509,7 +510,16 @@ class _AssignmentTile extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: isTeacher ? onGradebook : (canOpen ? onOpen : null),
+        // Bài đã nộp: bấm thẻ xem lại thông tin đề, trang kết quả chỉ mở qua nút "View result".
+        onTap: isTeacher
+            ? onGradebook
+            : hasResult
+            ? () async {
+                if (await showAssignmentStartDialog(context, assignment, submitted: true)) {
+                  onOpen();
+                }
+              }
+            : (canOpen ? onOpen : null),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           child: LayoutBuilder(

@@ -24,6 +24,7 @@ import 'package:eflutter/presentation/classrooms/classroom_detail_header.dart';
 import 'package:eflutter/presentation/posts/post_list.dart';
 import 'package:eflutter/core/attempt_lock/integrity_consent.dart';
 import 'package:eflutter/presentation/classrooms/integrity_consent_dialog.dart';
+import 'package:eflutter/presentation/classrooms/assignment_start_dialog.dart';
 import 'package:eflutter/presentation/classrooms/create_classroom_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -300,6 +301,8 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
       return;
     }
 
+    // Xem đủ tiêu đề, mô tả và luật làm bài rồi mới tạo attempt.
+    if (!await showAssignmentStartDialog(context, assignment) || !mounted) return;
     // Bài có giám sát: phải đồng ý quy chế trước khi tạo attempt (mục 1.7).
     if (assignment.proctored &&
         !await showIntegrityConsentDialog(context, maxViolations: assignment.maxViolations)) {

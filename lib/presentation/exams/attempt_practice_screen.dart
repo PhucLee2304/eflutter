@@ -127,7 +127,7 @@ class _AttemptBody extends StatelessWidget {
   final VoidCallback? onCancel;
   final ValueChanged<int> onJump;
 
-  static const _sideBreakpoint = 1180.0;
+  static const _sideBreakpoint = 960.0;
 
   @override
   Widget build(BuildContext context) {
