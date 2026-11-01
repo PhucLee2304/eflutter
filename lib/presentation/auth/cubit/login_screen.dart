@@ -81,9 +81,9 @@ class _BrandPanel extends StatelessWidget {
       ),
       child: LayoutBuilder(
         builder: (context, constraints) => SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 96, vertical: 80),
+          padding: const EdgeInsets.symmetric(horizontal: 96, vertical: 48),
           child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight - 160),
+            constraints: BoxConstraints(minHeight: constraints.maxHeight - 96),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.start,
