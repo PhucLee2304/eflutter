@@ -63,10 +63,7 @@ class _ViolationPill extends StatelessWidget {
         : '$count of $max ${max == 1 ? 'violation' : 'violations'}';
     return Container(
       padding: const EdgeInsets.fromLTRB(10, 6, 12, 6),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(999),
-      ),
+      decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(999)),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         spacing: 8,
@@ -90,11 +87,7 @@ class _ViolationPill extends StatelessWidget {
             ),
           Text(
             label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: color,
-            ),
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: color),
           ),
         ],
       ),
@@ -104,77 +97,67 @@ class _ViolationPill extends StatelessWidget {
 
 /// Cảnh báo sau mỗi lần rời màn (Figma S3): cùng viên badge với header để học sinh
 /// thấy ngay mình còn bao nhiêu lượt.
-Future<void> showViolationWarning(
-  BuildContext context,
-  AttemptIntegrityState integrity,
-) => showDialog<void>(
-  context: context,
-  builder: (context) {
-    final remaining = integrity.maxViolations - integrity.violationCount;
-    final (color, background) = _violationColors(integrity);
-    final message = remaining > 0
-        ? 'Your teacher has been notified. You can leave $remaining more '
-              '${remaining == 1 ? 'time' : 'times'}; after that the attempt is '
-              'suspended with a score of 0.'
-        : 'Your teacher has been notified. You have used all allowed violations. '
-              'Leaving again will suspend the attempt with a score of 0.';
-    return Dialog(
-      backgroundColor: Colors.white,
-      surfaceTintColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 400),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: background,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(Icons.exit_to_app, size: 22, color: color),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'You left the exam',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF1C1E21),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                message,
-                style: const TextStyle(fontSize: 13, color: Color(0xFF65676B)),
-              ),
-              const SizedBox(height: 14),
-              _ViolationPill(integrity: integrity),
-              const SizedBox(height: 24),
-              Align(
-                alignment: Alignment.centerRight,
-                child: FilledButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  style: FilledButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+Future<void> showViolationWarning(BuildContext context, AttemptIntegrityState integrity) =>
+    showDialog<void>(
+      context: context,
+      builder: (context) {
+        final remaining = integrity.maxViolations - integrity.violationCount;
+        final (color, background) = _violationColors(integrity);
+        final message = remaining > 0
+            ? 'Your teacher has been notified. You can leave $remaining more '
+                  '${remaining == 1 ? 'time' : 'times'}; after that the attempt is '
+                  'suspended with a score of 0.'
+            : 'Your teacher has been notified. You have used all allowed violations. '
+                  'Leaving again will suspend the attempt with a score of 0.';
+        return Dialog(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(color: background, shape: BoxShape.circle),
+                    child: Icon(Icons.exit_to_app, size: 22, color: color),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'You left the exam',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1C1E21),
                     ),
                   ),
-                  child: const Text('Back to the exam'),
-                ),
+                  const SizedBox(height: 6),
+                  Text(message, style: const TextStyle(fontSize: 13, color: Color(0xFF65676B))),
+                  const SizedBox(height: 14),
+                  _ViolationPill(integrity: integrity),
+                  const SizedBox(height: 24),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: FilledButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: FilledButton.styleFrom(
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      child: const Text('Back to the exam'),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
-  },
-);
 
 /// Màn che phần làm bài khi kết nối này không được làm bài: phiên ở nơi khác,
 /// bị đình chỉ, bị reset. Null thì không che.
@@ -203,15 +186,8 @@ class IntegrityOverlay extends StatelessWidget {
     mainAxisSize: MainAxisSize.min,
     spacing: 8,
     children: [
-      SizedBox(
-        width: 14,
-        height: 14,
-        child: CircularProgressIndicator(strokeWidth: 2),
-      ),
-      Text(
-        'Please wait…',
-        style: TextStyle(fontSize: 13, color: Color(0xFF65676B)),
-      ),
+      SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
+      Text('Please wait…', style: TextStyle(fontSize: 13, color: Color(0xFF65676B))),
     ],
   );
 
@@ -224,9 +200,7 @@ class IntegrityOverlay extends StatelessWidget {
       return _Panel(
         icon: Icons.block,
         colors: _red,
-        title: byTeacher
-            ? 'Your teacher suspended this attempt'
-            : 'Attempt suspended',
+        title: byTeacher ? 'Your teacher suspended this attempt' : 'Attempt suspended',
         message: !completed
             ? 'Saving your answers before showing the result.'
             : byTeacher
@@ -237,14 +211,8 @@ class IntegrityOverlay extends StatelessWidget {
                   'Contact your teacher if this is a mistake.',
         actions: [
           completed
-              ? FilledButton(
-                  onPressed: onViewResult,
-                  child: const Text('View result'),
-                )
-              : const FilledButton(
-                  onPressed: null,
-                  child: Text('Saving the attempt…'),
-                ),
+              ? FilledButton(onPressed: onViewResult, child: const Text('View result'))
+              : const FilledButton(onPressed: null, child: Text('Saving the attempt…')),
         ],
       );
     }
@@ -256,12 +224,7 @@ class IntegrityOverlay extends StatelessWidget {
         message:
             'Your teacher reset this attempt. Open the assignment again to '
             'start over.',
-        actions: [
-          FilledButton(
-            onPressed: onLeave,
-            child: const Text('Back to classwork'),
-          ),
-        ],
+        actions: [FilledButton(onPressed: onLeave, child: const Text('Back to classwork'))],
       );
     }
     return switch (state.sessionStatus) {
@@ -277,12 +240,7 @@ class IntegrityOverlay extends StatelessWidget {
         colors: _orange,
         title: 'Open in another tab or device',
         message: 'Close it there, then try again here.',
-        actions: [
-          FilledButton(
-            onPressed: cubit.retrySessionClaim,
-            child: const Text('Try again'),
-          ),
-        ],
+        actions: [FilledButton(onPressed: cubit.retrySessionClaim, child: const Text('Try again'))],
       ),
       AttemptSessionStatus.recovering => _Panel(
         icon: Icons.schedule,
@@ -309,10 +267,7 @@ class IntegrityOverlay extends StatelessWidget {
             ),
             child: const Text('Not now'),
           ),
-          FilledButton(
-            onPressed: cubit.takeoverSession,
-            child: const Text('Continue here'),
-          ),
+          FilledButton(onPressed: cubit.takeoverSession, child: const Text('Continue here')),
         ],
       ),
       AttemptSessionStatus.revoked => _Panel(
@@ -321,14 +276,10 @@ class IntegrityOverlay extends StatelessWidget {
         title: 'Continued in another session',
         message: 'This attempt is now open in another tab or device.',
         actions: [
-          FilledButton(
-            onPressed: cubit.retrySessionClaim,
-            child: const Text('Take it back'),
-          ),
+          FilledButton(onPressed: cubit.retrySessionClaim, child: const Text('Take it back')),
         ],
       ),
-      AttemptSessionStatus.none ||
-      AttemptSessionStatus.owned => const SizedBox.shrink(),
+      AttemptSessionStatus.none || AttemptSessionStatus.owned => const SizedBox.shrink(),
     };
   }
 }
@@ -373,10 +324,7 @@ class _Panel extends StatelessWidget {
                 Container(
                   width: 48,
                   height: 48,
-                  decoration: BoxDecoration(
-                    color: colors.$2,
-                    shape: BoxShape.circle,
-                  ),
+                  decoration: BoxDecoration(color: colors.$2, shape: BoxShape.circle),
                   child: Icon(icon, size: 24, color: colors.$1),
                 ),
                 const SizedBox(height: 16),
@@ -393,17 +341,10 @@ class _Panel extends StatelessWidget {
                 Text(
                   message,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF65676B),
-                  ),
+                  style: const TextStyle(fontSize: 13, color: Color(0xFF65676B)),
                 ),
                 const SizedBox(height: 20),
-                Wrap(
-                  spacing: 8,
-                  alignment: WrapAlignment.center,
-                  children: actions,
-                ),
+                Wrap(spacing: 8, alignment: WrapAlignment.center, children: actions),
               ],
             ),
           ),

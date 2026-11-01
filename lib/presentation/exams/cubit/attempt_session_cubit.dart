@@ -14,8 +14,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 part 'attempt_session_integrity.dart';
 part 'attempt_session_state.dart';
 
-class AttemptSessionCubit extends Cubit<AttemptSessionState>
-    with _AttemptIntegrity {
+class AttemptSessionCubit extends Cubit<AttemptSessionState> with _AttemptIntegrity {
   AttemptSessionCubit(
     this._repository,
     this._socket, {
@@ -54,8 +53,7 @@ class AttemptSessionCubit extends Cubit<AttemptSessionState>
     // Flow TOEIC_STRICT không có `GET /questions` (409): đáp án nạp dần theo trang
     // qua mergeAnswers.
     final attempt =
-        initialAttempt != null &&
-            (initialAttempt.questions.isNotEmpty || initialAttempt.isStrict)
+        initialAttempt != null && (initialAttempt.questions.isNotEmpty || initialAttempt.isStrict)
         ? initialAttempt
         : (await _repository.getAttemptQuestions(attemptId)).dataOrNull;
     if (attempt == null) {
@@ -93,29 +91,16 @@ class AttemptSessionCubit extends Cubit<AttemptSessionState>
   /// Nạp đáp án đã lưu của một trang (flow strict). Câu đã có trong state giữ giá trị
   /// local vì có thể vừa chọn mà chưa kịp đồng bộ.
   void mergeAnswers(Map<int, int?> answers) {
-    final missing = answers.entries.where(
-      (e) => !state.selectedOptions.containsKey(e.key),
-    );
+    final missing = answers.entries.where((e) => !state.selectedOptions.containsKey(e.key));
     if (missing.isEmpty) return;
-    emit(
-      state.copyWith(
-        selectedOptions: {
-          ...state.selectedOptions,
-          ...Map.fromEntries(missing),
-        },
-      ),
-    );
+    emit(state.copyWith(selectedOptions: {...state.selectedOptions, ...Map.fromEntries(missing)}));
   }
 
   void selectAnswer(int questionId, int? optionId) {
-    if (state.isLocked ||
-        state.isSubmitting ||
-        state.isCancelling ||
-        state.sessionBlocked) {
+    if (state.isLocked || state.isSubmitting || state.isCancelling || state.sessionBlocked) {
       return;
     }
-    final answers = Map<int, int?>.from(state.selectedOptions)
-      ..[questionId] = optionId;
+    final answers = Map<int, int?>.from(state.selectedOptions)..[questionId] = optionId;
     final statuses = Map<int, AnswerSyncStatus>.from(state.syncStatuses)
       ..[questionId] = AnswerSyncStatus.pending;
     emit(state.copyWith(selectedOptions: answers, syncStatuses: statuses));
@@ -124,42 +109,26 @@ class AttemptSessionCubit extends Cubit<AttemptSessionState>
 
   Future<void> submit() async {
     final attempt = state.attempt;
-    if (attempt == null ||
-        state.isSubmitting ||
-        state.isCancelling ||
-        state.sessionBlocked) {
+    if (attempt == null || state.isSubmitting || state.isCancelling || state.sessionBlocked) {
       return;
     }
     emit(state.copyWith(isSubmitting: true, isLocked: true, failure: null));
     final answers = state.selectedOptions.entries
-        .map(
-          (e) =>
-              SubmitAttemptAnswer(questionId: e.key, selectedOptionId: e.value),
-        )
+        .map((e) => SubmitAttemptAnswer(questionId: e.key, selectedOptionId: e.value))
         .toList();
     final result = await _repository.submitAttempt(attempt.id, answers);
     switch (result) {
       case Success(data: final completed):
         _countdownTimer?.cancel();
         await _socket.close();
-        emit(
-          state.copyWith(
-            attempt: completed,
-            completedAttempt: completed,
-            isSubmitting: false,
-          ),
-        );
+        emit(state.copyWith(attempt: completed, completedAttempt: completed, isSubmitting: false));
       case Failure():
         if (result.code == 409) {
           final history = await _repository.getAttemptHistory(attempt.id);
           if (history case Success(data: final completed)) {
             await _socket.close();
             emit(
-              state.copyWith(
-                attempt: completed,
-                completedAttempt: completed,
-                isSubmitting: false,
-              ),
+              state.copyWith(attempt: completed, completedAttempt: completed, isSubmitting: false),
             );
             return;
           }
@@ -185,17 +154,9 @@ class AttemptSessionCubit extends Cubit<AttemptSessionState>
       case Success(data: final completed):
         _countdownTimer?.cancel();
         await _socket.close();
-        emit(
-          state.copyWith(
-            attempt: completed,
-            completedAttempt: completed,
-            isCancelling: false,
-          ),
-        );
+        emit(state.copyWith(attempt: completed, completedAttempt: completed, isCancelling: false));
       case Failure():
-        emit(
-          state.copyWith(isCancelling: false, isLocked: false, failure: result),
-        );
+        emit(state.copyWith(isCancelling: false, isLocked: false, failure: result));
       case Cancelled():
         emit(state.copyWith(isCancelling: false, isLocked: false));
     }
@@ -239,8 +200,7 @@ class AttemptSessionCubit extends Cubit<AttemptSessionState>
 
   void _handleSocketEvent(AttemptSocketEvent event) {
     if (_handleIntegrityEvent(event)) return;
-    if (event.type == 'ATTEMPT_SUBMITTING' &&
-        event.attemptId == state.attempt?.id) {
+    if (event.type == 'ATTEMPT_SUBMITTING' && event.attemptId == state.attempt?.id) {
       _countdownTimer?.cancel();
       emit(
         state.copyWith(
@@ -253,8 +213,7 @@ class AttemptSessionCubit extends Cubit<AttemptSessionState>
       _waitForBackendSubmission();
       return;
     }
-    if (event.type == 'ATTEMPT_SUBMITTED' &&
-        event.attemptId == state.attempt?.id) {
+    if (event.type == 'ATTEMPT_SUBMITTED' && event.attemptId == state.attempt?.id) {
       emit(
         state.copyWith(
           isLocked: true,
@@ -310,8 +269,7 @@ class AttemptSessionCubit extends Cubit<AttemptSessionState>
   @override
   void _resendPendingAnswers() {
     for (final entry in state.syncStatuses.entries) {
-      if (entry.value == AnswerSyncStatus.pending ||
-          entry.value == AnswerSyncStatus.failed) {
+      if (entry.value == AnswerSyncStatus.pending || entry.value == AnswerSyncStatus.failed) {
         _sendLatest(entry.key);
       }
     }
@@ -375,8 +333,7 @@ class AttemptSessionCubit extends Cubit<AttemptSessionState>
           state.copyWith(
             isSubmitting: false,
             failure: const Failure(
-              message:
-                  'Submission is still processing. Please reload the result.',
+              message: 'Submission is still processing. Please reload the result.',
             ),
           ),
         );

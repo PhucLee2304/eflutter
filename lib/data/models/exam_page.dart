@@ -4,21 +4,22 @@ class ExamPage {
   final List<ExamSummary> exams;
   final int page;
   final int pageCounts;
+  final int total;
 
   const ExamPage({
     required this.exams,
     required this.page,
     required this.pageCounts,
+    this.total = 0,
   });
 
   factory ExamPage.fromJson(Map<String, dynamic> json) {
     final data = json['data'] as List<dynamic>? ?? const [];
     return ExamPage(
-      exams: data
-          .map((item) => ExamSummary.fromJson(item as Map<String, dynamic>))
-          .toList(),
+      exams: data.map((item) => ExamSummary.fromJson(item as Map<String, dynamic>)).toList(),
       page: (json['page'] as num?)?.toInt() ?? 1,
       pageCounts: (json['pageCounts'] as num?)?.toInt() ?? 1,
+      total: (json['total'] as num?)?.toInt() ?? 0,
     );
   }
 }

@@ -114,10 +114,7 @@ class ListeningPlayback extends ChangeNotifier {
   void _scheduleFallback() {
     if (_completed || _disposed || _fallbackTimer?.isActive == true) return;
     final remaining = _duration - _expectedPosition;
-    _fallbackTimer = Timer(
-      remaining > Duration.zero ? remaining : Duration.zero,
-      _complete,
-    );
+    _fallbackTimer = Timer(remaining > Duration.zero ? remaining : Duration.zero, _complete);
   }
 
   void _complete() {

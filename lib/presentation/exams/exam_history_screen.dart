@@ -76,10 +76,7 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen> {
                           ),
                         ),
                         if (state.isLoading && state.attempts.isEmpty)
-                          const SliverFillRemaining(
-                            hasScrollBody: false,
-                            child: AppLoader(),
-                          )
+                          const SliverFillRemaining(hasScrollBody: false, child: AppLoader())
                         else if (state.attempts.isEmpty)
                           SliverFillRemaining(
                             hasScrollBody: false,
@@ -90,8 +87,7 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen> {
                             padding: const EdgeInsets.all(16),
                             sliver: SliverList.separated(
                               itemCount: state.attempts.length,
-                              separatorBuilder: (context, index) =>
-                                  const SizedBox(height: 12),
+                              separatorBuilder: (context, index) => const SizedBox(height: 12),
                               itemBuilder: (context, index) => _AttemptCard(
                                 attempt: state.attempts[index],
                                 status: state.status,
@@ -138,10 +134,7 @@ class _HistoryHeader extends StatelessWidget {
                   color: ColorName.primary.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(
-                  SolarIconsOutline.documentText,
-                  color: ColorName.primary,
-                ),
+                child: const Icon(SolarIconsOutline.documentText, color: ColorName.primary),
               ),
               const SizedBox(width: 12),
               const Expanded(
@@ -173,10 +166,7 @@ class _HistoryHeader extends StatelessWidget {
 
           final tabs = SegmentedButton<ExamHistoryStatus>(
             segments: ExamHistoryStatus.values
-                .map(
-                  (status) =>
-                      ButtonSegment(value: status, label: Text(status.label)),
-                )
+                .map((status) => ButtonSegment(value: status, label: Text(status.label)))
                 .toList(),
             selected: {state.status},
             onSelectionChanged: state.isLoading
@@ -215,9 +205,7 @@ class _AttemptCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final profile = _AttemptStatusProfile.fromStatus(status);
     final exam = attempt.exam;
-    final title = exam?.title.trim().isNotEmpty == true
-        ? exam!.title
-        : 'Exam #${attempt.examId}';
+    final title = exam?.title.trim().isNotEmpty == true ? exam!.title : 'Exam #${attempt.examId}';
     final type = exam?.type.trim().isNotEmpty == true ? exam!.type : 'Exam';
     final year = exam?.year;
     final scope = _scopeLabel(attempt);
@@ -267,8 +255,7 @@ class _AttemptCard extends StatelessWidget {
                       children: [
                         _Pill(label: year == null ? type : '$type $year'),
                         _Pill(label: _titleCase(attempt.mode)),
-                        if (attempt.duration != null)
-                          _Pill(label: '${attempt.duration} min'),
+                        if (attempt.duration != null) _Pill(label: '${attempt.duration} min'),
                         if (scope != null) _Pill(label: scope),
                       ],
                     ),
@@ -293,11 +280,7 @@ class _AttemptCard extends StatelessWidget {
                     ? SolarIconsOutline.playCircle
                     : SolarIconsOutline.documentText,
               ),
-              label: Text(
-                status == ExamHistoryStatus.active
-                    ? 'Continue attempt'
-                    : 'View history',
-              ),
+              label: Text(status == ExamHistoryStatus.active ? 'Continue attempt' : 'View history'),
             ),
           ),
         ],
@@ -336,8 +319,7 @@ class _AttemptMetadata extends StatelessWidget {
           label: 'Progress',
           value: _formatProgress(attempt),
         ),
-        if (attempt.expiresAt != null)
-          _CountdownMetaItem(expiresAt: attempt.expiresAt!),
+        if (attempt.expiresAt != null) _CountdownMetaItem(expiresAt: attempt.expiresAt!),
       ],
       ExamHistoryStatus.submitted => [
         _MetaItem(
@@ -348,9 +330,7 @@ class _AttemptMetadata extends StatelessWidget {
         _MetaItem(
           icon: SolarIconsOutline.documentText,
           label: 'Submitted',
-          value: _formatDateTime(
-            attempt.submittedAt ?? attempt.updatedAt ?? attempt.expiresAt,
-          ),
+          value: _formatDateTime(attempt.submittedAt ?? attempt.updatedAt ?? attempt.expiresAt),
         ),
         _MetaItem(
           icon: SolarIconsOutline.documentText,
@@ -408,11 +388,7 @@ class _AttemptMetadata extends StatelessWidget {
 }
 
 class _MetaItem extends StatelessWidget {
-  const _MetaItem({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
+  const _MetaItem({required this.icon, required this.label, required this.value});
 
   final IconData icon;
   final String label;
@@ -422,10 +398,7 @@ class _MetaItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: ColorName.gray6,
-        borderRadius: BorderRadius.circular(8),
-      ),
+      decoration: BoxDecoration(color: ColorName.gray6, borderRadius: BorderRadius.circular(8)),
       child: Row(
         children: [
           Icon(icon, size: 18, color: ColorName.primary),
@@ -439,10 +412,7 @@ class _MetaItem extends StatelessWidget {
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: ColorName.labelSecondary,
-                  ),
+                  style: const TextStyle(fontSize: 12, color: ColorName.labelSecondary),
                 ),
                 Text(
                   value,
@@ -512,9 +482,7 @@ class _CountdownMetaItemState extends State<_CountdownMetaItem> {
     return _MetaItem(
       icon: SolarIconsOutline.playCircle,
       label: 'Remaining',
-      value: _remaining == Duration.zero
-          ? 'Expired'
-          : _formatDuration(_remaining),
+      value: _remaining == Duration.zero ? 'Expired' : _formatDuration(_remaining),
     );
   }
 }
@@ -537,9 +505,7 @@ class _HistoryPager extends StatelessWidget {
         children: [
           IconButton.outlined(
             tooltip: 'Previous page',
-            onPressed: state.canGoPrevious && !state.isLoading
-                ? cubit.previousPage
-                : null,
+            onPressed: state.canGoPrevious && !state.isLoading ? cubit.previousPage : null,
             icon: const Icon(SolarIconsOutline.altArrowLeft),
           ),
           Expanded(
@@ -557,9 +523,7 @@ class _HistoryPager extends StatelessWidget {
           ),
           IconButton.outlined(
             tooltip: 'Next page',
-            onPressed: state.canGoNext && !state.isLoading
-                ? cubit.nextPage
-                : null,
+            onPressed: state.canGoNext && !state.isLoading ? cubit.nextPage : null,
             icon: const Icon(SolarIconsOutline.altArrowRight),
           ),
         ],
@@ -581,11 +545,7 @@ class _EmptyHistories extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              SolarIconsOutline.documentText,
-              size: 42,
-              color: ColorName.labelSecondary,
-            ),
+            const Icon(SolarIconsOutline.documentText, size: 42, color: ColorName.labelSecondary),
             const SizedBox(height: 12),
             Text(
               'No ${status.label.toLowerCase()} attempts',
@@ -617,10 +577,7 @@ class _Pill extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(
-        color: ColorName.gray6,
-        borderRadius: BorderRadius.circular(8),
-      ),
+      decoration: BoxDecoration(color: ColorName.gray6, borderRadius: BorderRadius.circular(8)),
       child: Text(
         label,
         style: const TextStyle(

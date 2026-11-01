@@ -49,9 +49,7 @@ class ExamHistoryState {
       page: page ?? this.page,
       pageCounts: pageCounts ?? this.pageCounts,
       isLoading: isLoading ?? this.isLoading,
-      failure: identical(failure, _failureSentinel)
-          ? this.failure
-          : failure as Failure?,
+      failure: identical(failure, _failureSentinel) ? this.failure : failure as Failure?,
     );
   }
 }
@@ -59,8 +57,7 @@ class ExamHistoryState {
 const _failureSentinel = Object();
 
 class ExamHistoryCubit extends Cubit<ExamHistoryState> {
-  ExamHistoryCubit(this._examRepository, {this.pageSize = 20})
-    : super(const ExamHistoryState());
+  ExamHistoryCubit(this._examRepository, {this.pageSize = 20}) : super(const ExamHistoryState());
 
   final ExamRepository _examRepository;
   final int pageSize;

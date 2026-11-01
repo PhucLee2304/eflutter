@@ -14,18 +14,13 @@ import 'package:go_router/go_router.dart';
 import 'package:solar_icons/solar_icons.dart';
 
 class ExamHistoryDetailScreen extends StatefulWidget {
-  const ExamHistoryDetailScreen({
-    super.key,
-    required this.attemptId,
-    this.initialAttempt,
-  });
+  const ExamHistoryDetailScreen({super.key, required this.attemptId, this.initialAttempt});
 
   final int attemptId;
   final ExamAttempt? initialAttempt;
 
   @override
-  State<ExamHistoryDetailScreen> createState() =>
-      _ExamHistoryDetailScreenState();
+  State<ExamHistoryDetailScreen> createState() => _ExamHistoryDetailScreenState();
 }
 
 class _ExamHistoryDetailScreenState extends State<ExamHistoryDetailScreen> {
@@ -35,17 +30,12 @@ class _ExamHistoryDetailScreenState extends State<ExamHistoryDetailScreen> {
   /// Key theo câu để bấm số trên bảng câu hỏi thì cuộn tới câu đó.
   final _questionKeys = <int, GlobalKey>{};
 
-  GlobalKey _keyFor(int questionId) =>
-      _questionKeys.putIfAbsent(questionId, GlobalKey.new);
+  GlobalKey _keyFor(int questionId) => _questionKeys.putIfAbsent(questionId, GlobalKey.new);
 
   void _scrollTo(int questionId) {
     final target = _questionKeys[questionId]?.currentContext;
     if (target == null) return;
-    Scrollable.ensureVisible(
-      target,
-      duration: const Duration(milliseconds: 300),
-      alignment: 0.1,
-    );
+    Scrollable.ensureVisible(target, duration: const Duration(milliseconds: 300), alignment: 0.1);
   }
 
   void _openPalette(ExamAttempt attempt) {
@@ -56,8 +46,7 @@ class _ExamHistoryDetailScreenState extends State<ExamHistoryDetailScreen> {
     showQuestionPalette(
       context,
       onSelect: _scrollTo,
-      builder: (context, onTap) =>
-          QuestionPalette(groups: groups, onTap: onTap, review: true),
+      builder: (context, onTap) => QuestionPalette(groups: groups, onTap: onTap, review: true),
     );
   }
 
@@ -91,9 +80,7 @@ class _ExamHistoryDetailScreenState extends State<ExamHistoryDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final attempt = _attempt;
-    final numbers = attempt == null
-        ? const <int, int>{}
-        : reviewQuestionNumbers(attempt.questions);
+    final numbers = attempt == null ? const <int, int>{} : reviewQuestionNumbers(attempt.questions);
     return Scaffold(
       body: SafeArea(
         child: _loading
@@ -102,10 +89,7 @@ class _ExamHistoryDetailScreenState extends State<ExamHistoryDetailScreen> {
             ? const Center(child: Text('Attempt history not found'))
             : Column(
                 children: [
-                  _ReviewHeader(
-                    attempt: attempt,
-                    onOpenPalette: () => _openPalette(attempt),
-                  ),
+                  _ReviewHeader(attempt: attempt, onOpenPalette: () => _openPalette(attempt)),
                   Expanded(
                     // Dựng hết câu (không lazy) để ensureVisible tới được câu ngoài màn.
                     child: SelectionArea(
@@ -160,10 +144,7 @@ class _ReviewHeader extends StatelessWidget {
                     attempt.exam?.title ?? 'Attempt #${attempt.id}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                   ),
                   Text(
                     '${switch (attempt.status) {
@@ -199,14 +180,10 @@ class _ReviewHeader extends StatelessWidget {
             children: [
               _ResultMetric(
                 label: 'Correct',
-                value:
-                    '${attempt.correctAnswers ?? 0}/${attempt.totalQuestions}',
+                value: '${attempt.correctAnswers ?? 0}/${attempt.totalQuestions}',
               ),
               const SizedBox(width: 8),
-              _ResultMetric(
-                label: 'Score',
-                value: attempt.score?.toStringAsFixed(2) ?? '-',
-              ),
+              _ResultMetric(label: 'Score', value: attempt.score?.toStringAsFixed(2) ?? '-'),
             ],
           ),
         ],
@@ -222,16 +199,10 @@ class _ResultMetric extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-    decoration: BoxDecoration(
-      color: ColorName.gray6,
-      borderRadius: BorderRadius.circular(8),
-    ),
+    decoration: BoxDecoration(color: ColorName.gray6, borderRadius: BorderRadius.circular(8)),
     child: Column(
       children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 11, color: ColorName.labelSecondary),
-        ),
+        Text(label, style: const TextStyle(fontSize: 11, color: ColorName.labelSecondary)),
         Text(value, style: const TextStyle(fontWeight: FontWeight.w700)),
       ],
     ),
@@ -266,10 +237,7 @@ class _ReviewSection extends StatelessWidget {
             if (group.instruction.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(bottom: 10),
-                child: Text(
-                  group.instruction,
-                  style: const TextStyle(fontStyle: FontStyle.italic),
-                ),
+                child: Text(group.instruction, style: const TextStyle(fontStyle: FontStyle.italic)),
               ),
             for (final imageUrl in group.imageUrls)
               Padding(
@@ -299,10 +267,7 @@ class _ReviewSection extends StatelessWidget {
             if (group.transcript.isNotEmpty)
               _Explanation(title: 'Transcript', value: group.transcript),
             if (group.explanation.isNotEmpty)
-              _Explanation(
-                title: 'Group explanation',
-                value: group.explanation,
-              ),
+              _Explanation(title: 'Group explanation', value: group.explanation),
           ],
         ),
         ...section.questions.map(
@@ -350,9 +315,7 @@ class _ReviewQuestion extends StatelessWidget {
             if (question.excludedFromScore) const NotScoredBadge(),
             if (submitted && question.isCorrect != null)
               Icon(
-                question.isCorrect!
-                    ? SolarIconsOutline.checkCircle
-                    : SolarIconsOutline.closeCircle,
+                question.isCorrect! ? SolarIconsOutline.checkCircle : SolarIconsOutline.closeCircle,
                 color: question.isCorrect! ? ColorName.green : ColorName.red,
               ),
           ],
@@ -398,10 +361,7 @@ class _Explanation extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(top: 10),
-    child: Text(
-      '$title: $value',
-      style: const TextStyle(color: ColorName.labelSecondary),
-    ),
+    child: Text('$title: $value', style: const TextStyle(color: ColorName.labelSecondary)),
   );
 }
 
@@ -429,9 +389,7 @@ class _IntegrityBanner extends StatelessWidget {
       child: Row(
         children: [
           Icon(
-            terminated
-                ? SolarIconsOutline.forbiddenCircle
-                : SolarIconsOutline.shieldCheck,
+            terminated ? SolarIconsOutline.forbiddenCircle : SolarIconsOutline.shieldCheck,
             color: color,
           ),
           const SizedBox(width: 8),

@@ -151,17 +151,9 @@ class ListeningCubit extends Cubit<ListeningState> {
   void _advance() {
     final page = state.page;
     if (isClosed || page == null) return;
-    emit(
-      state.copyWith(
-        phase: ListeningPhase.advancing,
-        gapRemaining: Duration.zero,
-      ),
-    );
+    emit(state.copyWith(phase: ListeningPhase.advancing, gapRemaining: Duration.zero));
     try {
-      _pendingRequest = _socket.sendListeningAdvance(
-        attemptId: _attemptId,
-        page: page.index,
-      );
+      _pendingRequest = _socket.sendListeningAdvance(attemptId: _attemptId, page: page.index);
       _ackTimer?.cancel();
       _ackTimer = Timer(ackTimeout, () {
         _pendingRequest = null;
@@ -221,13 +213,7 @@ class ListeningCubit extends Cubit<ListeningState> {
 
   void _finish() {
     _cancelTimers();
-    emit(
-      state.copyWith(
-        phase: ListeningPhase.finished,
-        page: null,
-        gapRemaining: null,
-      ),
-    );
+    emit(state.copyWith(phase: ListeningPhase.finished, page: null, gapRemaining: null));
   }
 
   void _cancelTimers() {

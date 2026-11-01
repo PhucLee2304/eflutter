@@ -29,8 +29,7 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _cubit = ExamDetailCubit(ExamRepository(getIt<RemoteDataBase>()))
-      ..load(widget.examId);
+    _cubit = ExamDetailCubit(ExamRepository(getIt<RemoteDataBase>()))..load(widget.examId);
   }
 
   @override
@@ -170,15 +169,10 @@ class _DetailHeader extends StatelessWidget {
                       children: [
                         _Pill(label: exam.type, color: profile.color),
                         if (exam.year != null)
-                          _Pill(
-                            label: exam.year.toString(),
-                            color: ColorName.labelSecondary,
-                          ),
+                          _Pill(label: exam.year.toString(), color: ColorName.labelSecondary),
                         _Pill(
                           label: exam.isPublic ? 'Public' : 'Private',
-                          color: exam.isPublic
-                              ? ColorName.green
-                              : ColorName.orange,
+                          color: exam.isPublic ? ColorName.green : ColorName.orange,
                         ),
                       ],
                     ),
@@ -189,10 +183,7 @@ class _DetailHeader extends StatelessWidget {
           ),
           Text(
             description.isEmpty ? profile.emptyDescription : description,
-            style: const TextStyle(
-              height: 1.4,
-              color: ColorName.labelSecondary,
-            ),
+            style: const TextStyle(height: 1.4, color: ColorName.labelSecondary),
           ),
         ],
       ),
@@ -260,11 +251,7 @@ class _MetricGrid extends StatelessWidget {
 }
 
 class _MetricCard extends StatelessWidget {
-  const _MetricCard({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
+  const _MetricCard({required this.icon, required this.label, required this.value});
 
   final IconData icon;
   final String label;
@@ -274,10 +261,7 @@ class _MetricCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: ColorName.gray6,
-        borderRadius: BorderRadius.circular(8),
-      ),
+      decoration: BoxDecoration(color: ColorName.gray6, borderRadius: BorderRadius.circular(8)),
       child: Row(
         children: [
           Icon(icon, color: ColorName.primary),
@@ -345,18 +329,7 @@ class _AttemptSetupCard extends StatefulWidget {
 
 class _AttemptSetupCardState extends State<_AttemptSetupCard> {
   static const _thptPracticeDurations = <int?>[null, 10, 15, 20, 30, 45, 60];
-  static const _toeicPracticeDurations = <int?>[
-    null,
-    10,
-    15,
-    20,
-    30,
-    45,
-    60,
-    75,
-    90,
-    120,
-  ];
+  static const _toeicPracticeDurations = <int?>[null, 10, 15, 20, 30, 45, 60, 75, 90, 120];
 
   _AttemptMode _mode = _AttemptMode.practice;
   _AttemptScopeType _scopeType = _AttemptScopeType.full;
@@ -366,16 +339,14 @@ class _AttemptSetupCardState extends State<_AttemptSetupCard> {
 
   bool get _isToeic => widget.exam.type.toUpperCase() == 'TOEIC';
   bool get _isThpt => widget.exam.type.toUpperCase() == 'THPT';
-  List<int?> get _practiceDurations =>
-      _isToeic ? _toeicPracticeDurations : _thptPracticeDurations;
+  List<int?> get _practiceDurations => _isToeic ? _toeicPracticeDurations : _thptPracticeDurations;
 
   bool get _canUsePart => _mode == _AttemptMode.practice && _isToeic;
 
   bool get _canUseSection => _mode == _AttemptMode.practice && _isToeic;
 
   bool get _canStart =>
-      !widget.isStarting &&
-      (_scopeType != _AttemptScopeType.part || _selectedParts.isNotEmpty);
+      !widget.isStarting && (_scopeType != _AttemptScopeType.part || _selectedParts.isNotEmpty);
 
   @override
   void didUpdateWidget(covariant _AttemptSetupCard oldWidget) {
@@ -514,8 +485,7 @@ class _AttemptSetupCardState extends State<_AttemptSetupCard> {
                 final partCode = _partCode(part.part);
                 return ChoiceChip(
                   label: Text(part.part),
-                  selected:
-                      partCode != null && _selectedParts.contains(partCode),
+                  selected: partCode != null && _selectedParts.contains(partCode),
                   onSelected: widget.isStarting
                       ? null
                       : (selected) => setState(() {
@@ -531,22 +501,15 @@ class _AttemptSetupCardState extends State<_AttemptSetupCard> {
                 );
               }).toList(),
             ),
-          if (_isToeic &&
-              _scopeType == _AttemptScopeType.part &&
-              _selectedParts.isEmpty)
-            const Text(
-              'Select at least one part.',
-              style: TextStyle(color: ColorName.red),
-            ),
+          if (_isToeic && _scopeType == _AttemptScopeType.part && _selectedParts.isEmpty)
+            const Text('Select at least one part.', style: TextStyle(color: ColorName.red)),
           if (_mode == _AttemptMode.practice)
             _ChoiceBlock(
               title: 'Duration',
               children: _practiceDurations
                   .map(
                     (duration) => ChoiceChip(
-                      label: Text(
-                        duration == null ? 'Unlimited' : '$duration min',
-                      ),
+                      label: Text(duration == null ? 'Unlimited' : '$duration min'),
                       selected: _duration == duration,
                       onSelected: widget.isStarting
                           ? null
@@ -560,11 +523,7 @@ class _AttemptSetupCardState extends State<_AttemptSetupCard> {
           FilledButton.icon(
             onPressed: _canStart ? _startAttempt : null,
             icon: widget.isStarting
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: AppLoader(),
-                  )
+                ? const SizedBox(width: 18, height: 18, child: AppLoader())
                 : const Icon(SolarIconsOutline.playCircle),
             label: const Text('Start attempt'),
           ),
@@ -603,24 +562,14 @@ class _SegmentedBlock<T> extends StatelessWidget {
       children: [
         Text(
           title,
-          style: const TextStyle(
-            fontWeight: FontWeight.w700,
-            color: ColorName.labelPrimary,
-          ),
+          style: const TextStyle(fontWeight: FontWeight.w700, color: ColorName.labelPrimary),
         ),
         SegmentedButton<T>(
           segments: values
-              .map(
-                (value) => ButtonSegment<T>(
-                  value: value,
-                  label: Text(labelBuilder(value)),
-                ),
-              )
+              .map((value) => ButtonSegment<T>(value: value, label: Text(labelBuilder(value))))
               .toList(),
           selected: {selected},
-          onSelectionChanged: onSelected == null
-              ? null
-              : (values) => onSelected!(values.first),
+          onSelectionChanged: onSelected == null ? null : (values) => onSelected!(values.first),
         ),
       ],
     );
@@ -641,10 +590,7 @@ class _ChoiceBlock extends StatelessWidget {
       children: [
         Text(
           title,
-          style: const TextStyle(
-            fontWeight: FontWeight.w700,
-            color: ColorName.labelPrimary,
-          ),
+          style: const TextStyle(fontWeight: FontWeight.w700, color: ColorName.labelPrimary),
         ),
         Wrap(spacing: 8, runSpacing: 8, children: children),
       ],
@@ -773,11 +719,7 @@ class _OverviewBlock extends StatelessWidget {
 }
 
 class _OverviewRow extends StatelessWidget {
-  const _OverviewRow({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
+  const _OverviewRow({required this.icon, required this.title, required this.subtitle});
 
   final IconData icon;
   final String title;
@@ -836,11 +778,7 @@ class _Pill extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          color: color,
-        ),
+        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: color),
       ),
     );
   }
@@ -878,11 +816,7 @@ class _MissingExam extends StatelessWidget {
 }
 
 class _ExamTypeProfile {
-  const _ExamTypeProfile({
-    required this.icon,
-    required this.color,
-    required this.emptyDescription,
-  });
+  const _ExamTypeProfile({required this.icon, required this.color, required this.emptyDescription});
 
   final IconData icon;
   final Color color;

@@ -8,15 +8,7 @@ part of 'attempt_session_cubit.dart';
 /// - [recovering]: phiên cũ vừa ngắt, chờ [AttemptSessionState.sessionRetryAfter];
 /// - [takeoverRequired]: phải xác nhận tiếp tục trên thiết bị này;
 /// - [revoked]: phiên khác đã chiếm quyền.
-enum AttemptSessionStatus {
-  none,
-  claiming,
-  owned,
-  inUse,
-  recovering,
-  takeoverRequired,
-  revoked,
-}
+enum AttemptSessionStatus { none, claiming, owned, inUse, recovering, takeoverRequired, revoked }
 
 class AttemptIntegrityState {
   const AttemptIntegrityState({
@@ -29,20 +21,18 @@ class AttemptIntegrityState {
   final int maxViolations;
   final String outcome;
 
-  factory AttemptIntegrityState.fromAttempt(ExamAttempt attempt) =>
-      AttemptIntegrityState(
-        violationCount: attempt.violationCount ?? 0,
-        maxViolations: attempt.maxViolations ?? 0,
-        outcome: attempt.integrityOutcome ?? IntegrityOutcome.none,
-      );
+  factory AttemptIntegrityState.fromAttempt(ExamAttempt attempt) => AttemptIntegrityState(
+    violationCount: attempt.violationCount ?? 0,
+    maxViolations: attempt.maxViolations ?? 0,
+    outcome: attempt.integrityOutcome ?? IntegrityOutcome.none,
+  );
 
   /// `state` trong ACK claim/event của server.
-  factory AttemptIntegrityState.fromJson(Map<String, dynamic> json) =>
-      AttemptIntegrityState(
-        violationCount: (json['violationCount'] as num?)?.toInt() ?? 0,
-        maxViolations: (json['maxViolations'] as num?)?.toInt() ?? 0,
-        outcome: json['outcome'] as String? ?? IntegrityOutcome.none,
-      );
+  factory AttemptIntegrityState.fromJson(Map<String, dynamic> json) => AttemptIntegrityState(
+    violationCount: (json['violationCount'] as num?)?.toInt() ?? 0,
+    maxViolations: (json['maxViolations'] as num?)?.toInt() ?? 0,
+    outcome: json['outcome'] as String? ?? IntegrityOutcome.none,
+  );
 
   AttemptIntegrityState copyWith({int? violationCount, int? maxViolations}) =>
       AttemptIntegrityState(
@@ -88,9 +78,7 @@ mixin _AttemptIntegrity on Cubit<AttemptSessionState> {
     emit(
       state.copyWith(
         integrity: AttemptIntegrityState.fromAttempt(attempt),
-        sessionStatus: active
-            ? AttemptSessionStatus.claiming
-            : AttemptSessionStatus.none,
+        sessionStatus: active ? AttemptSessionStatus.claiming : AttemptSessionStatus.none,
       ),
     );
   }
@@ -105,12 +93,7 @@ mixin _AttemptIntegrity on Cubit<AttemptSessionState> {
     final attempt = state.attempt;
     if (_closing || attempt == null || !_isProctoredActive) return;
     _claimRetryTimer?.cancel();
-    emit(
-      state.copyWith(
-        sessionStatus: AttemptSessionStatus.claiming,
-        sessionRetryAfter: null,
-      ),
-    );
+    emit(state.copyWith(sessionStatus: AttemptSessionStatus.claiming, sessionRetryAfter: null));
     if (state.socketStatus != AttemptSocketStatus.connected) return;
     try {
       _claimRequests.add(
@@ -152,10 +135,7 @@ mixin _AttemptIntegrity on Cubit<AttemptSessionState> {
         final exceeded = count != null && max != null && count > max;
         emit(
           state.copyWith(
-            integrity: state.integrity?.copyWith(
-              violationCount: count,
-              maxViolations: max,
-            ),
+            integrity: state.integrity?.copyWith(violationCount: count, maxViolations: max),
             violationAlerts: state.violationAlerts + (exceeded ? 0 : 1),
           ),
         );
@@ -182,8 +162,7 @@ mixin _AttemptIntegrity on Cubit<AttemptSessionState> {
       case AttemptSocketPush.sessionRevoked:
         final epoch = (payload['sessionEpoch'] as num?)?.toInt() ?? 0;
         // Push gửi tới mọi kết nối của học sinh, kể cả phiên vừa claim.
-        if (state.sessionStatus != AttemptSessionStatus.owned ||
-            epoch <= (_sessionEpoch ?? 0)) {
+        if (state.sessionStatus != AttemptSessionStatus.owned || epoch <= (_sessionEpoch ?? 0)) {
           return true;
         }
         _reporter.unbind(attempt.id);
@@ -223,12 +202,7 @@ mixin _AttemptIntegrity on Cubit<AttemptSessionState> {
     switch (event.code) {
       case AttemptSocketCode.attemptNotProctored:
         _reporter.ignore(attempt.id);
-        emit(
-          state.copyWith(
-            integrity: null,
-            sessionStatus: AttemptSessionStatus.none,
-          ),
-        );
+        emit(state.copyWith(integrity: null, sessionStatus: AttemptSessionStatus.none));
         _resendPendingAnswers();
       case AttemptSocketCode.sessionInUse:
         emit(state.copyWith(sessionStatus: AttemptSessionStatus.inUse));
@@ -242,16 +216,10 @@ mixin _AttemptIntegrity on Cubit<AttemptSessionState> {
             sessionRetryAfter: retryAfter,
           ),
         );
-        _claimRetryTimer = Timer(
-          retryAfter + const Duration(milliseconds: 500),
-          _claimSession,
-        );
+        _claimRetryTimer = Timer(retryAfter + const Duration(milliseconds: 500), _claimSession);
       case AttemptSocketCode.sessionTakeoverRequired:
-        emit(
-          state.copyWith(sessionStatus: AttemptSessionStatus.takeoverRequired),
-        );
-      case AttemptSocketCode.attemptNotActive ||
-          AttemptSocketCode.attemptExpired:
+        emit(state.copyWith(sessionStatus: AttemptSessionStatus.takeoverRequired));
+      case AttemptSocketCode.attemptNotActive || AttemptSocketCode.attemptExpired:
         _stopIntegrity(attempt.id);
         emit(state.copyWith(isLocked: true));
         _waitForBackendSubmission();
@@ -263,10 +231,7 @@ mixin _AttemptIntegrity on Cubit<AttemptSessionState> {
     }
   }
 
-  void _sendIntegrityEvent(
-    AttemptIntegrityEvent event, {
-    required bool replayed,
-  }) {
+  void _sendIntegrityEvent(AttemptIntegrityEvent event, {required bool replayed}) {
     final requestId = _socket.sendIntegrityEvent(
       attemptId: event.attemptId,
       sessionEpoch: _sessionEpoch ?? 0,
@@ -288,9 +253,7 @@ mixin _AttemptIntegrity on Cubit<AttemptSessionState> {
       _reporter.acknowledge(attempt.id, eventId);
       final integrity = event.payload?['state'];
       if (integrity is Map<String, dynamic> && state.integrity != null) {
-        emit(
-          state.copyWith(integrity: AttemptIntegrityState.fromJson(integrity)),
-        );
+        emit(state.copyWith(integrity: AttemptIntegrityState.fromJson(integrity)));
       }
       return;
     }
@@ -340,9 +303,7 @@ mixin _AttemptIntegrity on Cubit<AttemptSessionState> {
       tracker: tracker,
       onClipboard: (type) => _reporter.report(
         AttemptIntegrityEvent(
-          type: type == 'copy'
-              ? AttemptIntegrityEventType.copy
-              : AttemptIntegrityEventType.paste,
+          type: type == 'copy' ? AttemptIntegrityEventType.copy : AttemptIntegrityEventType.paste,
           attemptId: attemptId,
         ),
       ),

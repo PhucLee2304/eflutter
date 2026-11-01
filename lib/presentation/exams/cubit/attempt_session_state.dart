@@ -63,8 +63,7 @@ class AttemptSessionState {
       sessionStatus != AttemptSessionStatus.none &&
       sessionStatus != AttemptSessionStatus.owned;
 
-  int get answeredCount =>
-      selectedOptions.values.where((v) => v != null).length;
+  int get answeredCount => selectedOptions.values.where((v) => v != null).length;
 
   AttemptSessionState copyWith({
     Object? attempt = _sentinel,
@@ -88,15 +87,11 @@ class AttemptSessionState {
     bool? resetByTeacher,
     String? submitReason,
   }) => AttemptSessionState(
-    attempt: identical(attempt, _sentinel)
-        ? this.attempt
-        : attempt as ExamAttempt?,
+    attempt: identical(attempt, _sentinel) ? this.attempt : attempt as ExamAttempt?,
     selectedOptions: selectedOptions ?? this.selectedOptions,
     syncStatuses: syncStatuses ?? this.syncStatuses,
     socketStatus: socketStatus ?? this.socketStatus,
-    remaining: identical(remaining, _sentinel)
-        ? this.remaining
-        : remaining as Duration?,
+    remaining: identical(remaining, _sentinel) ? this.remaining : remaining as Duration?,
     isLoading: isLoading ?? this.isLoading,
     isSubmitting: isSubmitting ?? this.isSubmitting,
     isCancelling: isCancelling ?? this.isCancelling,

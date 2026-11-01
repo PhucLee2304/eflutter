@@ -42,12 +42,7 @@ class AttemptPageViewTwoPane extends StatelessWidget {
           return SelectionArea(
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-              children: [
-                ?top,
-                pageContext,
-                const SizedBox(height: 16),
-                questions,
-              ],
+              children: [?top, pageContext, const SizedBox(height: 16), questions],
             ),
           );
         }
@@ -56,17 +51,11 @@ class AttemptPageViewTwoPane extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.all(20),
-                  children: [?top, pageContext],
-                ),
+                child: ListView(padding: const EdgeInsets.all(20), children: [?top, pageContext]),
               ),
               const VerticalDivider(width: 1, color: ColorName.gray5),
               Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.all(20),
-                  children: [questions],
-                ),
+                child: ListView(padding: const EdgeInsets.all(20), children: [questions]),
               ),
             ],
           ),
@@ -87,10 +76,7 @@ class _PageContext extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (group != null && group.instruction.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Text(group.instruction),
-          ),
+          Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(group.instruction)),
         // TOEIC Part 6/7 có thể nhiều ảnh, hiển thị theo thứ tự.
         for (final imageUrl in group?.imageUrls ?? const <String>[])
           Padding(
@@ -181,9 +167,7 @@ class _PageQuestionCard extends StatelessWidget {
           const SizedBox(height: 10),
           RadioGroup<int>(
             groupValue: selected,
-            onChanged: locked
-                ? (_) {}
-                : (value) => onSelect(question.id, value),
+            onChanged: locked ? (_) {} : (value) => onSelect(question.id, value),
             child: Column(
               children: question.options.map((option) {
                 final isSelected = selected == option.id;
@@ -199,10 +183,7 @@ class _PageQuestionCard extends StatelessWidget {
                       ? IconButton(
                           tooltip: 'Clear answer',
                           onPressed: () => onSelect(question.id, null),
-                          icon: const Icon(
-                            SolarIconsOutline.closeCircle,
-                            size: 20,
-                          ),
+                          icon: const Icon(SolarIconsOutline.closeCircle, size: 20),
                         )
                       : null,
                 );

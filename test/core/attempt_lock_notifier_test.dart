@@ -144,6 +144,8 @@ class _FakeRemoteData implements RemoteDataBase {
     required String status,
     required int page,
     required int pageSize,
+    String? excludeMode,
+    List<String> examTypes = const [],
   }) async {
     requestedStatus = status;
     if (fail) {

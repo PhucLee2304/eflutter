@@ -45,6 +45,9 @@ class NavigationItem {
   final IconData? parentIcon;
   final bool isChild;
 
+  /// Route cùng cấp nằm chung nhánh shell, vd Self-study gồm cả /exams/thpt và /histories.
+  final List<RouteBase> siblingRoutes;
+
   const NavigationItem({
     required this.title,
     this.shortTitle,
@@ -56,14 +59,15 @@ class NavigationItem {
     this.parentTitle,
     this.parentIcon,
     this.isChild = false,
+    this.siblingRoutes = const [],
   });
 
-  StatefulShellBranch get shellBranch => StatefulShellBranch(
-    routes: [GoRoute(path: route.path, builder: (context, state) => screen, routes: subRoutes)],
-  );
+  StatefulShellBranch get shellBranch => StatefulShellBranch(routes: routes);
 
-  GoRoute get goRoute =>
-      GoRoute(path: route.path, builder: (context, state) => screen, routes: subRoutes);
+  List<RouteBase> get routes => [
+    GoRoute(path: route.path, builder: (context, state) => screen, routes: subRoutes),
+    ...siblingRoutes,
+  ];
 
   static final allItems = itemGroups.values.expand((e) => e).toList();
   static final webShellBranches = [...allItems, notificationItem];
@@ -78,9 +82,7 @@ class NavigationItem {
       homeItem,
       topicItem,
       classroomsItem,
-      examThptItem,
-      examToeicItem,
-      historiesItem,
+      selfStudyItem,
       profileItem,
       otherItem,
     ],
@@ -221,30 +223,49 @@ class NavigationItem {
     ],
   );
 
-  static final examThptItem = NavigationItem(
-    title: 'THPT',
-    shortTitle: 'THPT',
-    icon: SolarIconsOutline.documentText,
-    selectedIcon: SolarIconsBold.notebook,
-    route: AppRoutes.examThpt,
-    screen: const ExamListScreen(examType: 'THPT'),
-    parentTitle: 'Exams',
-    parentIcon: SolarIconsOutline.documentText,
-    isChild: true,
-    subRoutes: [_examDetailRoute],
-  );
-
-  static final examToeicItem = NavigationItem(
-    title: 'TOEIC',
-    shortTitle: 'TOEIC',
-    icon: SolarIconsOutline.microphone,
-    selectedIcon: SolarIconsBold.microphoneLarge,
+  /// Một mục "Self-study" cho cả TOEIC, THPT và lịch sử tự luyện; URL cũ giữ nguyên,
+  /// màn nào cũng có header chuyển qua lại giữa ba route này.
+  static final selfStudyItem = NavigationItem(
+    title: 'Self-study',
+    shortTitle: 'Practice',
+    icon: SolarIconsOutline.target,
+    selectedIcon: SolarIconsBold.target,
     route: AppRoutes.examToeic,
     screen: const ExamListScreen(examType: 'TOEIC'),
-    parentTitle: 'Exams',
-    parentIcon: SolarIconsOutline.documentText,
-    isChild: true,
     subRoutes: [_examDetailRoute],
+    siblingRoutes: [
+      GoRoute(
+        path: AppRoutes.examThpt.path,
+        builder: (context, state) => const ExamListScreen(examType: 'THPT'),
+        routes: [_examDetailRoute],
+      ),
+      GoRoute(
+        path: AppRoutes.histories.path,
+        builder: (context, state) => const ExamHistoryScreen(),
+        routes: [
+          GoRoute(
+            path: AppRoutes.attemptPracticeLegacy.path,
+            redirect: (context, state) {
+              final id = int.tryParse(state.pathParameters['id'] ?? '');
+              return id == null ? AppRoutes.histories.path : attemptPracticePath(id);
+            },
+          ),
+          GoRoute(
+            path: AppRoutes.attemptHistoryDetail.path,
+            builder: (context, state) {
+              final id = int.tryParse(state.pathParameters['id'] ?? '');
+              if (id == null) {
+                return const Scaffold(body: Center(child: Text('Invalid attempt ID')));
+              }
+              return ExamHistoryDetailScreen(
+                attemptId: id,
+                initialAttempt: state.extra is ExamAttempt ? state.extra as ExamAttempt : null,
+              );
+            },
+          ),
+        ],
+      ),
+    ],
   );
 
   static final _examDetailRoute = GoRoute(
@@ -256,40 +277,6 @@ class NavigationItem {
       }
       return ExamDetailScreen(examId: id);
     },
-  );
-
-  static final historiesItem = NavigationItem(
-    title: 'History',
-    shortTitle: 'History',
-    icon: SolarIconsOutline.documentText,
-    selectedIcon: SolarIconsBold.notebook,
-    route: AppRoutes.histories,
-    screen: const ExamHistoryScreen(),
-    parentTitle: 'Exams',
-    parentIcon: SolarIconsOutline.documentText,
-    isChild: true,
-    subRoutes: [
-      GoRoute(
-        path: AppRoutes.attemptPracticeLegacy.path,
-        redirect: (context, state) {
-          final id = int.tryParse(state.pathParameters['id'] ?? '');
-          return id == null ? AppRoutes.histories.path : attemptPracticePath(id);
-        },
-      ),
-      GoRoute(
-        path: AppRoutes.attemptHistoryDetail.path,
-        builder: (context, state) {
-          final id = int.tryParse(state.pathParameters['id'] ?? '');
-          if (id == null) {
-            return const Scaffold(body: Center(child: Text('Invalid attempt ID')));
-          }
-          return ExamHistoryDetailScreen(
-            attemptId: id,
-            initialAttempt: state.extra is ExamAttempt ? state.extra as ExamAttempt : null,
-          );
-        },
-      ),
-    ],
   );
 
   /// Màn làm bài nằm ngoài shell (không sidebar/bottom nav): khi đang làm bài
