@@ -29,8 +29,7 @@ class CreateExamAttemptRequest {
       if (parts.isNotEmpty) 'parts': parts,
       if (duration != null) 'duration': duration,
       if (contextId != null) 'contextId': contextId,
-      if (integrityConsentVersion != null)
-        'integrityConsent': {'version': integrityConsentVersion},
+      if (integrityConsentVersion != null) 'integrityConsent': {'version': integrityConsentVersion},
     };
   }
 }
@@ -39,15 +38,9 @@ class SubmitAttemptAnswer {
   final int questionId;
   final int? selectedOptionId;
 
-  const SubmitAttemptAnswer({
-    required this.questionId,
-    required this.selectedOptionId,
-  });
+  const SubmitAttemptAnswer({required this.questionId, required this.selectedOptionId});
 
-  Map<String, dynamic> toJson() => {
-    'questionId': questionId,
-    'selectedOptionId': selectedOptionId,
-  };
+  Map<String, dynamic> toJson() => {'questionId': questionId, 'selectedOptionId': selectedOptionId};
 }
 
 /// Kết quả giám sát của attempt (PLAN_ATTEMPT_INTEGRITY.md mục 1.2).
@@ -98,6 +91,10 @@ class ExamAttempt {
   final String? integrityOutcome;
   final String? terminationReason;
 
+  /// Bài giao trong lớp: mở kết quả trong tab Classwork của lớp đó.
+  final int? assignmentId;
+  final int? classroomId;
+
   bool get isTerminated => integrityOutcome == IntegrityOutcome.terminated;
 
   /// Bài giao trong lớp: không hủy được, chỉ nộp.
@@ -129,16 +126,15 @@ class ExamAttempt {
     this.violationCount,
     this.integrityOutcome,
     this.terminationReason,
+    this.assignmentId,
+    this.classroomId,
   });
 
   factory ExamAttempt.fromJson(Map<String, dynamic> json) {
     final questions =
-        json['questions'] as List<dynamic>? ??
-        json['sections'] as List<dynamic>? ??
-        const [];
+        json['questions'] as List<dynamic>? ?? json['sections'] as List<dynamic>? ?? const [];
     final parts = json['parts'] as List<dynamic>? ?? const [];
-    final examId = (json['examId'] as num? ?? json['examid'] as num? ?? 0)
-        .toInt();
+    final examId = (json['examId'] as num? ?? json['examid'] as num? ?? 0).toInt();
     return ExamAttempt(
       id: (json['id'] as num).toInt(),
       examId: examId,
@@ -162,16 +158,15 @@ class ExamAttempt {
       createdAt: DateTime.tryParse(json['createdAt'] as String? ?? ''),
       updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? ''),
       questions: questions
-          .map(
-            (item) =>
-                ExamQuestionsSection.fromJson(item as Map<String, dynamic>),
-          )
+          .map((item) => ExamQuestionsSection.fromJson(item as Map<String, dynamic>))
           .toList(),
       proctored: json['proctored'] as bool? ?? false,
       maxViolations: (json['maxViolations'] as num?)?.toInt(),
       violationCount: (json['violationCount'] as num?)?.toInt(),
       integrityOutcome: json['integrityOutcome'] as String?,
       terminationReason: json['terminationReason'] as String?,
+      assignmentId: (json['assignmentId'] as num?)?.toInt(),
+      classroomId: (json['classroomId'] as num?)?.toInt(),
     );
   }
 
@@ -199,10 +194,7 @@ class ExamAttempt {
     return ExamAttempt.fromJson(merged);
   }
 
-  static AttemptExamSummary? _flatExamFromJson(
-    Map<String, dynamic> json,
-    int examId,
-  ) {
+  static AttemptExamSummary? _flatExamFromJson(Map<String, dynamic> json, int examId) {
     final hasFlatExam =
         json['title'] != null ||
         json['description'] != null ||

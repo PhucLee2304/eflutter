@@ -756,7 +756,7 @@ class _Meter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (max <= 0 || max > 6) return const SizedBox.shrink();
+    if (max <= 0 || max > 5) return const SizedBox.shrink();
     return Row(
       mainAxisSize: MainAxisSize.min,
       spacing: 3,

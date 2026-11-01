@@ -41,12 +41,17 @@ class _AssignmentReviewViewState extends State<AssignmentReviewView> {
   /// Key theo câu để bấm số trên bảng câu hỏi thì cuộn tới câu đó.
   final _questionKeys = <int, GlobalKey>{};
 
-  GlobalKey _keyFor(int questionId) => _questionKeys.putIfAbsent(questionId, GlobalKey.new);
+  GlobalKey _keyFor(int questionId) =>
+      _questionKeys.putIfAbsent(questionId, GlobalKey.new);
 
   void _scrollTo(int questionId) {
     final target = _questionKeys[questionId]?.currentContext;
     if (target == null) return;
-    Scrollable.ensureVisible(target, duration: const Duration(milliseconds: 300), alignment: 0.1);
+    Scrollable.ensureVisible(
+      target,
+      duration: const Duration(milliseconds: 300),
+      alignment: 0.1,
+    );
   }
 
   @override
@@ -86,7 +91,10 @@ class _AssignmentReviewViewState extends State<AssignmentReviewView> {
         GbHeader(onBack: widget.onBack),
         const SizedBox(height: 12),
         if (loading)
-          const Padding(padding: EdgeInsets.symmetric(vertical: 48), child: AppLoader())
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 48),
+            child: AppLoader(),
+          )
         else if (attempt == null)
           GbError(message: error ?? 'Attempt not found', onRetry: load)
         else
@@ -98,11 +106,13 @@ class _AssignmentReviewViewState extends State<AssignmentReviewView> {
   List<Widget> _content(ExamAttempt attempt) {
     final submitted = attempt.status == 'SUBMITTED';
     final questions = [
-      for (final section in attempt.questions) ...orderedSectionQuestions(section),
+      for (final section in attempt.questions)
+        ...orderedSectionQuestions(section),
     ];
     final scored = questions.where((question) => !question.excludedFromScore);
     final correct =
-        attempt.correctAnswers ?? scored.where((question) => question.isCorrect == true).length;
+        attempt.correctAnswers ??
+        scored.where((question) => question.isCorrect == true).length;
     final wrong = scored.length - correct;
     final numbers = reviewQuestionNumbers(attempt.questions);
     final maxScore = attempt.exam?.type.toUpperCase() == 'TOEIC' ? 990 : 10;
@@ -121,17 +131,30 @@ class _AssignmentReviewViewState extends State<AssignmentReviewView> {
       ],
     );
     final palette = _PaletteCard(
-      groups: _withoutSingleTitle(paletteGroupsForReview(sections, submitted: submitted)),
+      groups: _withoutSingleTitle(
+        paletteGroupsForReview(sections, submitted: submitted),
+      ),
       onTap: _scrollTo,
     );
     return [
-      _Head(attempt: attempt, title: widget.title ?? attempt.exam?.title ?? 'Assignment'),
+      _Head(
+        attempt: attempt,
+        title: widget.title ?? attempt.exam?.title ?? 'Assignment',
+      ),
       const SizedBox(height: 16),
+      if (_IntegrityBanner.shows(attempt)) ...[
+        _IntegrityBanner(attempt: attempt),
+        const SizedBox(height: 16),
+      ],
       GbStats(
         children: [
           _Stat(
             label: 'Score',
-            value: attempt.score?.toStringAsFixed(2).replaceFirst(RegExp(r'\.?0+$'), '') ?? '—',
+            value:
+                attempt.score
+                    ?.toStringAsFixed(2)
+                    .replaceFirst(RegExp(r'\.?0+$'), '') ??
+                '—',
             sub: '/ $maxScore',
           ),
           _Stat(label: 'Correct', value: '$correct', color: Gb.green),
@@ -169,7 +192,9 @@ class _AssignmentReviewViewState extends State<AssignmentReviewView> {
 
   /// Chỉ một nhóm thì bỏ tên nhóm, thẻ đã có tiêu đề "Questions".
   static List<PaletteGroup> _withoutSingleTitle(List<PaletteGroup> groups) =>
-      groups.length == 1 ? [PaletteGroup(title: '', items: groups.single.items)] : groups;
+      groups.length == 1
+      ? [PaletteGroup(title: '', items: groups.single.items)]
+      : groups;
 
   static String? _took(ExamAttempt attempt) {
     final start = attempt.startedAt, end = attempt.submittedAt;
@@ -200,7 +225,11 @@ class _Head extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: Gb.text),
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: Gb.text,
+                ),
               ),
               if (submittedAt != null)
                 Text(
@@ -212,16 +241,116 @@ class _Head extends StatelessWidget {
         ),
         if (attempt.isTerminated)
           const GbPill('Suspended', background: Gb.redBg, foreground: Gb.red)
+        else if (attempt.integrityOutcome == IntegrityOutcome.reinstated)
+          const GbPill(
+            'Reinstated',
+            background: Gb.greenBg,
+            foreground: Gb.green,
+          )
         else
-          GbPill.status(attempt.status == 'SUBMITTED' ? 'SUBMITTED' : attempt.status),
-        // Chỉ bài có giám sát mới hiện số cảnh báo.
-        if (attempt.proctored)
-          GbPill(
-            'Proctored · $violations ${violations == 1 ? 'warning' : 'warnings'}',
-            background: violations > 0 ? Gb.orangeBg : Gb.field,
-            foreground: violations > 0 ? Gb.orange : Gb.muted,
+          GbPill.status(
+            attempt.status == 'SUBMITTED' ? 'SUBMITTED' : attempt.status,
           ),
+        // Chỉ bài có giám sát; cùng chữ với badge lúc làm bài (Figma S2).
+        if (attempt.proctored)
+          _violationPill(violations, attempt.maxViolations ?? 0),
       ],
+    );
+  }
+}
+
+GbPill _violationPill(int count, int max) {
+  if (count == 0) {
+    return const GbPill(
+      'No violations',
+      background: Gb.field,
+      foreground: Gb.muted,
+    );
+  }
+  final over = max > 0 && count >= max;
+  return GbPill(
+    over
+        ? '$count ${count == 1 ? 'violation' : 'violations'}'
+        : '$count of $max ${max == 1 ? 'violation' : 'violations'}',
+    background: over ? Gb.redBg : Gb.orangeBg,
+    foreground: over ? Gb.red : Gb.orange,
+  );
+}
+
+/// Banner giải thích khi bài bị đình chỉ hoặc được khôi phục (Figma S5).
+class _IntegrityBanner extends StatelessWidget {
+  const _IntegrityBanner({required this.attempt});
+  final ExamAttempt attempt;
+
+  static bool shows(ExamAttempt attempt) =>
+      attempt.isTerminated ||
+      attempt.integrityOutcome == IntegrityOutcome.reinstated;
+
+  @override
+  Widget build(BuildContext context) {
+    final reinstated = !attempt.isTerminated;
+    final max = attempt.maxViolations;
+    final (title, message) = reinstated
+        ? (
+            'Result reinstated by your teacher',
+            'The suspension was lifted and you keep the score you earned.',
+          )
+        : attempt.terminationReason == 'TEACHER_BANNED'
+        ? (
+            'Suspended by your teacher',
+            'The score was set to 0. Contact your teacher if this is a mistake.',
+          )
+        : (
+            'Suspended for going over ${max ?? 'the allowed'} violations',
+            'The score was set to 0. Your answers are still shown below. '
+                'Contact your teacher if this is a mistake.',
+          );
+    final color = reinstated ? Gb.green : Gb.red;
+    final background = reinstated ? Gb.greenBg : Gb.redBg;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        spacing: 12,
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              reinstated ? Icons.check : Icons.block,
+              size: 18,
+              color: color,
+            ),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: 2,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                  ),
+                ),
+                Text(
+                  message,
+                  style: const TextStyle(fontSize: 12, color: Gb.text),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -246,12 +375,20 @@ class _Stat extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Gb.muted),
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: Gb.muted,
+          ),
         ),
         Text.rich(
           TextSpan(
             text: value,
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: color ?? Gb.text),
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              color: color ?? Gb.text,
+            ),
             children: [
               if (sub != null)
                 TextSpan(
@@ -282,7 +419,11 @@ class _PaletteCard extends StatelessWidget {
     children: [
       const Text(
         'Questions',
-        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Gb.text),
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: Gb.text,
+        ),
       ),
       const SizedBox(height: 12),
       QuestionPalette(groups: groups, onTap: onTap, review: true),
@@ -313,14 +454,21 @@ class _ReviewSection extends StatelessWidget {
           padding: const EdgeInsets.only(bottom: 12),
           child: Text(
             section.title.isEmpty ? section.code : section.title,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Gb.text),
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: Gb.text,
+            ),
           ),
         ),
       for (final group in section.groups) ...[
         if (group.instruction.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(bottom: 10),
-            child: Text(group.instruction, style: const TextStyle(fontStyle: FontStyle.italic)),
+            child: Text(
+              group.instruction,
+              style: const TextStyle(fontStyle: FontStyle.italic),
+            ),
           ),
         for (final imageUrl in group.imageUrls)
           Padding(
@@ -346,8 +494,10 @@ class _ReviewSection extends StatelessWidget {
             number: numbers[question.id] ?? question.order,
             submitted: submitted,
           ),
-        if (group.transcript.isNotEmpty) _Explanation('TRANSCRIPT', group.transcript),
-        if (group.explanation.isNotEmpty) _Explanation('GROUP EXPLANATION', group.explanation),
+        if (group.transcript.isNotEmpty)
+          _Explanation('TRANSCRIPT', group.transcript),
+        if (group.explanation.isNotEmpty)
+          _Explanation('GROUP EXPLANATION', group.explanation),
       ],
       // Câu lẻ (không thuộc nhóm) nằm sau các nhóm, như bảng câu hỏi.
       for (final question in section.questions)
@@ -403,14 +553,28 @@ class _QuestionCard extends StatelessWidget {
               if (question.excludedFromScore) const NotScoredBadge(),
               if (submitted && isCorrect != null)
                 isCorrect
-                    ? const GbPill('Correct', background: Gb.greenBg, foreground: Gb.green)
+                    ? const GbPill(
+                        'Correct',
+                        background: Gb.greenBg,
+                        foreground: Gb.green,
+                      )
                     : question.selectedOptionId == null
-                    ? const GbPill('Not answered', background: Gb.field, foreground: Gb.muted)
-                    : const GbPill('Wrong', background: Gb.redBg, foreground: Gb.red),
+                    ? const GbPill(
+                        'Not answered',
+                        background: Gb.field,
+                        foreground: Gb.muted,
+                      )
+                    : const GbPill(
+                        'Wrong',
+                        background: Gb.redBg,
+                        foreground: Gb.red,
+                      ),
             ],
           ),
           Text(
-            question.content.isEmpty ? 'Choose the correct answer.' : question.content,
+            question.content.isEmpty
+                ? 'Choose the correct answer.'
+                : question.content,
             style: const TextStyle(fontSize: 15, color: Gb.text),
           ),
           const SizedBox(height: 2),
@@ -420,7 +584,8 @@ class _QuestionCard extends StatelessWidget {
               selected: option.id == question.selectedOptionId,
               correct: submitted && option.id == question.correctOptionId,
             ),
-          if (question.explanation.isNotEmpty) _Explanation('EXPLANATION', question.explanation),
+          if (question.explanation.isNotEmpty)
+            _Explanation('EXPLANATION', question.explanation),
         ],
       ),
     );
@@ -428,7 +593,11 @@ class _QuestionCard extends StatelessWidget {
 }
 
 class _OptionRow extends StatelessWidget {
-  const _OptionRow({required this.option, required this.selected, required this.correct});
+  const _OptionRow({
+    required this.option,
+    required this.selected,
+    required this.correct,
+  });
   final ExamQuestionOption option;
   final bool selected;
   final bool correct;
@@ -483,7 +652,11 @@ class _OptionRow extends StatelessWidget {
           if (note != null)
             Text(
               note,
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: color),
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: color,
+              ),
             ),
         ],
       ),
@@ -500,7 +673,10 @@ class _Explanation extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     margin: const EdgeInsets.only(top: 4),
     padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(color: Gb.soft, borderRadius: BorderRadius.circular(8)),
+    decoration: BoxDecoration(
+      color: Gb.soft,
+      borderRadius: BorderRadius.circular(8),
+    ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       spacing: 4,
@@ -514,7 +690,10 @@ class _Explanation extends StatelessWidget {
             color: Gb.faint,
           ),
         ),
-        Text(value, style: const TextStyle(fontSize: 13, color: ColorName.labelSecondary)),
+        Text(
+          value,
+          style: const TextStyle(fontSize: 13, color: ColorName.labelSecondary),
+        ),
       ],
     ),
   );

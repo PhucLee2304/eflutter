@@ -143,7 +143,13 @@ class AttemptSessionScope extends StatelessWidget {
     final completed = state.completedAttempt;
     if (completed == null) return;
     // Bài giao mở từ lớp thì xem lại trong tab Classwork của lớp đó.
-    final review = assignmentReviewPaths[completed.id];
+    final classroomId = completed.classroomId;
+    final assignmentId = completed.assignmentId;
+    final review =
+        assignmentReviewPaths[completed.id] ??
+        (classroomId == null || assignmentId == null
+            ? null
+            : assignmentReviewPath(classroomId, assignmentId, completed.id));
     if (review != null) {
       context.go(review);
       return;

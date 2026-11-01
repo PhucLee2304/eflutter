@@ -403,21 +403,8 @@ class _Meter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (max <= 0) return const SizedBox.shrink();
-    if (max > 6) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(3),
-        child: SizedBox(
-          width: 48,
-          height: 6,
-          child: LinearProgressIndicator(
-            value: (count / max).clamp(0, 1).toDouble(),
-            color: color,
-            backgroundColor: _empty,
-          ),
-        ),
-      );
-    }
+    // Quá 5 lượt thì vạch quá dài: chỉ hiện chữ (giống badge của học sinh).
+    if (max <= 0 || max > 5) return const SizedBox.shrink();
     return Row(
       mainAxisSize: MainAxisSize.min,
       spacing: 3,
