@@ -36,40 +36,47 @@ Future<String?> confirmBanAttempt(
   BuildContext context,
   String studentName, {
   bool submitted = false,
-}) {
-  final note = TextEditingController();
-  return showDialog<String>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text("Suspend $studentName's ${submitted ? 'result' : 'attempt'}?"),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            submitted
-                ? 'The submitted result is suspended and the score set to 0. '
-                      'You can reinstate the result later.'
-                : 'The attempt is suspended immediately and submitted with a score '
-                      'of 0. You can reinstate the result later.',
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: note,
-            decoration: const InputDecoration(labelText: 'Note (optional)'),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        FilledButton(
-          style: FilledButton.styleFrom(backgroundColor: ColorName.red),
-          onPressed: () => Navigator.pop(context, note.text.trim()),
-          child: const Text('Suspend'),
-        ),
-      ],
-    ),
-  ).whenComplete(note.dispose);
-}
+}) => _confirmAction(
+  context,
+  icon: Icons.block,
+  color: _ConfirmDialogState._red,
+  tint: const Color(0xFFFDECEA),
+  title: "Suspend $studentName's ${submitted ? 'result' : 'attempt'}?",
+  message: submitted
+      ? 'The submitted result is suspended and the score set to 0. '
+            'You can reinstate it later.'
+      : 'The attempt is suspended now and submitted with a score of 0. '
+            'You can reinstate the result later.',
+  field: 'Note (optional)',
+  action: 'Suspend',
+);
+
+/// Hộp xác nhận chung (Figma T4): icon tròn, tiêu đề, mô tả, ô ghi chú tùy chọn.
+/// Trả null khi hủy; chuỗi (rỗng nếu không có ô) khi xác nhận. [required]: nút bị khóa
+/// tới khi ô có chữ.
+Future<String?> _confirmAction(
+  BuildContext context, {
+  required IconData icon,
+  required Color color,
+  required Color tint,
+  required String title,
+  required String message,
+  required String action,
+  String? field,
+  bool required = false,
+}) => showDialog<String>(
+  context: context,
+  builder: (context) => _ConfirmDialog(
+    icon: icon,
+    color: color,
+    tint: tint,
+    title: title,
+    message: message,
+    action: action,
+    field: field,
+    required: required,
+  ),
+);
 
 class _IntegrityLogDialog extends StatefulWidget {
   const _IntegrityLogDialog({
@@ -212,48 +219,42 @@ class _IntegrityLogDialogState extends State<_IntegrityLogDialog> {
     );
   }
 
-  Future<void> releaseSession() => run(
-    () => widget.repository.releaseAttemptSession(
-      classroomId: widget.classroomId,
-      assignmentId: widget.assignmentId,
-      studentId: studentId,
-    ),
-    '$studentName can reopen the attempt',
-  );
+  /// Hỏi trước vì tab đang mở của học sinh sẽ bị đóng ngay.
+  Future<void> releaseSession() async {
+    final ok = await _confirmAction(
+      context,
+      icon: Icons.refresh,
+      color: ColorName.primary,
+      tint: const Color(0xFFEEF7FD),
+      title: 'Let $studentName reopen the exam?',
+      message:
+          'The exam open on their current device will close. They can reopen it anywhere. '
+          'Answers are kept, and this is not counted as a violation.',
+      action: 'Let them reopen',
+    );
+    if (ok == null || !mounted) return;
+    await run(
+      () => widget.repository.releaseAttemptSession(
+        classroomId: widget.classroomId,
+        assignmentId: widget.assignmentId,
+        studentId: studentId,
+      ),
+      '$studentName can reopen the exam',
+    );
+  }
 
   Future<void> reinstate() async {
-    final controller = TextEditingController();
-    final note = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Reinstate result?'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'The suspension is lifted and the attempt keeps the score it '
-              'earned.',
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              autofocus: true,
-              decoration: const InputDecoration(labelText: 'Reason (required)'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () {
-              final value = controller.text.trim();
-              if (value.isNotEmpty) Navigator.pop(context, value);
-            },
-            child: const Text('Reinstate'),
-          ),
-        ],
-      ),
-    ).whenComplete(controller.dispose);
+    final note = await _confirmAction(
+      context,
+      icon: Icons.check,
+      color: const Color(0xFF1E8E3E),
+      tint: const Color(0xFFE7F6EC),
+      title: 'Reinstate the result?',
+      message: 'The suspension is lifted and the attempt keeps the score it earned.',
+      field: 'Reason',
+      required: true,
+      action: 'Reinstate',
+    );
     if (note == null || !mounted) return;
     await run(
       () => widget.repository.reinstateAttempt(
@@ -664,9 +665,13 @@ class _IntegrityLogDialogState extends State<_IntegrityLogDialog> {
               if (active)
                 Tooltip(
                   message: 'Use if the student switched device or the tab crashed',
-                  child: OutlinedButton(
+                  child: FilledButton(
                     onPressed: busy ? null : releaseSession,
-                    style: outline,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _tint,
+                      foregroundColor: ColorName.primary,
+                      shape: shape,
+                    ),
                     child: const Text('Let them reopen'),
                   ),
                 ),
@@ -785,3 +790,130 @@ String _typeLabel(String type) => switch (type) {
   'RESULT_REINSTATED' => 'Result reinstated',
   _ => type,
 };
+
+class _ConfirmDialog extends StatefulWidget {
+  const _ConfirmDialog({
+    required this.icon,
+    required this.color,
+    required this.tint,
+    required this.title,
+    required this.message,
+    required this.action,
+    required this.field,
+    required this.required,
+  });
+
+  final IconData icon;
+  final Color color;
+  final Color tint;
+  final String title;
+  final String message;
+  final String action;
+  final String? field;
+  final bool required;
+
+  @override
+  State<_ConfirmDialog> createState() => _ConfirmDialogState();
+}
+
+class _ConfirmDialogState extends State<_ConfirmDialog> {
+  final controller = TextEditingController();
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = controller.text.trim();
+    final enabled = !widget.required || text.isNotEmpty;
+    final danger = widget.color == _red;
+    return Dialog(
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(color: widget.tint, shape: BoxShape.circle),
+                child: Icon(widget.icon, size: 22, color: widget.color),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                widget.title,
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: _text),
+              ),
+              const SizedBox(height: 6),
+              Text(widget.message, style: const TextStyle(fontSize: 13, color: _muted)),
+              if (widget.field != null) ...[
+                const SizedBox(height: 16),
+                Text(
+                  widget.required ? '${widget.field} *' : widget.field!,
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: _text),
+                ),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: controller,
+                  autofocus: true,
+                  onChanged: (_) => setState(() {}),
+                  style: const TextStyle(fontSize: 13),
+                  decoration: InputDecoration(
+                    hintText: 'Add a note for the record',
+                    hintStyle: const TextStyle(fontSize: 13, color: _faint),
+                    isDense: true,
+                    filled: true,
+                    fillColor: const Color(0xFFF0F2F5),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                spacing: 8,
+                children: [
+                  OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: _text,
+                      side: const BorderSide(color: Color(0xFFE4E6EB)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    child: const Text('Cancel'),
+                  ),
+                  FilledButton(
+                    onPressed: enabled ? () => Navigator.pop(context, text) : null,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: danger ? _red : ColorName.primary,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    child: Text(widget.action),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  static const _text = Color(0xFF1C1E21);
+  static const _muted = Color(0xFF65676B);
+  static const _faint = Color(0xFF8A8D91);
+  static const _red = Color(0xFFD93025);
+}
