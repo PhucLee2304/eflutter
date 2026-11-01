@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:eflutter/data/models/classroom.dart';
 import 'package:eflutter/generated/colors.gen.dart';
 import 'package:eflutter/presentation/app/theme/app_button_styles.dart';
+import 'package:eflutter/presentation/classrooms/confirm_action_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -82,10 +83,19 @@ class _ClassroomBannerState extends State<ClassroomBanner> {
     });
   }
 
-  Widget _ghost(IconData icon, String label, VoidCallback? onPressed) => TextButton.icon(
+  Widget _ghost(
+    IconData icon,
+    String label,
+    VoidCallback? onPressed, {
+    Color? background,
+  }) => TextButton.icon(
     onPressed: onPressed,
     style: TextButton.styleFrom(
-      backgroundColor: Colors.white.withValues(alpha: 0.16),
+      backgroundColor: background ?? Colors.white.withValues(alpha: 0.16),
+      disabledBackgroundColor: (background ?? Colors.white).withValues(
+        alpha: 0.16,
+      ),
+      disabledForegroundColor: Colors.white54,
       foregroundColor: Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -100,14 +110,18 @@ class _ClassroomBannerState extends State<ClassroomBanner> {
     final item = widget.classroom;
     final avatar = item.avatar;
     final hasAvatar = avatar != null && avatar.isNotEmpty;
-    final cover = item.active ? const Color(0xFF4F6D8A) : const Color(0xFF8A8D91);
+    final cover = item.active
+        ? const Color(0xFF4F6D8A)
+        : const Color(0xFF8A8D91);
     final students = item.countApprovedMembers ?? item.members.length;
     return Container(
       constraints: const BoxConstraints(minHeight: 180),
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        gradient: LinearGradient(colors: [Color.lerp(cover, Colors.black, 0.12)!, cover]),
+        gradient: LinearGradient(
+          colors: [Color.lerp(cover, Colors.black, 0.12)!, cover],
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -118,19 +132,35 @@ class _ClassroomBannerState extends State<ClassroomBanner> {
             children: [
               if (!item.active)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.9),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: const Text(
                     'Archived',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _muted),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: _muted,
+                    ),
                   ),
                 ),
               if (widget.canManage) ...[
-                _ghost(Icons.edit_outlined, 'Edit', widget.busy ? null : widget.onEdit),
-                _ghost(Icons.archive_outlined, 'Archive', widget.busy ? null : widget.onArchive),
+                _ghost(
+                  Icons.edit_outlined,
+                  'Edit',
+                  widget.busy ? null : widget.onEdit,
+                ),
+                _ghost(
+                  Icons.archive_outlined,
+                  'Archive',
+                  widget.busy ? null : widget.onArchive,
+                  background: ConfirmActionColors.red,
+                ),
               ],
               // Giữ chiều cao hàng khi không có nút nào.
               const SizedBox(height: 40),
@@ -154,13 +184,18 @@ class _ClassroomBannerState extends State<ClassroomBanner> {
                       shape: BoxShape.circle,
                       color: Colors.white,
                       image: hasAvatar
-                          ? DecorationImage(image: NetworkImage(avatar), fit: BoxFit.cover)
+                          ? DecorationImage(
+                              image: NetworkImage(avatar),
+                              fit: BoxFit.cover,
+                            )
                           : null,
                     ),
                     child: hasAvatar
                         ? null
                         : Text(
-                            item.name.isEmpty ? '?' : item.name[0].toUpperCase(),
+                            item.name.isEmpty
+                                ? '?'
+                                : item.name[0].toUpperCase(),
                             style: TextStyle(
                               fontSize: 30,
                               fontWeight: FontWeight.w600,
@@ -189,7 +224,10 @@ class _ClassroomBannerState extends State<ClassroomBanner> {
                           const SizedBox(height: 6),
                           Text(
                             '${item.teacher?.name ?? 'Teacher unavailable'}  ·  $students students',
-                            style: const TextStyle(fontSize: 14, color: Color(0xFFDCE6EF)),
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Color(0xFFDCE6EF),
+                            ),
                           ),
                         ],
                       ),
@@ -206,7 +244,10 @@ class _ClassroomBannerState extends State<ClassroomBanner> {
                   child: Tooltip(
                     message: _copied ? 'Copied' : 'Copy class code',
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         spacing: 8,
@@ -221,7 +262,10 @@ class _ClassroomBannerState extends State<ClassroomBanner> {
                           ),
                           Text(
                             item.code,
-                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                           Icon(
                             _copied ? Icons.check : Icons.copy_outlined,
@@ -244,7 +288,11 @@ class _ClassroomBannerState extends State<ClassroomBanner> {
 
 /// Tab dạng chữ gạch chân xanh: Announcements / Classwork / Calendar / People.
 class ClassroomTabs extends StatelessWidget {
-  const ClassroomTabs({super.key, required this.selected, required this.onSelected});
+  const ClassroomTabs({
+    super.key,
+    required this.selected,
+    required this.onSelected,
+  });
 
   final int selected;
   final ValueChanged<int> onSelected;
@@ -269,7 +317,9 @@ class ClassroomTabs extends StatelessWidget {
                 decoration: BoxDecoration(
                   border: Border(
                     bottom: BorderSide(
-                      color: index == selected ? ColorName.primary : Colors.transparent,
+                      color: index == selected
+                          ? ColorName.primary
+                          : Colors.transparent,
                       width: 3,
                     ),
                   ),
@@ -278,7 +328,9 @@ class ClassroomTabs extends StatelessWidget {
                   label,
                   style: TextStyle(
                     fontSize: 15,
-                    fontWeight: index == selected ? FontWeight.w600 : FontWeight.w500,
+                    fontWeight: index == selected
+                        ? FontWeight.w600
+                        : FontWeight.w500,
                     color: index == selected ? ColorName.primary : _muted,
                   ),
                 ),
@@ -329,7 +381,10 @@ class ClassroomStreamAside extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       spacing: 10,
       children: [
-        Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+        Text(
+          title,
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+        ),
         ...children,
       ],
     ),
@@ -338,8 +393,9 @@ class ClassroomStreamAside extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
-    final upcoming = assignments.where((a) => a.active && a.dueAt.isAfter(now)).toList()
-      ..sort((a, b) => a.dueAt.compareTo(b.dueAt));
+    final upcoming =
+        assignments.where((a) => a.active && a.dueAt.isAfter(now)).toList()
+          ..sort((a, b) => a.dueAt.compareTo(b.dueAt));
     final description = classroom.description?.trim() ?? '';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -347,7 +403,10 @@ class ClassroomStreamAside extends StatelessWidget {
       children: [
         _card('Upcoming', [
           if (upcoming.isEmpty)
-            const Text('No work due soon', style: TextStyle(fontSize: 13, color: _muted)),
+            const Text(
+              'No work due soon',
+              style: TextStyle(fontSize: 13, color: _muted),
+            ),
           for (final a in upcoming.take(3))
             InkWell(
               borderRadius: BorderRadius.circular(8),
@@ -377,9 +436,15 @@ class ClassroomStreamAside extends StatelessWidget {
                           a.title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                        Text(_due(a.dueAt), style: const TextStyle(fontSize: 12, color: _muted)),
+                        Text(
+                          _due(a.dueAt),
+                          style: const TextStyle(fontSize: 12, color: _muted),
+                        ),
                       ],
                     ),
                   ),
@@ -390,11 +455,16 @@ class ClassroomStreamAside extends StatelessWidget {
             onTap: onViewAll,
             child: const Text(
               'View all classwork',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: ColorName.primary),
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: ColorName.primary,
+              ),
             ),
           ),
         ]),
-        if (description.isNotEmpty) _AboutCard(description: description, card: _card),
+        if (description.isNotEmpty)
+          _AboutCard(description: description, card: _card),
       ],
     );
   }

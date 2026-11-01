@@ -20,6 +20,7 @@ import 'package:intl/intl.dart';
 import 'package:eflutter/presentation/app/navigation/app_routes.dart';
 import 'package:eflutter/presentation/app/theme/app_button_styles.dart';
 import 'package:eflutter/generated/colors.gen.dart';
+import 'package:eflutter/presentation/classrooms/confirm_action_dialog.dart';
 import 'package:eflutter/presentation/classrooms/classroom_detail_header.dart';
 import 'package:eflutter/presentation/classrooms/room_connection_recovery.dart';
 import 'package:eflutter/presentation/classrooms/room_device_preferences.dart';
@@ -123,6 +124,10 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
   /// thông báo và không thử kết nối lại.
   String? removedNotice;
 
+  /// Tiêu đề màn "đã bị xóa" và lý do giáo viên ghi (nếu có).
+  String removedTitle = _removedTitle;
+  String? removedReason;
+
   /// LiveKit báo bị xóa khỏi phòng; tạm dừng tự kết nối lại cho đến khi biết
   /// lý do từ backend.
   bool mediaRemovalPending = false;
@@ -197,7 +202,10 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
     if (activityResult case Success(data: final activity)) {
       roomActivity = activity;
       final own = _ownActivityState;
-      if (own?.removedAt != null) removedNotice = _removedMessage;
+      if (own?.removedAt != null) {
+        removedNotice = _removedMessage;
+        removedReason = own?.removedReason;
+      }
       // Quyền do giáo viên đặt áp dụng ngay từ màn hình chuẩn bị.
       if (own?.microphoneAllowed == false) microphoneEnabled = false;
       if (own?.cameraAllowed == false && cameraEnabled) {
@@ -499,8 +507,8 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
     }
   }
 
-  static const _removedMessage =
-      'You were removed from this session by the teacher. You can join again when the next session starts.';
+  static const _removedTitle = 'You were removed from this session';
+  static const _removedMessage = 'You can join again when the next session starts.';
 
   /// Áp dụng quyền giáo viên đặt cho chính mình: thiết bị bị tắt thì tắt ở
   /// client (LiveKit đã chặn ở server), được cho phép lại thì chỉ báo để học
@@ -569,19 +577,27 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
         _scheduleConnectionRecovery(Duration.zero);
       case Failure():
         await _exitRemoved(
-          notice: 'You can no longer join this session. You may have been removed from the class.',
+          title: 'You can no longer join this session',
+          notice:
+              'You may have been removed from the class. Contact your teacher if this is a '
+              'mistake.',
         );
       case Cancelled():
         mediaRemovalPending = false;
     }
   }
 
-  Future<void> _exitRemoved({String notice = _removedMessage}) async {
+  Future<void> _exitRemoved({String title = _removedTitle, String notice = _removedMessage}) async {
     if (removedNotice != null && liveRoom == null) return;
     leavingRoom = true;
     reconnectTimer?.cancel();
     await _disposeLiveRoom();
-    if (mounted) setState(() => removedNotice = notice);
+    if (!mounted) return;
+    setState(() {
+      removedTitle = title;
+      removedNotice = notice;
+      removedReason = notice == _removedMessage ? _ownActivityState?.removedReason : null;
+    });
   }
 
   Future<void> _moderate(String userId, RoomParticipantAction action) async {
@@ -590,9 +606,18 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
     switch (action) {
       case RoomParticipantAction.remove:
         confirmDialogOpen = true;
-        final reason = await showDialog<String>(
-          context: context,
-          builder: (_) => _RemoveParticipantDialog(name: name),
+        final reason = await showConfirmAction(
+          context,
+          icon: Icons.person_remove_outlined,
+          color: ConfirmActionColors.red,
+          tint: ConfirmActionColors.redBg,
+          title: 'Remove $name from this session?',
+          message:
+              'They leave the call now and cannot rejoin until this session ends. They stay in '
+              'the class.',
+          field: 'Reason (optional, shown to the student)',
+          maxLength: 500,
+          action: 'Remove',
         );
         confirmDialogOpen = false;
         _showControls();
@@ -1305,31 +1330,101 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
     return _conference(context);
   }
 
-  Widget _removedView(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Online classroom')),
-    body: Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 480),
+  /// Màn "đã bị xóa" (Figma R1): thẻ giữa nền xám, kèm lý do giáo viên ghi nếu có.
+  Widget _removedView(BuildContext context) {
+    final reason = removedReason?.trim();
+    return Scaffold(
+      backgroundColor: const Color(0xFFF7F8FA),
+      appBar: ClassroomTopBar(onBack: _backToCalendar),
+      body: Center(
         child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.block, size: 56, color: Theme.of(context).colorScheme.error),
-              const SizedBox(height: 16),
-              Text(
-                removedNotice!,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleMedium,
+          padding: const EdgeInsets.all(16),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE4E6EB)),
               ),
-              const SizedBox(height: 24),
-              FilledButton(onPressed: _backToCalendar, child: const Text('Back to class')),
-            ],
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: const BoxDecoration(
+                      color: ConfirmActionColors.redBg,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.person_remove_outlined,
+                      size: 24,
+                      color: ConfirmActionColors.red,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    removedTitle,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1C1E21),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    removedNotice!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 13, color: Color(0xFF65676B)),
+                  ),
+                  if (reason != null && reason.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF7F8FA),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        spacing: 2,
+                        children: [
+                          const Text(
+                            'Reason from your teacher',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF8A8D91),
+                            ),
+                          ),
+                          Text(
+                            '"$reason"',
+                            style: const TextStyle(fontSize: 13, color: Color(0xFF1C1E21)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 20),
+                  FilledButton(
+                    onPressed: _backToCalendar,
+                    style: FilledButton.styleFrom(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    child: const Text('Back to class'),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 
   /// Màn chuẩn bị (Figma 26:1861): nằm trong tab Calendar của lớp — banner, tab, rồi
   /// xem trước camera + chọn thiết bị bên trái, trạng thái phòng và nút vào bên phải.
@@ -1947,6 +2042,10 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
                                         nameOf: _participantName,
                                         reviewing: reviewingScreenShares,
                                         onReview: _reviewScreenShare,
+                                        presentingName: presenter == null
+                                            ? null
+                                            : _participantName(presenter.participant.identity),
+                                        presentingIsLocal: presenter?.isLocal ?? false,
                                       ),
                                     ),
                                   ),
@@ -2399,20 +2498,29 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
   Widget _reactionButton(ButtonStyle style) => MenuAnchor(
     onOpen: () => setState(() => reactionMenuOpen = true),
     onClose: () {
-      reactionMenuOpen = false;
+      setState(() => reactionMenuOpen = false);
       _showControls();
     },
-    menuChildren: [
-      for (final reaction in RoomReaction.values)
-        MenuItemButton(
-          onPressed: () => _sendReaction(reaction),
-          leadingIcon: Text(reaction.emoji, style: const TextStyle(fontSize: 20)),
-          child: Text(reaction.label),
-        ),
-    ],
+    // Thanh chọn (~156×46px) nằm giữa và cách trên nút 6px; đặt sẵn phía trên
+    // để menu không bị lật đè lên nút.
+    alignmentOffset: const Offset(-60, -96),
+    style: const MenuStyle(
+      backgroundColor: WidgetStatePropertyAll(Colors.transparent),
+      surfaceTintColor: WidgetStatePropertyAll(Colors.transparent),
+      shadowColor: WidgetStatePropertyAll(Colors.transparent),
+      elevation: WidgetStatePropertyAll(0),
+      padding: WidgetStatePropertyAll(EdgeInsets.zero),
+    ),
+    menuChildren: [RoomReactionPicker(onSelected: _sendReaction)],
     builder: (context, controller, _) => IconButton.filled(
       tooltip: 'Send a reaction',
-      style: style,
+      isSelected: reactionMenuOpen,
+      style: reactionMenuOpen
+          ? IconButton.styleFrom(
+              backgroundColor: const Color(0xff8ab4f8),
+              foregroundColor: Colors.black,
+            )
+          : style,
       onPressed: () => controller.isOpen ? controller.close() : controller.open(),
       icon: const Icon(Icons.add_reaction_outlined),
     ),
@@ -2452,62 +2560,6 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
       RoomScreenShareControl.unavailable => const SizedBox.shrink(),
     };
   }
-}
-
-class _RemoveParticipantDialog extends StatefulWidget {
-  const _RemoveParticipantDialog({required this.name});
-  final String name;
-
-  @override
-  State<_RemoveParticipantDialog> createState() => _RemoveParticipantDialogState();
-}
-
-/// Trả về lý do (có thể rỗng) khi xác nhận, null khi hủy.
-class _RemoveParticipantDialogState extends State<_RemoveParticipantDialog> {
-  final reason = TextEditingController();
-
-  @override
-  void dispose() {
-    reason.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: Text('Remove ${widget.name}?'),
-    content: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 420),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            '${widget.name} will leave this session and cannot rejoin until it ends. They stay in the class.',
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: reason,
-            maxLength: 500,
-            decoration: const InputDecoration(
-              labelText: 'Reason (optional)',
-              border: OutlineInputBorder(),
-            ),
-          ),
-        ],
-      ),
-    ),
-    actions: [
-      TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
-      FilledButton(
-        style: FilledButton.styleFrom(
-          backgroundColor: Theme.of(context).colorScheme.error,
-          foregroundColor: Theme.of(context).colorScheme.onError,
-        ),
-        onPressed: () => Navigator.of(context).pop(reason.text),
-        child: const Text('Remove'),
-      ),
-    ],
-  );
 }
 
 /// Đồng hồ thời gian đã live, tự cập nhật mỗi giây mà không dựng lại cả phòng.

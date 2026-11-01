@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:eflutter/generated/colors.gen.dart';
+import 'package:eflutter/presentation/classrooms/confirm_action_dialog.dart';
 import 'package:eflutter/presentation/classrooms/gradebook_widgets.dart';
 import 'package:go_router/go_router.dart';
 import 'package:eflutter/presentation/app/navigation/app_routes.dart';
@@ -156,18 +157,17 @@ class _ClassroomCalendarViewState extends State<ClassroomCalendarView> {
   }
 
   Future<void> remove(CalendarEntry schedule) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete class schedule?'),
-        content: Text(schedule.title),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
-        ],
-      ),
+    final confirmed = await showConfirmAction(
+      context,
+      icon: Icons.event_busy_outlined,
+      color: ConfirmActionColors.red,
+      tint: ConfirmActionColors.redBg,
+      title: 'Delete "${schedule.title}"?',
+      message:
+          'This session is removed from the class calendar for everyone. This cannot be undone.',
+      action: 'Delete session',
     );
-    if (confirmed != true || !mounted) return;
+    if (confirmed == null || !mounted) return;
     setState(() => busy = true);
     final result = await widget.repository.deleteSchedule(
       classroomId: widget.classroomId,

@@ -150,6 +150,8 @@ class RoomScreenShareStage extends StatelessWidget {
   }
 }
 
+/// Yêu cầu chia sẻ màn hình (Figma R2): mỗi lần một thẻ có avatar và hai nút; các
+/// yêu cầu còn lại gộp thành "+N more". Ghi rõ nếu đang có người trình chiếu.
 class RoomScreenShareRequests extends StatelessWidget {
   const RoomScreenShareRequests({
     super.key,
@@ -157,6 +159,8 @@ class RoomScreenShareRequests extends StatelessWidget {
     required this.nameOf,
     required this.onReview,
     this.reviewing = const {},
+    this.presentingName,
+    this.presentingIsLocal = false,
   });
 
   final List<RoomParticipantState> requests;
@@ -166,51 +170,138 @@ class RoomScreenShareRequests extends StatelessWidget {
   /// userId đang chờ phản hồi từ backend; nút của họ bị khóa để tránh bấm lặp.
   final Set<String> reviewing;
 
+  /// Người đang trình chiếu (nếu có), để giáo viên biết trước khi cho phép;
+  /// [presentingIsLocal]: chính giáo viên đang trình chiếu.
+  final String? presentingName;
+  final bool presentingIsLocal;
+
+  static const _card = Color(0xFF2D2E31);
+  static const _line = Color(0xFF3C4043);
+  static const _muted = Color(0xFFBDC1C6);
+  static const _avatarColors = [
+    Color(0xFF1E8E3E),
+    Color(0xFFB26A00),
+    Color(0xFF0483CA),
+    Color(0xFF8E44AD),
+    Color(0xFFD93025),
+  ];
+
   @override
-  Widget build(BuildContext context) => Column(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      for (final request in requests)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
+  Widget build(BuildContext context) {
+    final request = requests.first;
+    final name = nameOf(request.userId);
+    final busy = reviewing.contains(request.userId);
+    final more = requests.length - 1;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      spacing: 8,
+      children: [
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 320),
           child: Material(
-            color: const Color(0xff303134),
-            elevation: 4,
-            borderRadius: BorderRadius.circular(8),
+            color: _card,
+            elevation: 6,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: const BorderSide(color: _line),
+            ),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
-              child: Row(
+              padding: const EdgeInsets.all(12),
+              child: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                spacing: 10,
                 children: [
-                  const Icon(Icons.present_to_all, color: Colors.white70),
-                  const SizedBox(width: 10),
-                  Flexible(
-                    child: Text(
-                      '${nameOf(request.userId)} wants to present',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: Colors.white),
+                  Row(
+                    spacing: 10,
+                    children: [
+                      CircleAvatar(
+                        radius: 16,
+                        backgroundColor:
+                            _avatarColors[request.userId.hashCode.abs() % _avatarColors.length],
+                        child: Text(
+                          name.isEmpty ? '?' : name[0].toUpperCase(),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          spacing: 2,
+                          children: [
+                            Text(
+                              name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const Text(
+                              'Wants to share their screen',
+                              style: TextStyle(fontSize: 12, color: _muted),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.present_to_all, size: 18, color: Color(0xFF8AB4F8)),
+                    ],
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    spacing: 8,
+                    children: [
+                      OutlinedButton(
+                        onPressed: busy ? null : () => onReview(request.userId, false),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFFE8EAED),
+                          side: const BorderSide(color: Color(0xFF5F6368)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        child: const Text('Decline'),
+                      ),
+                      FilledButton(
+                        onPressed: busy ? null : () => onReview(request.userId, true),
+                        style: FilledButton.styleFrom(
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        child: const Text('Allow'),
+                      ),
+                    ],
+                  ),
+                  if (presentingName != null)
+                    Text(
+                      presentingIsLocal
+                          ? 'You are presenting right now.'
+                          : '$presentingName is presenting right now.',
+                      style: const TextStyle(fontSize: 11, color: Color(0xFF9AA0A6)),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  TextButton(
-                    onPressed: reviewing.contains(request.userId)
-                        ? null
-                        : () => onReview(request.userId, false),
-                    style: TextButton.styleFrom(foregroundColor: Colors.white70),
-                    child: const Text('Decline'),
-                  ),
-                  FilledButton(
-                    onPressed: reviewing.contains(request.userId)
-                        ? null
-                        : () => onReview(request.userId, true),
-                    child: const Text('Allow'),
-                  ),
                 ],
               ),
             ),
           ),
         ),
-    ],
-  );
+        if (more > 0)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(color: _line, borderRadius: BorderRadius.circular(999)),
+            child: Text(
+              '+$more more ${more == 1 ? 'request' : 'requests'}',
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFFE8EAED),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
 }

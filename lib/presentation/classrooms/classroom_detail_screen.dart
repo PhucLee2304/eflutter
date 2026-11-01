@@ -1,3 +1,4 @@
+import 'package:eflutter/presentation/classrooms/confirm_action_dialog.dart';
 import 'package:eflutter/presentation/app/theme/app_button_styles.dart';
 import 'package:eflutter/core/utils/extensions/toast_bar_extension.dart';
 import 'package:eflutter/core/loading/loading_widget.dart';
@@ -398,24 +399,19 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
 
   Future<void> setAssignmentActive(ClassroomAssignment assignment, bool active) async {
     if (!active) {
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Pause assignment?'),
-          content: const Text(
-            'Students will not be able to start. Attempts currently in progress '
-            'will be submitted and graded using their saved answers.',
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Pause and submit'),
-            ),
-          ],
-        ),
+      final confirmed = await showConfirmAction(
+        context,
+        icon: Icons.pause_circle_outline,
+        color: ConfirmActionColors.orange,
+        tint: ConfirmActionColors.orangeBg,
+        danger: true,
+        title: 'Pause "${assignment.title}"?',
+        message:
+            'Students cannot start it. Attempts in progress are submitted now and graded '
+            'with their saved answers. You can open it again later.',
+        action: 'Pause and submit',
       );
-      if (confirmed != true || !mounted) return;
+      if (confirmed == null || !mounted) return;
     }
     setState(() => busy = true);
     final result = await repository.setAssignmentActive(widget.classroomId, assignment.id, active);
@@ -576,18 +572,19 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
   }
 
   Future<void> archive() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Archive classroom?'),
-        content: const Text('The classroom will no longer accept join requests.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Archive')),
-        ],
-      ),
+    final confirmed = await showConfirmAction(
+      context,
+      icon: Icons.archive_outlined,
+      color: ConfirmActionColors.blue,
+      tint: ConfirmActionColors.blueBg,
+      danger: true,
+      title: 'Archive "${classroom?.name ?? 'this class'}"?',
+      message:
+          'The class stops accepting join requests and moves to Archived. '
+          'It cannot be reopened yet.',
+      action: 'Archive',
     );
-    if (confirmed != true || !mounted) return;
+    if (confirmed == null || !mounted) return;
     setState(() => busy = true);
     final result = await repository.archive(widget.classroomId);
     if (!mounted) return;
@@ -638,18 +635,18 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> {
   Future<void> remove(ClassroomMember member) async {
     final userId = member.user?.id;
     if (userId == null) return;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Remove student?'),
-        content: Text(member.user?.name ?? ''),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Remove')),
-        ],
-      ),
+    final confirmed = await showConfirmAction(
+      context,
+      icon: Icons.person_remove_outlined,
+      color: ConfirmActionColors.red,
+      tint: ConfirmActionColors.redBg,
+      title: 'Remove ${member.user?.name ?? 'this student'} from the class?',
+      message:
+          'They lose access to posts, assignments and sessions. Attempts in progress are '
+          'submitted now. They can ask to join again with the class code.',
+      action: 'Remove student',
     );
-    if (confirmed != true || !mounted) return;
+    if (confirmed == null || !mounted) return;
     setState(() => busy = true);
     final result = await repository.remove(widget.classroomId, userId);
     if (!mounted) return;

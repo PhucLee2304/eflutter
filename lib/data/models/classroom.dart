@@ -540,6 +540,7 @@ class RoomParticipantState {
     required this.updatedAt,
     this.handRaisedAt,
     this.removedAt,
+    this.removedReason,
     this.screenShareRequestedAt,
     this.screenShareApprovedAt,
   });
@@ -549,6 +550,9 @@ class RoomParticipantState {
   final bool cameraAllowed;
   final DateTime? handRaisedAt;
   final DateTime? removedAt;
+
+  /// Lý do giáo viên ghi khi xóa; chỉ học sinh đó và giáo viên nhận được.
+  final String? removedReason;
   final DateTime? screenShareRequestedAt;
   final DateTime? screenShareApprovedAt;
   final DateTime updatedAt;
@@ -559,6 +563,7 @@ class RoomParticipantState {
     cameraAllowed: json['cameraAllowed'] as bool? ?? true,
     handRaisedAt: _optionalLocalDateTime(json['handRaisedAt']),
     removedAt: _optionalLocalDateTime(json['removedAt']),
+    removedReason: json['removedReason'] as String?,
     screenShareRequestedAt: _optionalLocalDateTime(json['screenShareRequestedAt']),
     screenShareApprovedAt: _optionalLocalDateTime(json['screenShareApprovedAt']),
     updatedAt: DateTime.parse(json['updatedAt'] as String).toLocal(),

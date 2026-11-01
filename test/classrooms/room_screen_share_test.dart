@@ -156,7 +156,10 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: RoomScreenShareRequests(
-            requests: [state('s1', requestedAt: DateTime(2026))],
+            requests: [
+              state('s1', requestedAt: DateTime(2026)),
+              state('s2', requestedAt: DateTime(2026)),
+            ],
             nameOf: (id) => id == 's1' ? 'Binh' : 'A student',
             reviewing: reviewing,
             onReview: (id, approve) => reviews.add('$id:$approve'),
@@ -166,7 +169,9 @@ void main() {
     );
 
     await pump(const {});
-    expect(find.text('Binh wants to present'), findsOneWidget);
+    expect(find.text('Binh'), findsOneWidget);
+    expect(find.text('Wants to share their screen'), findsOneWidget);
+    expect(find.text('+1 more request'), findsOneWidget);
     await tester.tap(find.text('Allow'));
     await tester.tap(find.text('Decline'));
     expect(reviews, ['s1:true', 's1:false']);

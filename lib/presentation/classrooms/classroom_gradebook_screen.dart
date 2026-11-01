@@ -10,6 +10,7 @@ import 'package:eflutter/data/data_sources/gradebook_socket_client.dart';
 import 'package:eflutter/data/models/attempt_integrity.dart';
 import 'package:eflutter/data/models/classroom.dart';
 import 'package:eflutter/data/repositories/classroom_repository.dart';
+import 'package:eflutter/presentation/classrooms/confirm_action_dialog.dart';
 import 'package:eflutter/presentation/app/navigation/app_routes.dart';
 import 'package:eflutter/presentation/classrooms/integrity_log_dialog.dart';
 import 'package:eflutter/presentation/classrooms/integrity_violation_panel.dart';
@@ -131,24 +132,18 @@ class _ClassroomGradebookScreenState extends State<ClassroomGradebookScreen>
   Future<void> resetAttempt(AssignmentSubmission submission) async {
     final student = submission.student;
     if (student == null || submission.attemptId == 0) return;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Reset attempt?'),
-        content: Text(
-          '${student.name} will be able to start this assignment again. '
-          'The current answers, score, and history will be removed.',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Reset attempt'),
-          ),
-        ],
-      ),
+    final confirmed = await showConfirmAction(
+      context,
+      icon: Icons.restart_alt,
+      color: ConfirmActionColors.red,
+      tint: ConfirmActionColors.redBg,
+      title: "Reset ${student.name}'s attempt?",
+      message:
+          'Their answers, score and history for this assignment are deleted, and they can '
+          'start again. This cannot be undone.',
+      action: 'Reset attempt',
     );
-    if (confirmed != true || !mounted) return;
+    if (confirmed == null || !mounted) return;
     final result = await repository.resetAssignmentAttempt(
       classroomId: widget.classroomId,
       assignmentId: widget.assignmentId,
