@@ -48,7 +48,8 @@ Future<String?> confirmBanAttempt(
             'You can reinstate it later.'
       : 'The attempt is suspended now and submitted with a score of 0. '
             'You can reinstate the result later.',
-  field: 'Note (optional)',
+  field: 'Message to the student (optional)',
+  hint: 'Shown on their result page',
   action: 'Suspend',
 );
 
@@ -225,7 +226,8 @@ class _IntegrityLogDialogState extends State<_IntegrityLogDialog> {
       tint: const Color(0xFFE7F6EC),
       title: 'Reinstate the result?',
       message: 'The suspension is lifted and the attempt keeps the score it earned.',
-      field: 'Reason',
+      field: 'Reason (shown to the student)',
+      hint: 'Shown on their result page',
       required: true,
       action: 'Reinstate',
     );

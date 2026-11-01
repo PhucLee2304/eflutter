@@ -91,6 +91,9 @@ class ExamAttempt {
   final String? integrityOutcome;
   final String? terminationReason;
 
+  /// Lời nhắn giáo viên cho học sinh khi đình chỉ / mở lại.
+  final String? teacherNote;
+
   /// Bài giao trong lớp: mở kết quả trong tab Classwork của lớp đó.
   final int? assignmentId;
   final int? classroomId;
@@ -126,6 +129,7 @@ class ExamAttempt {
     this.violationCount,
     this.integrityOutcome,
     this.terminationReason,
+    this.teacherNote,
     this.assignmentId,
     this.classroomId,
   });
@@ -165,6 +169,7 @@ class ExamAttempt {
       violationCount: (json['violationCount'] as num?)?.toInt(),
       integrityOutcome: json['integrityOutcome'] as String?,
       terminationReason: json['terminationReason'] as String?,
+      teacherNote: json['teacherNote'] as String?,
       assignmentId: (json['assignmentId'] as num?)?.toInt(),
       classroomId: (json['classroomId'] as num?)?.toInt(),
     );
