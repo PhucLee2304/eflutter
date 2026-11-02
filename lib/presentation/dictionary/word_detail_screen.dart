@@ -108,7 +108,7 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Không thể phát âm thanh: $e'),
+            content: Text('Failed to play audio: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -145,18 +145,18 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
     final result = await showDialog<String?>(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        title: Text('Lưu "$wordText" vào Flashcard'),
+        title: Text('Save "$wordText" to Flashcards'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Ghi chú cá nhân (tùy chọn):',
+            const Text('Personal note (optional):',
                 style: TextStyle(fontSize: 13, color: Colors.grey)),
             const SizedBox(height: 8),
             TextField(
               controller: noteController,
               decoration: const InputDecoration(
-                hintText: 'Ví dụ: Nghĩa hay gặp, mẹo nhớ...',
+                hintText: 'e.g. Common meaning, memory tips...',
                 border: OutlineInputBorder(),
               ),
               maxLines: 3,
@@ -167,11 +167,11 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogCtx).pop(null),
-            child: const Text('Hủy'),
+            child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogCtx).pop(noteController.text.trim()),
-            child: const Text('Lưu'),
+            child: const Text('Save'),
           ),
         ],
       ),
@@ -182,7 +182,7 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(success ? 'Đã lưu "$wordText" vào Flashcard' : 'Không thể lưu flashcard'),
+            content: Text(success ? 'Saved "$wordText" to Flashcards' : 'Failed to save flashcard'),
             backgroundColor: success ? Colors.green : Colors.red,
           ),
         );
@@ -208,27 +208,27 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
             if (card.word.phonetic != null && card.word.phonetic!.isNotEmpty)
               Text(card.word.phonetic!, style: const TextStyle(color: Colors.grey)),
             const SizedBox(height: 12),
-            const Text('Ghi chú của bạn:',
+            const Text('Your note:',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
             const SizedBox(height: 4),
-            Text(card.note.isNotEmpty ? card.note : '(Không có ghi chú)',
+            Text(card.note.isNotEmpty ? card.note : '(No note)',
                 style: const TextStyle(fontSize: 14)),
             const SizedBox(height: 12),
-            Text('Đã lưu lúc: ${_formatDate(card.createdAt)}',
+            Text('Saved at: ${_formatDate(card.createdAt)}',
                 style: const TextStyle(fontSize: 11, color: Colors.grey)),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogCtx).pop('close'),
-            child: const Text('Đóng'),
+            child: const Text('Close'),
           ),
           FilledButton.tonal(
             style: FilledButton.styleFrom(
               foregroundColor: Colors.red,
             ),
             onPressed: () => Navigator.of(dialogCtx).pop('delete'),
-            child: const Text('Xóa khỏi Flashcard'),
+            child: const Text('Remove from Flashcards'),
           ),
         ],
       ),
@@ -239,7 +239,7 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(success ? 'Đã xóa khỏi Flashcard' : 'Không thể xóa flashcard'),
+            content: Text(success ? 'Removed from Flashcards' : 'Failed to remove flashcard'),
             backgroundColor: success ? null : Colors.red,
           ),
         );
@@ -274,7 +274,7 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
                                 ? Theme.of(context).colorScheme.primary
                                 : null,
                           ),
-                          tooltip: isSaved ? 'Đã lưu trong Flashcard' : 'Lưu Flashcard',
+                          tooltip: isSaved ? 'Saved in Flashcards' : 'Save Flashcard',
                           onPressed: () {
                             if (isSaved) {
                               _showFlashcardDetailDialog(savedCard);
@@ -307,7 +307,7 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
                       const SizedBox(height: 12),
                       ElevatedButton(
                         onPressed: () => _detailCubit.lookupWord(widget.word),
-                        child: const Text('Thử lại'),
+                        child: const Text('Retry'),
                       ),
                     ],
                   ),
@@ -359,7 +359,7 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
                           ),
                           if (primaryAudioUrl != null)
                             IconButton.filledTonal(
-                              tooltip: 'Phát âm thanh',
+                              tooltip: 'Play audio',
                               icon: (_isLoadingAudio && _playingAudioUrl == primaryAudioUrl)
                                   ? const SizedBox(
                                       width: 20,
@@ -410,7 +410,7 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
                                                     : null,
                                               )
                                         : null,
-                                    label: Text(p.text.isNotEmpty ? p.text : 'Phát âm'),
+                                    label: Text(p.text.isNotEmpty ? p.text : 'Pronounce'),
                                     backgroundColor: isThisPlaying
                                         ? Theme.of(context).colorScheme.primaryContainer
                                         : Theme.of(context).colorScheme.surfaceContainerHighest,
@@ -486,7 +486,7 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
                                                 Padding(
                                                   padding: const EdgeInsets.only(top: 4.0),
                                                   child: Text(
-                                                    'Ví dụ: "${def.example}"',
+                                                    'Example: "${def.example}"',
                                                     style: TextStyle(
                                                       color: Colors.grey.shade600,
                                                       fontStyle: FontStyle.italic,
@@ -496,7 +496,7 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
                                                 ),
                                               if (def.synonyms.isNotEmpty)
                                                 _WordChipRow(
-                                                  label: 'Đồng nghĩa',
+                                                  label: 'Synonyms',
                                                   words: def.synonyms,
                                                   color: Colors.green.shade50,
                                                   textColor: Colors.green.shade800,
@@ -504,7 +504,7 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
                                                 ),
                                               if (def.antonyms.isNotEmpty)
                                                 _WordChipRow(
-                                                  label: 'Trái nghĩa',
+                                                  label: 'Antonyms',
                                                   words: def.antonyms,
                                                   color: Colors.red.shade50,
                                                   textColor: Colors.red.shade800,
@@ -521,7 +521,7 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
                                 // Meaning-level synonyms
                                 if (meaning.synonyms.isNotEmpty)
                                   _WordChipRow(
-                                    label: 'Từ đồng nghĩa (${meaning.partOfSpeech})',
+                                    label: 'Synonyms (${meaning.partOfSpeech})',
                                     words: meaning.synonyms,
                                     color: Colors.green.shade50,
                                     textColor: Colors.green.shade800,
@@ -531,7 +531,7 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
                                 // Meaning-level antonyms
                                 if (meaning.antonyms.isNotEmpty)
                                   _WordChipRow(
-                                    label: 'Từ trái nghĩa (${meaning.partOfSpeech})',
+                                    label: 'Antonyms (${meaning.partOfSpeech})',
                                     words: meaning.antonyms,
                                     color: Colors.red.shade50,
                                     textColor: Colors.red.shade800,
@@ -548,12 +548,12 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
                           Padding(
                             padding: const EdgeInsets.only(bottom: 6.0),
                             child: Text(
-                              'Giấy phép: ${detail.licenseName}',
+                              'License: ${detail.licenseName}',
                               style: const TextStyle(fontSize: 11, color: Colors.grey),
                             ),
                           ),
                         if (detail.sourceUrls.isNotEmpty) ...[
-                          const Text('Nguồn tham khảo:',
+                          const Text('Sources:',
                               style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
                           const SizedBox(height: 4),
                           ...detail.sourceUrls.map((url) => Padding(

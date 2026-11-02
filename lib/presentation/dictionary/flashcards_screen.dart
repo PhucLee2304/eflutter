@@ -40,17 +40,17 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Xóa Flashcard'),
-        content: Text('Bạn có chắc muốn xóa từ "$word" khỏi danh sách flashcard?'),
+        title: const Text('Delete Flashcard'),
+        content: Text('Are you sure you want to remove "$word" from your flashcards?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Hủy'),
+            child: const Text('Cancel'),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Xóa'),
+            child: const Text('Delete'),
           ),
         ],
       ),
@@ -60,7 +60,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(this.context).showSnackBar(
         SnackBar(
-          content: Text(success ? 'Đã xóa flashcard "$word"' : 'Không thể xóa flashcard'),
+          content: Text(success ? 'Deleted flashcard "$word"' : 'Failed to delete flashcard'),
           backgroundColor: success ? null : Colors.red,
         ),
       );
@@ -73,11 +73,11 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
       value: _cubit,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Flashcard của tôi'),
+          title: const Text('My Flashcards'),
           actions: [
             IconButton(
               icon: const Icon(Icons.refresh),
-              tooltip: 'Làm mới',
+              tooltip: 'Refresh',
               onPressed: () => _cubit.loadFlashcards(),
             ),
           ],
@@ -97,7 +97,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                       const SizedBox(height: 12),
                       ElevatedButton(
                         onPressed: () => _cubit.loadFlashcards(),
-                        child: const Text('Thử lại'),
+                        child: const Text('Retry'),
                       ),
                     ],
                   ),
@@ -111,10 +111,10 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                       children: [
                         Icon(Icons.bookmarks_outlined, size: 64, color: Colors.grey),
                         SizedBox(height: 16),
-                        Text('Chưa có thẻ flashcard nào.',
+                        Text('No flashcards yet.',
                             style: TextStyle(color: Colors.grey, fontSize: 16)),
                         SizedBox(height: 8),
-                        Text('Tra cứu từ vựng và bấm biểu tượng bookmark để lưu.',
+                        Text('Look up vocabulary and tap the bookmark icon to save.',
                             style: TextStyle(color: Colors.grey, fontSize: 13)),
                       ],
                     ),
@@ -167,7 +167,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                                 ),
                               ),
                             Text(
-                              'Lưu lúc: ${_formatDate(card.createdAt)}',
+                              'Saved at: ${_formatDate(card.createdAt)}',
                               style: const TextStyle(
                                   fontSize: 11, color: Colors.grey),
                             ),
@@ -176,7 +176,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                         isThreeLine: true,
                         trailing: IconButton(
                           icon: const Icon(Icons.delete_outline, color: Colors.red),
-                          tooltip: 'Xóa',
+                          tooltip: 'Delete',
                           onPressed: () =>
                               _confirmDelete(context, card.id, card.word.word),
                         ),

@@ -7,7 +7,7 @@ part 'dictionary_topic.g.dart';
 @freezed
 abstract class DictionaryTopic with _$DictionaryTopic {
   const factory DictionaryTopic({
-    required int id,
+    required String id,
     required String name,
     required String category,
     String? description,

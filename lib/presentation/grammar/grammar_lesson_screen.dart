@@ -76,7 +76,7 @@ class _GrammarLessonScreenState extends State<GrammarLessonScreen> {
                 elevation: 0,
               ),
               onPressed: () => _cubit.loadUnit(widget.unitId),
-              child: const Text('Thử lại'),
+              child: const Text('Retry'),
             ),
           ],
         ),
@@ -157,12 +157,12 @@ class _TheoryView extends StatelessWidget {
           sliver: SliverList(
             delegate: SliverChildListDelegate([
               const SizedBox(height: 24),
-              _buildSectionLabel('📖 Lý thuyết'),
+              _buildSectionLabel('📖 Theory'),
               const SizedBox(height: 12),
               _buildTheoryCard(),
               const SizedBox(height: 28),
               if (unit.examples.isNotEmpty) ...[
-                _buildSectionLabel('✨ Ví dụ minh họa'),
+                _buildSectionLabel('✨ Illustrative example'),
                 const SizedBox(height: 12),
                 ...unit.examples.asMap().entries.map(
                       (e) => _ExampleCard(
@@ -215,7 +215,7 @@ class _TheoryView extends StatelessWidget {
               ),
               icon: const Icon(Icons.play_arrow_rounded),
               label: Text(
-                'Bắt đầu luyện tập (${unit.practices.length} câu)',
+                'Start practicing (${unit.practices.length} questions)',
                 style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
               ),
               onPressed: unit.practices.isEmpty ? null : onStartPractice,
@@ -353,7 +353,7 @@ class _ExampleCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    'VD ${index + 1}',
+                    'Eg ${index + 1}',
                     style: const TextStyle(
                       color: Color(0xFF7C6CF0),
                       fontSize: 12,
@@ -451,7 +451,7 @@ class _PracticeEngineState extends State<_PracticeEngine> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
-          'Luyện tập — ${widget.unit.title}',
+          'Practice — ${widget.unit.title}',
           style: const TextStyle(
             color: Color(0xFF1A1A2E),
             fontWeight: FontWeight.w700,
@@ -483,7 +483,7 @@ class _PracticeEngineState extends State<_PracticeEngine> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Câu ${_currentIndex + 1} / $total',
+                    'Question ${_currentIndex + 1} / $total',
                     style: const TextStyle(
                       color: Color(0xFF6B6B8A),
                       fontWeight: FontWeight.w600,
@@ -577,8 +577,8 @@ class _PracticeEngineState extends State<_PracticeEngine> {
                     onPressed: _nextQuestion,
                     child: Text(
                       _currentIndex < widget.unit.practices.length - 1
-                          ? 'Câu tiếp theo →'
-                          : 'Hoàn thành 🎉',
+                          ? 'Next question →'
+                          : 'Complete 🎉',
                       style: const TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 16,
@@ -613,7 +613,7 @@ class _PracticeEngineState extends State<_PracticeEngine> {
               Text(emoji, style: const TextStyle(fontSize: 72)),
               const SizedBox(height: 24),
               const Text(
-                'Bài tập hoàn thành!',
+                'Completed exercises!',
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.w800,
@@ -622,7 +622,7 @@ class _PracticeEngineState extends State<_PracticeEngine> {
               ),
               const SizedBox(height: 12),
               const Text(
-                'Điểm số của bạn',
+                'Your score',
                 style: TextStyle(color: Color(0xFF6B6B8A), fontSize: 16),
               ),
               const SizedBox(height: 24),
@@ -652,7 +652,7 @@ class _PracticeEngineState extends State<_PracticeEngine> {
               ),
               const SizedBox(height: 16),
               Text(
-                '$percent% chính xác',
+                '$percent% Exactly',
                 style: const TextStyle(
                   color: Color(0xFF6B6B8A),
                   fontSize: 16,
@@ -674,7 +674,7 @@ class _PracticeEngineState extends State<_PracticeEngine> {
                   ),
                   onPressed: () => Navigator.of(context).pop(),
                   child: const Text(
-                    'Quay lại lộ trình',
+                    'Return to the itinerary',
                     style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
                   ),
                 ),
@@ -909,7 +909,7 @@ class _ExplanationBox extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    isCorrect ? 'Chính xác! 🎉' : 'Chưa chính xác! 💡',
+                    isCorrect ? 'Correct! 🎉' : 'Incorrect! 💡',
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 14,

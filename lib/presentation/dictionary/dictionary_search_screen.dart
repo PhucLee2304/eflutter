@@ -172,7 +172,35 @@ class _DictionarySearchScreenState extends State<DictionarySearchScreen> {
   }
 }
 
-// ─── Topic chips horizontal scroll bar ────────────────────────────────────────
+IconData? _resolveTopicIcon(String? iconName) {
+  if (iconName == null || iconName.isEmpty) return null;
+  switch (iconName.toLowerCase()) {
+    case 'badge':
+      return Icons.badge_outlined;
+    case 'paid':
+      return Icons.paid_outlined;
+    case 'flight_takeoff':
+      return Icons.flight_takeoff_outlined;
+    case 'precision_manufacturing':
+      return Icons.precision_manufacturing_outlined;
+    case 'school':
+      return Icons.school_outlined;
+    case 'eco':
+      return Icons.eco_outlined;
+    case 'diversity_3':
+      return Icons.diversity_3_outlined;
+    case 'psychology':
+      return Icons.psychology_outlined;
+    case 'favorite':
+      return Icons.favorite_outline;
+    case 'hub':
+      return Icons.hub_outlined;
+    default:
+      return null;
+  }
+}
+
+// ─── Topic chips multi-line panel ─────────────────────────────────────────────
 
 class _TopicChipsBar extends StatelessWidget {
   final List<DictionaryTopic> topics;
@@ -188,56 +216,88 @@ class _TopicChipsBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return SizedBox(
-      height: 52,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        itemCount: topics.length,
-        separatorBuilder: (_, i) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final topic = topics[index];
-          final isSelected = selectedTopic?.id == topic.id;
-          return GestureDetector(
-            onTap: () => onTopicSelected(topic),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? colorScheme.primary
-                    : colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: isSelected
-                      ? colorScheme.primary
-                      : colorScheme.outlineVariant,
-                  width: 1,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.auto_awesome_mosaic_outlined,
+                size: 16,
+                color: colorScheme.primary,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Vocabulary Topics (${topics.length})',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.onSurfaceVariant,
                 ),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (topic.icon != null && topic.icon!.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 4),
-                      child: Text(topic.icon!, style: const TextStyle(fontSize: 14)),
-                    ),
-                  Text(
-                    topic.name,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: topics.map((topic) {
+              final isSelected = selectedTopic?.id == topic.id;
+              final iconData = _resolveTopicIcon(topic.icon);
+              return InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: () => onTopicSelected(topic),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? colorScheme.primary
+                        : colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
                       color: isSelected
-                          ? colorScheme.onPrimary
-                          : colorScheme.onSurface,
+                          ? colorScheme.primary
+                          : colorScheme.outlineVariant.withValues(alpha: 0.6),
+                      width: 1,
                     ),
                   ),
-                ],
-              ),
-            ),
-          );
-        },
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (iconData != null) ...[
+                        Icon(
+                          iconData,
+                          size: 15,
+                          color: isSelected
+                              ? colorScheme.onPrimary
+                              : colorScheme.primary,
+                        ),
+                        const SizedBox(width: 6),
+                      ] else if (topic.icon != null && topic.icon!.isNotEmpty) ...[
+                        Text(topic.icon!, style: const TextStyle(fontSize: 13)),
+                        const SizedBox(width: 4),
+                      ],
+                      Text(
+                        topic.name,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                          color: isSelected
+                              ? colorScheme.onPrimary
+                              : colorScheme.onSurface,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
       ),
     );
   }
@@ -340,9 +400,24 @@ class _TopicHeader extends StatelessWidget {
       color: colorScheme.primaryContainer.withValues(alpha: 0.3),
       child: Row(
         children: [
-          if (topic.icon != null && topic.icon!.isNotEmpty)
-            Text(topic.icon!, style: const TextStyle(fontSize: 22)),
-          const SizedBox(width: 8),
+          Builder(
+            builder: (context) {
+              final iconData = _resolveTopicIcon(topic.icon);
+              if (iconData != null) {
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Icon(iconData, size: 24, color: colorScheme.primary),
+                );
+              }
+              if (topic.icon != null && topic.icon!.isNotEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Text(topic.icon!, style: const TextStyle(fontSize: 22)),
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          ),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

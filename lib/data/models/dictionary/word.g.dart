@@ -60,7 +60,7 @@ Map<String, dynamic> _$MeaningToJson(_Meaning instance) => <String, dynamic>{
 };
 
 _WordDetail _$WordDetailFromJson(Map<String, dynamic> json) => _WordDetail(
-  id: (json['id'] as num).toInt(),
+  id: (json['id'] as num?)?.toInt() ?? 0,
   word: json['word'] as String,
   phonetic: json['phonetic'] as String?,
   phonetics:
@@ -95,7 +95,7 @@ Map<String, dynamic> _$WordDetailToJson(_WordDetail instance) =>
     };
 
 _WordSummary _$WordSummaryFromJson(Map<String, dynamic> json) => _WordSummary(
-  id: (json['id'] as num).toInt(),
+  id: (json['id'] as num?)?.toInt() ?? 0,
   word: json['word'] as String,
   phonetic: json['phonetic'] as String?,
 );

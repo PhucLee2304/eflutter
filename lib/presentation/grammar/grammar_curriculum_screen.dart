@@ -150,7 +150,7 @@ class _GrammarCurriculumScreenState extends State<GrammarCurriculumScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'LỘ TRÌNH HỌC NGỮ PHÁP',
+                    'GRAMMAR LEARNING PATHWAY',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
@@ -160,7 +160,7 @@ class _GrammarCurriculumScreenState extends State<GrammarCurriculumScreen> {
                   ),
                   SizedBox(height: 4),
                   Text(
-                    'Hệ thống 11 Units từ cơ bản đến nâng cao',
+                    'A 22-unit curriculum, from basic to advanced levels',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w400,
@@ -183,7 +183,7 @@ class _GrammarCurriculumScreenState extends State<GrammarCurriculumScreen> {
           child: Padding(
             padding: EdgeInsets.only(top: 80),
             child: Text(
-              'Chưa có bài học nào',
+              'No lessons yet',
               style: TextStyle(color: Color(0xFF6B6B8A), fontSize: 16),
             ),
           ),
@@ -238,7 +238,7 @@ class _GrammarCurriculumScreenState extends State<GrammarCurriculumScreen> {
             ),
             icon: const Icon(Icons.refresh_rounded, size: 20),
             onPressed: _cubit.load,
-            label: const Text('Thử lại'),
+            label: const Text('Retry'),
           ),
         ],
       ),
@@ -403,7 +403,7 @@ class _UnitCard extends StatelessWidget {
           border: Border.all(color: const Color(0xFF81C784)),
         ),
         child: const Text(
-          '✓ Hoàn thành',
+          '✓ Complete',
           style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w700,
@@ -438,7 +438,7 @@ class _UnitCard extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Tiến độ: ${unit.progressCompleted}/${unit.progressTotal}',
+              'Progress: ${unit.progressCompleted}/${unit.progressTotal}',
               style: const TextStyle(fontSize: 11, color: Color(0xFF6B6B8A)),
             ),
             Text(

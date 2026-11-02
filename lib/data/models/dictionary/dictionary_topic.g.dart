@@ -8,7 +8,7 @@ part of 'dictionary_topic.dart';
 
 _DictionaryTopic _$DictionaryTopicFromJson(Map<String, dynamic> json) =>
     _DictionaryTopic(
-      id: (json['id'] as num).toInt(),
+      id: json['id'] as String,
       name: json['name'] as String,
       category: json['category'] as String,
       description: json['description'] as String?,
