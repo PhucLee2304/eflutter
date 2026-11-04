@@ -67,8 +67,6 @@ extension ToastExtension on BuildContext {
                   Expanded(
                     child: Text(
                       message,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(color: ColorName.white),
                     ),
                   ),

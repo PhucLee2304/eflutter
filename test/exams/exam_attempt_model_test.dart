@@ -1,7 +1,35 @@
 import 'package:eflutter/data/models/exam_attempt.dart';
+import 'package:eflutter/data/models/exam_questions.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('create attempt request sends standalone context by default', () {
+    const request = CreateExamAttemptRequest(
+      mode: 'PRACTICE',
+      section: 'LISTENING',
+      duration: 30,
+    );
+
+    expect(request.toJson(), {
+      'mode': 'PRACTICE',
+      'contextType': 'STANDALONE',
+      'section': 'LISTENING',
+      'duration': 30,
+    });
+  });
+
+  test('assignment attempt omits mode and sends assignment context', () {
+    const request = CreateExamAttemptRequest(
+      contextType: 'CLASSROOM_ASSIGNMENT',
+      contextId: 21,
+    );
+
+    expect(request.toJson(), {
+      'contextType': 'CLASSROOM_ASSIGNMENT',
+      'contextId': 21,
+    });
+  });
+
   test('parses submitted review fields and nullable option content', () {
     final attempt = ExamAttempt.fromJson({
       'id': 7,
@@ -28,6 +56,7 @@ void main() {
               'selectedOptionId': 101,
               'correctOptionId': 101,
               'isCorrect': true,
+              'excludedFromScore': true,
               'options': [
                 {'id': 101, 'key': 'A', 'content': null, 'order': 1},
               ],
@@ -40,6 +69,7 @@ void main() {
     final question = attempt.questions.single.questions.single;
     expect(question.correctOptionId, 101);
     expect(question.isCorrect, isTrue);
+    expect(question.excludedFromScore, isTrue);
     expect(question.options.single.content, isNull);
   });
 
@@ -47,5 +77,28 @@ void main() {
     const answer = SubmitAttemptAnswer(questionId: 12, selectedOptionId: null);
 
     expect(answer.toJson(), {'questionId': 12, 'selectedOptionId': null});
+  });
+
+  test('history without score exclusion remains scored', () {
+    final question = ExamQuestion.fromJson({
+      'id': 11,
+      'content': 'Legacy question',
+      'order': 1,
+      'options': const [],
+    });
+
+    expect(question.excludedFromScore, isFalse);
+  });
+
+  test('legacy isScored field maps to score exclusion', () {
+    final question = ExamQuestion.fromJson({
+      'id': 12,
+      'content': 'Legacy excluded question',
+      'order': 2,
+      'isScored': false,
+      'options': const [],
+    });
+
+    expect(question.excludedFromScore, isTrue);
   });
 }

@@ -1,0 +1,380 @@
+import 'package:dio/dio.dart';
+import 'package:eflutter/core/base/result.dart';
+import 'package:eflutter/core/di/injection.dart';
+import 'package:eflutter/data/models/classroom.dart';
+import 'package:eflutter/data/repositories/classroom_repository.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:talker_flutter/talker_flutter.dart';
+
+void main() {
+  setUpAll(() {
+    if (!getIt.isRegistered<Talker>()) {
+      getIt.registerSingleton<Talker>(Talker());
+    }
+  });
+
+  test('list uses current user route, query, and pagination', () async {
+    late RequestOptions captured;
+    final dio = Dio()
+      ..interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            captured = options;
+            handler.resolve(
+              Response(
+                requestOptions: options,
+                data: {
+                  'data': [
+                    {'id': 3, 'code': 'ABC12345', 'name': 'Lop 12', 'active': true},
+                  ],
+                  'page': 2,
+                  'pageCounts': 4,
+                },
+              ),
+            );
+          },
+        ),
+      );
+    final result = await ClassroomRepository(dio).getMine(page: 2, query: 'Lop');
+    expect(captured.path, '/classrooms/api/v1/classrooms/me');
+    expect(captured.queryParameters['page'], 2);
+    expect(captured.queryParameters['query'], 'Lop');
+    expect(result.dataOrNull?.items.single.id, 3);
+  });
+
+  test('join and review use backend contract', () async {
+    final requests = <RequestOptions>[];
+    final dio = Dio()
+      ..interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            requests.add(options);
+            handler.resolve(
+              Response(
+                requestOptions: options,
+                data: {
+                  'id': 7,
+                  'approved': null,
+                  'user': {'id': 'student-1', 'name': 'Student', 'email': 's@example.com'},
+                },
+              ),
+            );
+          },
+        ),
+      );
+    final repository = ClassroomRepository(dio);
+    expect(await repository.join(' abc12345 '), isA<Success>());
+    expect(requests.first.path, '/classrooms/api/v1/classrooms/join');
+    expect((requests.first.data as Map)['code'], 'ABC12345');
+    expect(await repository.review(5, 'student-1', true), isA<Success>());
+    expect(requests.last.path, '/classrooms/api/v1/classrooms/5/members/student-1/approve');
+  });
+
+  test('previews a classroom using the non-conflicting code route', () async {
+    late RequestOptions captured;
+    final dio = Dio()
+      ..interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            captured = options;
+            handler.resolve(
+              Response(
+                requestOptions: options,
+                data: {'id': 5, 'code': 'ABC12345', 'name': 'Class', 'active': true},
+              ),
+            );
+          },
+        ),
+      );
+
+    final result = await ClassroomRepository(dio).preview(' abc12345 ');
+
+    expect(captured.path, '/classrooms/api/v1/classrooms/code');
+    expect(captured.queryParameters['code'], 'ABC12345');
+    expect(result.dataOrNull?.id, 5);
+  });
+
+  test('gets the room activity snapshot from the room route', () async {
+    late RequestOptions captured;
+    final now = DateTime.utc(2026, 10, 16, 8).toIso8601String();
+    final dio = Dio()
+      ..interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            captured = options;
+            handler.resolve(
+              Response(
+                requestOptions: options,
+                data: {
+                  'roomId': 7,
+                  'classroomId': 5,
+                  'status': 'LIVE',
+                  'isHost': false,
+                  'updatedAt': now,
+                  'participants': <dynamic>[],
+                },
+              ),
+            );
+          },
+        ),
+      );
+
+    final result = await ClassroomRepository(dio).getRoomActivity(5, 7);
+
+    expect(captured.path, '/classrooms/api/v1/classrooms/5/rooms/7/activity');
+    expect(result.dataOrNull?.roomId, 7);
+  });
+
+  test('sends the full description and an empty value when clearing it', () async {
+    final requests = <RequestOptions>[];
+    final dio = Dio()
+      ..interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            requests.add(options);
+            handler.resolve(
+              Response(
+                requestOptions: options,
+                data: {'id': 1, 'code': 'ABC12345', 'name': 'Class', 'active': true},
+              ),
+            );
+          },
+        ),
+      );
+    final repository = ClassroomRepository(dio);
+    final longDescription = 'A long description. ' * 1000;
+    expect(await repository.create('Class', description: longDescription), isA<Success>());
+    expect((requests.last.data as Map)['description'], longDescription.trim());
+
+    expect(await repository.update(1, name: 'Class', description: ''), isA<Success>());
+    expect((requests.last.data as Map).containsKey('description'), isTrue);
+    expect((requests.last.data as Map)['description'], '');
+  });
+
+  test('gets assignments using the classroom route', () async {
+    late RequestOptions captured;
+    final dio = Dio()
+      ..interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            captured = options;
+            handler.resolve(
+              Response(
+                requestOptions: options,
+                data: {
+                  'data': [
+                    {
+                      'id': 3,
+                      'classroomId': 5,
+                      'title': 'Assignment',
+                      'examId': 8,
+                      'opensAt': '2026-10-04T01:00:00Z',
+                      'dueAt': '2026-10-05T01:00:00Z',
+                    },
+                  ],
+                  'pageCounts': 2,
+                },
+              ),
+            );
+          },
+        ),
+      );
+
+    final result = await ClassroomRepository(dio).getAssignments(5, page: 2, pageSize: 10);
+
+    expect(captured.path, '/classrooms/api/v1/classrooms/5/assignments');
+    expect(captured.queryParameters, {'page': 2, 'pageSize': 10});
+    expect(result.dataOrNull?.items.single.examId, 8);
+  });
+
+  test('creates an exam and assignments with the backend contract', () async {
+    late RequestOptions captured;
+    final dio = Dio()
+      ..interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            captured = options;
+            handler.resolve(
+              Response(
+                requestOptions: options,
+                data: {
+                  'assignments': [
+                    {
+                      'id': 3,
+                      'classroomId': 5,
+                      'title': 'Assignment',
+                      'examId': 8,
+                      'opensAt': '2026-10-04T01:00:00Z',
+                      'dueAt': '2026-10-05T01:00:00Z',
+                    },
+                  ],
+                },
+              ),
+            );
+          },
+        ),
+      );
+    final opensAt = DateTime.parse('2026-10-04T08:00:00+07:00');
+    final dueAt = DateTime.parse('2026-10-05T08:00:00+07:00');
+
+    final result = await ClassroomRepository(dio).createAssignments(
+      schedules: [
+        AssignmentScheduleInput(classroomId: 5, duration: 45, opensAt: opensAt, dueAt: dueAt),
+        AssignmentScheduleInput(classroomId: 6, duration: 45, opensAt: opensAt, dueAt: dueAt),
+      ],
+      title: ' Assignment ',
+      description: ' Instructions ',
+      questions: const [
+        CreateAssignmentQuestion(
+          content: '2 + 2 = ?',
+          explanation: 'Basic addition',
+          options: ['1', '2', '3', '4'],
+          correctOptionIndex: 3,
+        ),
+      ],
+    );
+
+    final body = captured.data as Map<String, dynamic>;
+    expect(captured.path, '/classrooms/api/v1/classrooms/assignments');
+    expect(body['schedules'], hasLength(2));
+    expect((body['schedules'] as List).first['classroomId'], 5);
+    expect(body['title'], 'Assignment');
+    expect(body['description'], 'Instructions');
+    final questions = body['questions'] as List<dynamic>;
+    expect(questions, hasLength(1));
+    expect((questions.single as Map<String, dynamic>)['options'], ['1', '2', '3', '4']);
+    expect(questions.single['correctOptionIndex'], 3);
+    expect((body['schedules'] as List).first['duration'], 45);
+    expect(body.containsKey('exam'), isFalse);
+    expect(body.containsKey('examId'), isFalse);
+    expect((body['schedules'] as List).first['opensAt'], '2026-10-04T01:00:00.000Z');
+    expect(result.dataOrNull?.assignments.single.classroomId, 5);
+  });
+
+  test('room operations use the room API contract', () async {
+    final requests = <RequestOptions>[];
+    final startsAt = DateTime.utc(2026, 10, 12, 10);
+    final roomJson = {
+      'id': 7,
+      'classroomId': 2,
+      'scheduleId': 9,
+      'status': 'LIVE',
+      'startsAt': startsAt.toIso8601String(),
+      'endsAt': startsAt.add(const Duration(hours: 1)).toIso8601String(),
+      'isHost': false,
+    };
+    final dio = Dio()
+      ..interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            requests.add(options);
+            handler.resolve(
+              Response(
+                requestOptions: options,
+                data: options.path.endsWith('/join')
+                    ? {'url': 'ws://localhost:7880', 'token': 'jwt', 'room': roomJson}
+                    : roomJson,
+              ),
+            );
+          },
+        ),
+      );
+    final repository = ClassroomRepository(dio);
+
+    expect(await repository.getRoom(2, 7), isA<Success>());
+    expect(await repository.joinRoom(2, 7), isA<Success>());
+    expect(await repository.endRoom(2, 7), isA<Success>());
+
+    expect(requests[0].path, '/classrooms/api/v1/classrooms/2/rooms/7');
+    expect(requests[0].method, 'GET');
+    expect(requests[1].path, '/classrooms/api/v1/classrooms/2/rooms/7/join');
+    expect(requests[1].method, 'POST');
+    expect(requests[2].path, '/classrooms/api/v1/classrooms/2/rooms/7/end');
+    expect(requests[2].method, 'POST');
+  });
+
+  test('room API errors are returned as failures', () async {
+    final dio = Dio()
+      ..interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) => handler.reject(
+            DioException(
+              requestOptions: options,
+              response: Response(
+                requestOptions: options,
+                statusCode: 403,
+                data: {'error': '[ERROR] Classroom access forbidden'},
+              ),
+              type: DioExceptionType.badResponse,
+            ),
+          ),
+        ),
+      );
+
+    expect(await ClassroomRepository(dio).joinRoom(2, 7), isA<Failure>());
+  });
+
+  test('saves the edit screen in one request with confirmation', () async {
+    late RequestOptions captured;
+    final dio = Dio()
+      ..interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            captured = options;
+            handler.resolve(
+              Response(
+                requestOptions: options,
+                data: {
+                  'id': 3,
+                  'classroomId': 5,
+                  'examId': 8,
+                  'title': 'Updated',
+                  'opensAt': '2026-01-01T00:00:00Z',
+                  'dueAt': '2026-01-02T00:00:00Z',
+                },
+              ),
+            );
+          },
+        ),
+      );
+    final result = await ClassroomRepository(dio).updateAssignment(
+      classroomId: 5,
+      assignmentId: 3,
+      title: ' Updated ',
+      description: ' Description ',
+      questions: const [
+        CreateAssignmentQuestion(
+          content: 'Question',
+          explanation: '',
+          options: ['A', 'B', 'C', 'D'],
+          correctOptionIndex: 1,
+          excludedFromScore: true,
+          id: 4,
+          optionIds: [10, 11, 12, 13],
+        ),
+      ],
+      schedules: [
+        AssignmentScheduleInput(
+          classroomId: 9,
+          duration: 30,
+          opensAt: DateTime.utc(2026, 1, 1),
+          dueAt: DateTime.utc(2026, 1, 2),
+        ),
+      ],
+      confirm: true,
+      reason: 'Incorrect answer',
+    );
+    final body = captured.data as Map<String, dynamic>;
+    expect(captured.method, 'PUT');
+    expect(captured.path, '/classrooms/api/v1/classrooms/5/assignments/3');
+    expect(body['title'], 'Updated');
+    expect(body['confirm'], isTrue);
+    expect(body['reason'], 'Incorrect answer');
+    final question = (body['questions'] as List).single as Map<String, dynamic>;
+    expect(question['id'], 4);
+    expect(question['optionIds'], [10, 11, 12, 13]);
+    expect(question['excludedFromScore'], isTrue);
+    expect((body['schedules'] as List).single['classroomId'], 9);
+    expect(result.dataOrNull?.id, 3);
+  });
+}

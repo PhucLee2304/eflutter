@@ -3,8 +3,8 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:eflutter/core/auth/auth_interceptor.dart';
 import 'package:eflutter/core/base/remote_data_base.dart';
-import 'package:eflutter/core/utils/helpers/upload/upload_binary_to_url.dart'
-    as upload_helper;
+import 'package:eflutter/core/utils/helpers/upload/upload_binary_to_url.dart' as upload_helper;
+import 'package:eflutter/data/models/attempt_page.dart';
 import 'package:eflutter/data/models/exam_attempt.dart';
 import 'package:eflutter/data/models/exam_attempt_page.dart';
 import 'package:eflutter/data/models/exam_detail.dart';
@@ -23,10 +23,7 @@ class RemoteData implements RemoteDataBase {
 
   @override
   Future<(String, String)> login(String idToken) async {
-    final response = await _dio.post(
-      '/auth/api/v1/login',
-      data: {'idToken': idToken},
-    );
+    final response = await _dio.post('/auth/api/v1/login', data: {'idToken': idToken});
     final data = response.data;
     return (data['accessToken'] as String, data['refreshToken'] as String);
   }
@@ -66,11 +63,7 @@ class RemoteData implements RemoteDataBase {
   }) async {
     final response = await _dio.post(
       '/storage/api/v1/presign/upload',
-      data: {
-        'fileName': fileName,
-        'contentType': contentType,
-        'folder': folder,
-      },
+      data: {'fileName': fileName, 'contentType': contentType, 'folder': folder},
     );
     final data = response.data as Map<String, dynamic>;
     return data['url'] as String;
@@ -82,11 +75,7 @@ class RemoteData implements RemoteDataBase {
     required Uint8List bytes,
     required String contentType,
   }) async {
-    await upload_helper.uploadBinaryToUrl(
-      url: url,
-      bytes: bytes,
-      contentType: contentType,
-    );
+    await upload_helper.uploadBinaryToUrl(url: url, bytes: bytes, contentType: contentType);
   }
 
   @override
@@ -94,9 +83,7 @@ class RemoteData implements RemoteDataBase {
     final response = await _dio.get('/topics/api/v1/topics');
     final data = response.data as Map<String, dynamic>;
     final topics = (data['topics'] as List<dynamic>? ?? const []);
-    return topics
-        .map((item) => TopicSummary.fromJson(item as Map<String, dynamic>))
-        .toList();
+    return topics.map((item) => TopicSummary.fromJson(item as Map<String, dynamic>)).toList();
   }
 
   @override
@@ -104,21 +91,15 @@ class RemoteData implements RemoteDataBase {
     final response = await _dio.get('/topics/api/v1/topics/$topicId');
     final data = response.data as Map<String, dynamic>;
     final sections = (data['sections'] as List<dynamic>? ?? const []);
-    return sections
-        .map((item) => TopicSection.fromJson(item as Map<String, dynamic>))
-        .toList();
+    return sections.map((item) => TopicSection.fromJson(item as Map<String, dynamic>)).toList();
   }
 
   @override
   Future<List<TopicLesson>> getLessonsBySection(int sectionId) async {
-    final response = await _dio.get(
-      '/topics/api/v1/sections/$sectionId/lessons',
-    );
+    final response = await _dio.get('/topics/api/v1/sections/$sectionId/lessons');
     final data = response.data as Map<String, dynamic>;
     final lessons = (data['lessons'] as List<dynamic>? ?? const []);
-    return lessons
-        .map((item) => TopicLesson.fromJson(item as Map<String, dynamic>))
-        .toList();
+    return lessons.map((item) => TopicLesson.fromJson(item as Map<String, dynamic>)).toList();
   }
 
   @override
@@ -133,12 +114,26 @@ class RemoteData implements RemoteDataBase {
     required String type,
     required int page,
     required int pageSize,
+    String? search,
+    int? year,
   }) async {
     final response = await _dio.get(
       '/exams/api/v1/exams',
-      queryParameters: {'type': type, 'page': page, 'pageSize': pageSize},
+      queryParameters: {
+        'type': type,
+        'page': page,
+        'pageSize': pageSize,
+        if (search != null && search.isNotEmpty) 'search': search,
+        'year': ?year,
+      },
     );
     return ExamPage.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  @override
+  Future<List<int>> getExamYears(String type) async {
+    final response = await _dio.get('/exams/api/v1/exams/years', queryParameters: {'type': type});
+    return (response.data as List<dynamic>).map((e) => (e as num).toInt()).toList();
   }
 
   @override
@@ -148,10 +143,7 @@ class RemoteData implements RemoteDataBase {
   }
 
   @override
-  Future<ExamAttempt> createExamAttempt(
-    int examId,
-    CreateExamAttemptRequest request,
-  ) async {
+  Future<ExamAttempt> createExamAttempt(int examId, CreateExamAttemptRequest request) async {
     final response = await _dio.post(
       '/exams/api/v1/exams/$examId/attempts',
       data: request.toJson(),
@@ -164,6 +156,9 @@ class RemoteData implements RemoteDataBase {
     required String status,
     required int page,
     required int pageSize,
+    String? excludeMode,
+    List<String> examTypes = const [],
+    String? search,
   }) async {
     final response = await _dio.get(
       '/exams/api/v1/attempts',
@@ -171,6 +166,9 @@ class RemoteData implements RemoteDataBase {
         'status': status.toUpperCase(),
         'page': page,
         'pageSize': pageSize,
+        'excludeMode': ?excludeMode,
+        if (examTypes.isNotEmpty) 'examType': examTypes.join(','),
+        if (search != null && search.isNotEmpty) 'search': search,
       },
     );
     return ExamAttemptPage.fromResponse(response.data, requestedPage: page);
@@ -178,19 +176,12 @@ class RemoteData implements RemoteDataBase {
 
   @override
   Future<ExamAttempt> getAttemptQuestions(int attemptId) async {
-    final response = await _dio.get(
-      '/exams/api/v1/attempts/$attemptId/questions',
-    );
-    return ExamAttempt.fromQuestionsResponse(
-      response.data as Map<String, dynamic>,
-    );
+    final response = await _dio.get('/exams/api/v1/attempts/$attemptId/questions');
+    return ExamAttempt.fromQuestionsResponse(response.data as Map<String, dynamic>);
   }
 
   @override
-  Future<ExamAttempt> submitAttempt(
-    int attemptId,
-    List<SubmitAttemptAnswer> answers,
-  ) async {
+  Future<ExamAttempt> submitAttempt(int attemptId, List<SubmitAttemptAnswer> answers) async {
     final response = await _dio.post(
       '/exams/api/v1/attempts/$attemptId/submit',
       data: {'answers': answers.map((answer) => answer.toJson()).toList()},
@@ -200,17 +191,25 @@ class RemoteData implements RemoteDataBase {
 
   @override
   Future<ExamAttempt> cancelAttempt(int attemptId) async {
-    final response = await _dio.post(
-      '/exams/api/v1/attempts/$attemptId/cancel',
-    );
+    final response = await _dio.post('/exams/api/v1/attempts/$attemptId/cancel');
     return ExamAttempt.fromJson(response.data as Map<String, dynamic>);
   }
 
   @override
   Future<ExamAttempt> getAttemptHistory(int attemptId) async {
-    final response = await _dio.get(
-      '/exams/api/v1/attempts/$attemptId/history',
-    );
+    final response = await _dio.get('/exams/api/v1/attempts/$attemptId/history');
     return ExamAttempt.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  @override
+  Future<AttemptNavigator> getAttemptNavigator(int attemptId) async {
+    final response = await _dio.get('/exams/api/v1/attempts/$attemptId/navigator');
+    return AttemptNavigator.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  @override
+  Future<AttemptPage> getAttemptPage(int attemptId, int index) async {
+    final response = await _dio.get('/exams/api/v1/attempts/$attemptId/pages/$index');
+    return AttemptPage.fromJson(response.data as Map<String, dynamic>);
   }
 }

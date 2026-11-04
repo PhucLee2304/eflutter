@@ -1,3 +1,4 @@
+import 'package:eflutter/core/attempt_lock/attempt_lock_notifier.dart';
 import 'package:eflutter/core/auth/auth_notifier.dart';
 import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/presentation/app/navigation/app_routes.dart';
@@ -14,58 +15,49 @@ import 'package:talker_flutter/talker_flutter.dart';
 class AppRouter {
   static final _rootNavigatorKey = GlobalKey<NavigatorState>();
   static final _authNotifier = getIt<AuthNotifier>();
+  static final _attemptLock = getIt<AttemptLockNotifier>();
 
   static final router = GoRouter(
     debugLogDiagnostics: kDebugMode,
     navigatorKey: _rootNavigatorKey,
     initialLocation: AppRoutes.home.path,
-    refreshListenable: _authNotifier,
+    refreshListenable: Listenable.merge([_authNotifier, _attemptLock]),
     redirect: _redirect,
     routes: kIsWeb ? _webRoutes : _mobileRoutes,
   );
 
   static final _mobileRoutes = [
-    GoRoute(
-      path: AppRoutes.login.path,
-      builder: (context, state) => const LoginScreen(),
-    ),
+    GoRoute(path: AppRoutes.login.path, builder: (context, state) => const LoginScreen()),
     GoRoute(
       path: AppRoutes.log.path,
       builder: (context, state) => TalkerScreen(talker: getIt<Talker>()),
     ),
+    NavigationItem.attemptRoute,
     GoRoute(
       path: AppRoutes.flashcards.path,
       builder: (context, state) => const FlashcardsScreen(),
     ),
     StatefulShellRoute.indexedStack(
-      builder: (context, state, navigationShell) =>
-          MobileLayout(navigationShell: navigationShell),
-      branches: NavigationItem.mobileShellBranches
-          .map((e) => e.shellBranch)
-          .toList(),
+      builder: (context, state, navigationShell) => MobileLayout(navigationShell: navigationShell),
+      branches: NavigationItem.mobileShellBranches.map((e) => e.shellBranch).toList(),
     ),
-    ...NavigationItem.mobileOtherItems.map((e) => e.goRoute),
+    ...NavigationItem.mobileOtherItems.expand((e) => e.routes),
   ];
 
   static final _webRoutes = [
-    GoRoute(
-      path: AppRoutes.login.path,
-      builder: (context, state) => const LoginScreen(),
-    ),
+    GoRoute(path: AppRoutes.login.path, builder: (context, state) => const LoginScreen()),
     GoRoute(
       path: AppRoutes.log.path,
       builder: (context, state) => TalkerScreen(talker: getIt<Talker>()),
     ),
+    NavigationItem.attemptRoute,
     GoRoute(
       path: AppRoutes.flashcards.path,
       builder: (context, state) => const FlashcardsScreen(),
     ),
     StatefulShellRoute.indexedStack(
-      builder: (context, state, navigationShell) =>
-          WebLayout(navigationShell: navigationShell),
-      branches: NavigationItem.webShellBranches
-          .map((e) => e.shellBranch)
-          .toList(),
+      builder: (context, state, navigationShell) => WebLayout(navigationShell: navigationShell),
+      branches: NavigationItem.webShellBranches.map((e) => e.shellBranch).toList(),
     ),
   ];
 
@@ -81,6 +73,7 @@ class AppRouter {
       return AppRoutes.home.path;
     }
 
-    return null;
+    // Đang làm bài: mọi điều hướng ra ngoài màn làm bài đều bị đưa về lại.
+    return _attemptLock.redirectFor(state.uri.path);
   }
 }

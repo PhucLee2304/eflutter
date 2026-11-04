@@ -13,16 +13,9 @@ Future<void> uploadBinaryToUrl({
     headers.set('Content-Type', contentType);
     final request = web.Request(
       url.toJS,
-      web.RequestInit(
-        method: 'PUT',
-        headers: headers,
-        body: bytes.toJS,
-      ),
+      web.RequestInit(method: 'PUT', headers: headers, body: bytes.toJS),
     );
-    final response = await web
-        .window
-        .fetch(request)
-        .toDart;
+    final response = await web.window.fetch(request).toDart;
 
     if (!response.ok) {
       throw Exception(

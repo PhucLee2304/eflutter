@@ -24,6 +24,7 @@ void main() {
     expect(NavigationItem.mobileShellBranches.map((item) => item.route), [
       AppRoutes.home,
       AppRoutes.topic,
+      AppRoutes.classrooms,
       AppRoutes.profile,
       AppRoutes.other,
     ]);
@@ -32,7 +33,7 @@ void main() {
   });
 
   test('topic is a dedicated navigation item', () {
-    expect(NavigationItem.topicItem.title, 'Topic');
+    expect(NavigationItem.topicItem.title, 'Topics');
     expect(NavigationItem.topicItem.route.path, '/topic');
   });
 

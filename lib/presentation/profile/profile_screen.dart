@@ -1,12 +1,21 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
 import 'dart:typed_data';
 
+import 'package:dio/dio.dart';
+import 'package:eflutter/core/base/remote_data_base.dart';
+import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/core/utils/extensions/toast_bar_extension.dart';
+import 'package:eflutter/data/repositories/classroom_repository.dart';
+import 'package:eflutter/data/repositories/exam_repository.dart';
+import 'package:eflutter/data/repositories/post_repository.dart';
 import 'package:eflutter/core/utils/helpers/file_picker/file_picker_helper.dart';
 import 'package:eflutter/core/utils/helpers/file_picker/local_picked_file.dart';
 import 'package:eflutter/generated/colors.gen.dart';
 import 'package:eflutter/presentation/app/cubit/app_cubit.dart';
 import 'package:eflutter/presentation/auth/cubit/auth_cubit.dart';
 import 'package:eflutter/presentation/profile/cubit/profile_cubit.dart';
+import 'package:eflutter/presentation/posts/post_list.dart';
+import 'package:eflutter/presentation/app/theme/app_button_styles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:solar_icons/solar_icons.dart';
@@ -30,10 +39,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   LocalPickedFile? _draftAvatarFile;
   bool _isEditingName = false;
   bool _isSyncingDraft = false;
+  late final Future<_ProfileStats> _stats = _loadStats();
 
   bool get _hasChanges =>
-      _nameController.text.trim() != _initialName.trim() ||
-      _draftAvatarFile != null;
+      _nameController.text.trim() != _initialName.trim() || _draftAvatarFile != null;
 
   bool get _canCancel => _isEditingName || _hasChanges;
 
@@ -57,6 +66,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.dispose();
   }
 
+  // Lỗi từng API thì ô đó hiện "–", không chặn cả trang.
+  Future<_ProfileStats> _loadStats() async {
+    final dio = getIt<Dio>();
+    final (posts, classrooms, exams) = await (
+      PostRepository(
+        dio,
+      ).getPosts(page: 1, mine: true).then<int?>((p) => p.total, onError: (_) => null),
+      ClassroomRepository(dio).getMine().then((r) => r.dataOrNull?.total),
+      ExamRepository(
+        getIt<RemoteDataBase>(),
+      ).getAttempts(status: 'SUBMITTED', page: 1, pageSize: 1).then((r) => r.dataOrNull?.total),
+    ).wait;
+    return (posts: posts, classrooms: classrooms, exams: exams);
+  }
+
   void _handleDraftChanged() {
     if (mounted && !_isSyncingDraft) {
       setState(() {});
@@ -69,9 +93,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final currentAvatar = user.avatar ?? '';
     final isNewUser = _syncedUserId != user.id;
-    if (!isNewUser &&
-        _initialName == user.name &&
-        _initialAvatar == currentAvatar) {
+    if (!isNewUser && _initialName == user.name && _initialAvatar == currentAvatar) {
       return;
     }
 
@@ -146,97 +168,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
       builder: (context, state) {
         _syncDraft(state);
         return Scaffold(
-          appBar: AppBar(
-            actions: [
-              IconButton(
-                tooltip: 'Sign out',
-                onPressed: () => context.read<AuthCubit>().logout(),
-                icon: const Icon(SolarIconsOutline.exit),
-              ),
-            ],
-          ),
+          backgroundColor: const Color(0xFFF5F6F8),
           body: SafeArea(
             child: state.isLoading && state.user == null
-                ? const Center(child: CircularProgressIndicator())
-                : SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 720),
-                        child: Form(
-                          key: _formKey,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            spacing: 16,
-                            children: [
-                              _ProfileHeader(
-                                nameController: _nameController,
-                                email: state.user?.email ?? '',
-                                role: state.user?.role ?? '',
-                                avatar: _draftAvatar,
-                                avatarBytes: _draftAvatarBytes,
-                                isEditingName: _isEditingName,
-                                isBusy: state.isSaving,
-                                onEditName: _startNameEdit,
-                                onChangeAvatar: _openAvatarPicker,
-                              ),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: OutlinedButton.icon(
-                                      onPressed: _canCancel && !state.isSaving
-                                          ? _cancelChanges
-                                          : null,
-                                      icon: const Icon(
-                                        SolarIconsOutline.closeCircle,
-                                      ),
-                                      label: const Text('Cancel'),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: FilledButton.icon(
-                                      onPressed: _hasChanges && !state.isSaving
-                                          ? () {
-                                              if (!_formKey.currentState!
-                                                  .validate()) {
-                                                return;
-                                              }
-                                              context
-                                                  .read<ProfileCubit>()
-                                                  .saveProfile(
-                                                    name:
-                                                        _nameController.text
-                                                                    .trim() !=
-                                                                _initialName
-                                                                    .trim()
-                                                            ? _nameController
-                                                                  .text
-                                                            : null,
-                                                    avatarFile:
-                                                        _draftAvatarFile,
-                                                  );
-                                            }
-                                          : null,
-                                      icon: state.isSaving
-                                          ? const SizedBox(
-                                              width: 18,
-                                              height: 18,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                              ),
-                                            )
-                                          : const Icon(
-                                              SolarIconsOutline.diskette,
-                                            ),
-                                      label: const Text('Save changes'),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
+                ? const AppLoader()
+                : PostList(
+                    mine: true,
+                    aside: Form(
+                      key: _formKey,
+                      child: _ProfileCard(
+                        nameController: _nameController,
+                        email: state.user?.email ?? '',
+                        avatar: _draftAvatar,
+                        avatarBytes: _draftAvatarBytes,
+                        isEditing: _canCancel,
+                        isEditingName: _isEditingName,
+                        canSave: _hasChanges,
+                        isBusy: state.isSaving,
+                        onEdit: _startNameEdit,
+                        onChangeAvatar: _openAvatarPicker,
+                        onCancel: _cancelChanges,
+                        onSave: () {
+                          if (!_formKey.currentState!.validate()) return;
+                          context.read<ProfileCubit>().saveProfile(
+                            name: _nameController.text.trim() != _initialName.trim()
+                                ? _nameController.text
+                                : null,
+                            avatarFile: _draftAvatarFile,
+                          );
+                        },
+                        stats: _stats,
+                        onSignOut: () => context.read<AuthCubit>().logout(),
                       ),
                     ),
                   ),
@@ -247,103 +209,198 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 }
 
-class _ProfileHeader extends StatelessWidget {
-  const _ProfileHeader({
+class _ProfileCard extends StatelessWidget {
+  const _ProfileCard({
     required this.nameController,
     required this.email,
-    required this.role,
     required this.avatar,
     required this.avatarBytes,
+    required this.isEditing,
     required this.isEditingName,
+    required this.canSave,
     required this.isBusy,
-    required this.onEditName,
+    required this.onEdit,
     required this.onChangeAvatar,
+    required this.onCancel,
+    required this.onSave,
+    required this.stats,
+    required this.onSignOut,
   });
 
   final TextEditingController nameController;
   final String email;
-  final String role;
   final String avatar;
   final Uint8List? avatarBytes;
-  final bool isEditingName;
-  final bool isBusy;
-  final VoidCallback onEditName;
-  final VoidCallback onChangeAvatar;
+  final bool isEditing, isEditingName, canSave, isBusy;
+  final VoidCallback onEdit, onChangeAvatar, onCancel, onSave, onSignOut;
+  final Future<_ProfileStats> stats;
 
   @override
   Widget build(BuildContext context) {
-    final avatarUrl = avatar.trim();
+    final name = nameController.text.trim();
     return Container(
-      padding: const EdgeInsets.all(16),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
+        color: Colors.white,
         border: Border.all(color: ColorName.gray5),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _EditableAvatar(
-            avatarUrl: avatarUrl,
-            avatarBytes: avatarBytes,
-            isBusy: isBusy,
-            onPressed: onChangeAvatar,
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          // Ảnh bìa + avatar đè lên mép dưới.
+          SizedBox(
+            height: 166,
+            child: Stack(
+              alignment: Alignment.topCenter,
               children: [
-                isEditingName
-                    ? TextFormField(
-                        controller: nameController,
-                        autofocus: true,
-                        textInputAction: TextInputAction.done,
-                        decoration: const InputDecoration(
-                          isDense: true,
-                          labelText: 'Display name',
-                          prefixIcon: Icon(SolarIconsOutline.user),
-                        ),
-                        validator: (value) {
-                          if ((value ?? '').trim().isEmpty) {
-                            return 'Please enter your display name';
-                          }
-                          return null;
-                        },
-                      )
-                    : Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              nameController.text.trim().isEmpty
-                                  ? 'User'
-                                  : nameController.text,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                          IconButton(
-                            tooltip: 'Edit display name',
-                            onPressed: onEditName,
-                            icon: const Icon(SolarIconsOutline.pen),
-                          ),
-                        ],
-                      ),
-                const SizedBox(height: 4),
+                Container(
+                  height: 110,
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(colors: [ColorName.primary, ColorName.cyan]),
+                  ),
+                ),
+                Positioned(
+                  top: 54,
+                  child: _EditableAvatar(
+                    avatarUrl: avatar.trim(),
+                    avatarBytes: avatarBytes,
+                    isBusy: isBusy,
+                    onPressed: onChangeAvatar,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              spacing: 8,
+              children: [
+                if (isEditingName)
+                  TextFormField(
+                    controller: nameController,
+                    autofocus: true,
+                    textInputAction: TextInputAction.done,
+                    onFieldSubmitted: (_) => canSave && !isBusy ? onSave() : null,
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      labelText: 'Display name',
+                      prefixIcon: Icon(SolarIconsOutline.user),
+                    ),
+                    validator: (value) {
+                      if ((value ?? '').trim().isEmpty) {
+                        return 'Please enter your display name';
+                      }
+                      return null;
+                    },
+                  )
+                else
+                  Text(
+                    name.isEmpty ? 'User' : name,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+                  ),
                 Text(
                   email,
+                  textAlign: TextAlign.center,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(color: ColorName.labelSecondary),
                 ),
                 const SizedBox(height: 8),
-                _RoleBadge(role: role),
+                FutureBuilder(
+                  future: stats,
+                  builder: (context, snapshot) {
+                    final data = snapshot.data;
+                    return Row(
+                      children: [
+                        _Stat(value: data?.posts, label: 'Posts', loaded: snapshot.hasData),
+                        _Stat(
+                          value: data?.classrooms,
+                          label: 'Classrooms',
+                          loaded: snapshot.hasData,
+                        ),
+                        _Stat(value: data?.exams, label: 'Exams taken', loaded: snapshot.hasData),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
+                if (isEditing)
+                  Row(
+                    spacing: 12,
+                    children: [
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: isBusy ? null : onCancel,
+                          style: AppButtonStyles.secondary,
+                          child: const Text('Cancel'),
+                        ),
+                      ),
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: canSave && !isBusy ? onSave : null,
+                          style: AppButtonStyles.primary,
+                          child: isBusy
+                              ? const SizedBox(width: 18, height: 18, child: AppLoader())
+                              : const Text('Save changes'),
+                        ),
+                      ),
+                    ],
+                  )
+                else
+                  FilledButton.icon(
+                    onPressed: onEdit,
+                    style: AppButtonStyles.secondary,
+                    icon: const Icon(SolarIconsOutline.pen, size: 18),
+                    label: const Text(
+                      'Edit profile',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                OutlinedButton.icon(
+                  onPressed: onSignOut,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: ColorName.red,
+                    side: BorderSide(color: ColorName.red.withValues(alpha: 0.35)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  icon: const Icon(SolarIconsOutline.exit, size: 18),
+                  label: const Text('Sign out', style: TextStyle(fontWeight: FontWeight.w600)),
+                ),
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+typedef _ProfileStats = ({int? posts, int? classrooms, int? exams});
+
+class _Stat extends StatelessWidget {
+  const _Stat({required this.value, required this.label, required this.loaded});
+
+  final int? value;
+  final String label;
+  final bool loaded;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
+        spacing: 2,
+        children: [
+          Text(
+            loaded ? (value?.toString() ?? '–') : '…',
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+          ),
+          Text(label, style: const TextStyle(fontSize: 12, color: ColorName.gray1)),
         ],
       ),
     );
@@ -366,8 +423,8 @@ class _EditableAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 82,
-      height: 82,
+      width: 112,
+      height: 112,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -380,16 +437,16 @@ class _EditableAvatar extends StatelessWidget {
                 imageProvider = NetworkImage(avatarUrl);
               }
               return CircleAvatar(
-                radius: 40,
-                backgroundColor: ColorName.primary.withValues(alpha: 0.12),
-                foregroundImage: imageProvider,
-                child: imageProvider == null
-                    ? const Icon(
-                        SolarIconsBold.user,
-                        color: ColorName.primary,
-                        size: 34,
-                      )
-                    : null,
+                radius: 56,
+                backgroundColor: Colors.white,
+                child: CircleAvatar(
+                  radius: 52,
+                  backgroundColor: ColorName.primary.withValues(alpha: 0.12),
+                  foregroundImage: imageProvider,
+                  child: imageProvider == null
+                      ? const Icon(SolarIconsBold.user, color: ColorName.primary, size: 44)
+                      : null,
+                ),
               );
             },
           ),
@@ -404,46 +461,12 @@ class _EditableAvatar extends StatelessWidget {
                 onPressed: isBusy ? null : onPressed,
                 padding: EdgeInsets.zero,
                 icon: isBusy
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
+                    ? const SizedBox(width: 16, height: 16, child: AppLoader())
                     : const Icon(SolarIconsOutline.camera, size: 18),
               ),
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _RoleBadge extends StatelessWidget {
-  const _RoleBadge({required this.role});
-
-  final String role;
-
-  @override
-  Widget build(BuildContext context) {
-    final label = role.trim().isEmpty ? 'Unknown' : role.trim();
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: ColorName.primary.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        child: Text(
-          'Role: $label',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: ColorName.primary,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
       ),
     );
   }

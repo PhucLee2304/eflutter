@@ -148,10 +148,11 @@ class ProfileCubit extends Cubit<ProfileState> {
     final trimmed = originalName.trim();
     final dotIndex = trimmed.lastIndexOf('.');
     final extension = dotIndex > -1 ? trimmed.substring(dotIndex) : '';
-    final sanitizedBase = (dotIndex > -1 ? trimmed.substring(0, dotIndex) : trimmed)
-        .replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '-')
-        .replaceAll(RegExp(r'-{2,}'), '-')
-        .replaceAll(RegExp(r'^-|-$'), '');
+    final sanitizedBase =
+        (dotIndex > -1 ? trimmed.substring(0, dotIndex) : trimmed)
+            .replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '-')
+            .replaceAll(RegExp(r'-{2,}'), '-')
+            .replaceAll(RegExp(r'^-|-$'), '');
     final safeBase = sanitizedBase.isEmpty ? 'avatar' : sanitizedBase;
     return '${DateTime.now().millisecondsSinceEpoch}-$safeBase$extension';
   }

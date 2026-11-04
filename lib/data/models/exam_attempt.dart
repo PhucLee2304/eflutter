@@ -1,24 +1,35 @@
 import 'package:eflutter/data/models/exam_questions.dart';
 
 class CreateExamAttemptRequest {
-  final String mode;
+  final String? mode;
   final String? section;
   final List<String> parts;
   final int? duration;
+  final String contextType;
+  final int? contextId;
+
+  /// Phiên bản quy chế đã đồng ý; bắt buộc với bài có giám sát.
+  final String? integrityConsentVersion;
 
   const CreateExamAttemptRequest({
-    required this.mode,
+    this.mode,
     this.section,
     this.parts = const [],
     this.duration,
+    this.contextType = 'STANDALONE',
+    this.contextId,
+    this.integrityConsentVersion,
   });
 
   Map<String, dynamic> toJson() {
     return {
-      'mode': mode,
+      if (mode != null && mode!.isNotEmpty) 'mode': mode,
+      'contextType': contextType,
       if (section != null) 'section': section,
       if (parts.isNotEmpty) 'parts': parts,
       if (duration != null) 'duration': duration,
+      if (contextId != null) 'contextId': contextId,
+      if (integrityConsentVersion != null) 'integrityConsent': {'version': integrityConsentVersion},
     };
   }
 }
@@ -27,15 +38,28 @@ class SubmitAttemptAnswer {
   final int questionId;
   final int? selectedOptionId;
 
-  const SubmitAttemptAnswer({
-    required this.questionId,
-    required this.selectedOptionId,
-  });
+  const SubmitAttemptAnswer({required this.questionId, required this.selectedOptionId});
 
-  Map<String, dynamic> toJson() => {
-    'questionId': questionId,
-    'selectedOptionId': selectedOptionId,
-  };
+  Map<String, dynamic> toJson() => {'questionId': questionId, 'selectedOptionId': selectedOptionId};
+}
+
+/// Kết quả giám sát của attempt (PLAN_ATTEMPT_INTEGRITY.md mục 1.2).
+abstract final class IntegrityOutcome {
+  static const none = 'NONE';
+  static const terminated = 'TERMINATED';
+  static const reinstated = 'REINSTATED';
+}
+
+/// Luồng làm bài do server chốt lúc tạo attempt (PLAN_TOEIC_ATTEMPT.md mục 1.1).
+abstract final class AttemptFlow {
+  static const free = 'FREE';
+  static const toeicStrict = 'TOEIC_STRICT';
+}
+
+/// Giai đoạn của attempt TOEIC_STRICT.
+abstract final class AttemptStage {
+  static const listening = 'LISTENING';
+  static const reading = 'READING';
 }
 
 class ExamAttempt {
@@ -44,6 +68,8 @@ class ExamAttempt {
   final AttemptExamSummary? exam;
   final String mode;
   final String status;
+  final String flow;
+  final String? stage;
   final String? section;
   final List<String> parts;
   final int? duration;
@@ -58,12 +84,33 @@ class ExamAttempt {
   final DateTime? updatedAt;
   final List<ExamQuestionsSection> questions;
 
+  // Giám sát: chỉ có giá trị khi proctored.
+  final bool proctored;
+  final int? maxViolations;
+  final int? violationCount;
+  final String? integrityOutcome;
+  final String? terminationReason;
+
+  /// Lời nhắn giáo viên cho học sinh khi đình chỉ / mở lại.
+  final String? teacherNote;
+
+  /// Bài giao trong lớp: mở kết quả trong tab Classwork của lớp đó.
+  final int? assignmentId;
+  final int? classroomId;
+
+  bool get isTerminated => integrityOutcome == IntegrityOutcome.terminated;
+
+  /// Bài giao trong lớp: không hủy được, chỉ nộp.
+  bool get isAssignment => mode == 'ASSIGNMENT';
+
   const ExamAttempt({
     required this.id,
     required this.examId,
     required this.exam,
     required this.mode,
     required this.status,
+    this.flow = AttemptFlow.free,
+    this.stage,
     required this.section,
     required this.parts,
     required this.duration,
@@ -77,16 +124,21 @@ class ExamAttempt {
     required this.createdAt,
     required this.updatedAt,
     required this.questions,
+    this.proctored = false,
+    this.maxViolations,
+    this.violationCount,
+    this.integrityOutcome,
+    this.terminationReason,
+    this.teacherNote,
+    this.assignmentId,
+    this.classroomId,
   });
 
   factory ExamAttempt.fromJson(Map<String, dynamic> json) {
     final questions =
-        json['questions'] as List<dynamic>? ??
-        json['sections'] as List<dynamic>? ??
-        const [];
+        json['questions'] as List<dynamic>? ?? json['sections'] as List<dynamic>? ?? const [];
     final parts = json['parts'] as List<dynamic>? ?? const [];
-    final examId = (json['examId'] as num? ?? json['examid'] as num? ?? 0)
-        .toInt();
+    final examId = (json['examId'] as num? ?? json['examid'] as num? ?? 0).toInt();
     return ExamAttempt(
       id: (json['id'] as num).toInt(),
       examId: examId,
@@ -95,6 +147,8 @@ class ExamAttempt {
           : _flatExamFromJson(json, examId),
       mode: json['mode'] as String? ?? '',
       status: json['status'] as String? ?? '',
+      flow: json['flow'] as String? ?? AttemptFlow.free,
+      stage: json['stage'] as String?,
       section: json['section'] as String?,
       parts: parts.map((item) => item.toString()).toList(),
       duration: (json['duration'] as num?)?.toInt(),
@@ -108,13 +162,20 @@ class ExamAttempt {
       createdAt: DateTime.tryParse(json['createdAt'] as String? ?? ''),
       updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? ''),
       questions: questions
-          .map(
-            (item) =>
-                ExamQuestionsSection.fromJson(item as Map<String, dynamic>),
-          )
+          .map((item) => ExamQuestionsSection.fromJson(item as Map<String, dynamic>))
           .toList(),
+      proctored: json['proctored'] as bool? ?? false,
+      maxViolations: (json['maxViolations'] as num?)?.toInt(),
+      violationCount: (json['violationCount'] as num?)?.toInt(),
+      integrityOutcome: json['integrityOutcome'] as String?,
+      terminationReason: json['terminationReason'] as String?,
+      teacherNote: json['teacherNote'] as String?,
+      assignmentId: (json['assignmentId'] as num?)?.toInt(),
+      classroomId: (json['classroomId'] as num?)?.toInt(),
     );
   }
+
+  bool get isStrict => flow == AttemptFlow.toeicStrict;
 
   factory ExamAttempt.fromQuestionsResponse(Map<String, dynamic> json) {
     final attemptJson = json['attempt'];
@@ -138,10 +199,7 @@ class ExamAttempt {
     return ExamAttempt.fromJson(merged);
   }
 
-  static AttemptExamSummary? _flatExamFromJson(
-    Map<String, dynamic> json,
-    int examId,
-  ) {
+  static AttemptExamSummary? _flatExamFromJson(Map<String, dynamic> json, int examId) {
     final hasFlatExam =
         json['title'] != null ||
         json['description'] != null ||

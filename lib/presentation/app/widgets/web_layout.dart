@@ -1,4 +1,5 @@
 import 'package:eflutter/generated/colors.gen.dart';
+import 'package:eflutter/presentation/app/navigation/app_routes.dart';
 import 'package:eflutter/presentation/app/navigation/navigation_item.dart';
 import 'package:eflutter/presentation/app/widgets/main_app_bar.dart';
 import 'package:flutter/material.dart';
@@ -28,12 +29,17 @@ class WebLayout extends StatelessWidget {
         final maxWidth = constraints.maxWidth;
         final isMobile = maxWidth < 640;
         final isDesktop = maxWidth >= 960;
+        final selectedItem = navigationShell.currentIndex < allItems.length
+            ? allItems[navigationShell.currentIndex]
+            : null;
         return Scaffold(
-          appBar: MainAppBar(onNotificationPressed: () {}),
+          appBar: MainAppBar(
+            onNotificationPressed: () => context.go(notificationsPath),
+          ),
           drawer: isMobile
               ? _MobileDrawer(
                   itemGroups: itemGroups,
-                  selectedItem: allItems[navigationShell.currentIndex],
+                  selectedItem: selectedItem,
                   onTabTapped: _onTabTapped,
                 )
               : null,
@@ -45,7 +51,7 @@ class WebLayout extends StatelessWidget {
                   _NavigationSideBar(
                     isDesktop: isDesktop,
                     itemGroups: itemGroups,
-                    selectedItem: allItems[navigationShell.currentIndex],
+                    selectedItem: selectedItem,
                     onTabTapped: _onTabTapped,
                   ),
 
@@ -69,7 +75,7 @@ class _MobileDrawer extends StatelessWidget {
   });
 
   final Map<NavigationItemGroup, List<NavigationItem>> itemGroups;
-  final NavigationItem selectedItem;
+  final NavigationItem? selectedItem;
   final Function(NavigationItem item) onTabTapped;
 
   @override
@@ -100,7 +106,7 @@ class _NavigationSideBar extends StatefulWidget {
   final bool isMobile;
   final bool isDesktop;
   final Map<NavigationItemGroup, List<NavigationItem>> itemGroups;
-  final NavigationItem selectedItem;
+  final NavigationItem? selectedItem;
   final Function(NavigationItem item) onTabTapped;
 
   @override
@@ -217,7 +223,7 @@ class _NavigationSideBarGroup extends StatefulWidget {
   final bool isExpanded;
   final NavigationItemGroup group;
   final List<NavigationItem> items;
-  final NavigationItem selectedItem;
+  final NavigationItem? selectedItem;
   final Function(NavigationItem item) onTabTapped;
 
   @override

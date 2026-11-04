@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:eflutter/data/models/attempt_page.dart';
 import 'package:eflutter/data/models/exam_attempt.dart';
 import 'package:eflutter/data/models/exam_attempt_page.dart';
 import 'package:eflutter/data/models/exam_detail.dart';
@@ -43,29 +44,36 @@ abstract interface class RemoteDataBase {
     required String type,
     required int page,
     required int pageSize,
+    String? search,
+    int? year,
   });
+
+  /// Các năm có đề public của loại này, mới nhất trước.
+  Future<List<int>> getExamYears(String type);
 
   Future<ExamDetail> getExamById(int examId);
 
-  Future<ExamAttempt> createExamAttempt(
-    int examId,
-    CreateExamAttemptRequest request,
-  );
+  Future<ExamAttempt> createExamAttempt(int examId, CreateExamAttemptRequest request);
 
+  /// [excludeMode] bỏ attempt theo mode, [examTypes] chỉ lấy đề thuộc các loại này.
   Future<ExamAttemptPage> getAttempts({
     required String status,
     required int page,
     required int pageSize,
+    String? excludeMode,
+    List<String> examTypes = const [],
+    String? search,
   });
 
   Future<ExamAttempt> getAttemptQuestions(int attemptId);
 
-  Future<ExamAttempt> submitAttempt(
-    int attemptId,
-    List<SubmitAttemptAnswer> answers,
-  );
+  Future<ExamAttempt> submitAttempt(int attemptId, List<SubmitAttemptAnswer> answers);
 
   Future<ExamAttempt> cancelAttempt(int attemptId);
 
   Future<ExamAttempt> getAttemptHistory(int attemptId);
+
+  Future<AttemptNavigator> getAttemptNavigator(int attemptId);
+
+  Future<AttemptPage> getAttemptPage(int attemptId, int index);
 }

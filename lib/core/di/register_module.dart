@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:eflutter/app/config/app_config.dart';
+import 'package:eflutter/core/attempt_lock/leave_guard.dart';
 import 'package:eflutter/core/auth/auth_interceptor.dart';
 import 'package:injectable/injectable.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -12,6 +13,9 @@ abstract class RegisterModule {
 
   @lazySingleton
   Talker get talker => TalkerFlutter.init();
+
+  @lazySingleton
+  LeaveGuard get leaveGuard => LeaveGuard();
 
   @lazySingleton
   Dio dio(AuthInterceptor authInterceptor) {

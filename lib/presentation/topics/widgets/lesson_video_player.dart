@@ -1,3 +1,4 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:chewie/chewie.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
@@ -78,7 +79,11 @@ class LessonVideoController extends ChangeNotifier {
 }
 
 class LessonVideoPlayer extends StatefulWidget {
-  const LessonVideoPlayer({required this.url, required this.controller, super.key});
+  const LessonVideoPlayer({
+    required this.url,
+    required this.controller,
+    super.key,
+  });
 
   final String url;
   final LessonVideoController controller;
@@ -111,7 +116,7 @@ class _LessonVideoPlayerState extends State<LessonVideoPlayer> {
         if (chewie != null) {
           return Chewie(controller: chewie);
         }
-        return const Center(child: CircularProgressIndicator());
+        return const AppLoader();
       },
     );
   }

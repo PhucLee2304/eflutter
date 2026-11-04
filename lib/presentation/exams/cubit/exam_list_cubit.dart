@@ -8,6 +8,9 @@ class ExamListState {
   final List<ExamSummary> exams;
   final int page;
   final int pageCounts;
+  final List<int> years;
+  final String search;
+  final int? year;
   final bool isLoading;
   final Failure? failure;
 
@@ -15,9 +18,14 @@ class ExamListState {
     this.exams = const [],
     this.page = 1,
     this.pageCounts = 1,
+    this.years = const [],
+    this.search = '',
+    this.year,
     this.isLoading = false,
     this.failure,
   });
+
+  bool get isFiltered => search.isNotEmpty || year != null;
 
   bool get canGoPrevious => page > 1;
 
@@ -27,6 +35,9 @@ class ExamListState {
     List<ExamSummary>? exams,
     int? page,
     int? pageCounts,
+    List<int>? years,
+    String? search,
+    Object? year = _failureSentinel,
     bool? isLoading,
     Object? failure = _failureSentinel,
   }) {
@@ -34,10 +45,11 @@ class ExamListState {
       exams: exams ?? this.exams,
       page: page ?? this.page,
       pageCounts: pageCounts ?? this.pageCounts,
+      years: years ?? this.years,
+      search: search ?? this.search,
+      year: identical(year, _failureSentinel) ? this.year : year as int?,
       isLoading: isLoading ?? this.isLoading,
-      failure: identical(failure, _failureSentinel)
-          ? this.failure
-          : failure as Failure?,
+      failure: identical(failure, _failureSentinel) ? this.failure : failure as Failure?,
     );
   }
 }
@@ -49,16 +61,19 @@ class ExamListCubit extends Cubit<ExamListState> {
   final String examType;
   final int pageSize;
 
-  ExamListCubit(
-    this._examRepository, {
-    required this.examType,
-    this.pageSize = 20,
-  }) : super(const ExamListState());
+  ExamListCubit(this._examRepository, {required this.examType, this.pageSize = 9})
+    : super(const ExamListState());
 
   Future<void> load({int page = 1}) async {
     emit(state.copyWith(isLoading: true, failure: null));
     final result = await _examRepository
-        .getExams(type: examType, page: page, pageSize: pageSize)
+        .getExams(
+          type: examType,
+          page: page,
+          pageSize: pageSize,
+          search: state.search,
+          year: state.year,
+        )
         .withLoading();
 
     switch (result) {
@@ -79,7 +94,31 @@ class ExamListCubit extends Cubit<ExamListState> {
     }
   }
 
+  /// Năm có đề của loại này, cho bộ lọc năm.
+  Future<void> loadYears() async {
+    final result = await _examRepository.getExamYears(examType);
+    if (result case Success(data: final years)) emit(state.copyWith(years: years));
+  }
+
   Future<void> refresh() => load(page: state.page);
+
+  Future<void> goToPage(int page) async {
+    if (state.isLoading || page == state.page) return;
+    await load(page: page);
+  }
+
+  Future<void> setSearch(String search) async {
+    final value = search.trim();
+    if (value == state.search) return;
+    emit(state.copyWith(search: value));
+    await load();
+  }
+
+  Future<void> setYear(int? year) async {
+    if (year == state.year) return;
+    emit(state.copyWith(year: year));
+    await load();
+  }
 
   Future<void> nextPage() async {
     if (!state.canGoNext || state.isLoading) return;

@@ -43,7 +43,7 @@ class ExamQuestionGroup {
   final String title;
   final String instruction;
   final String? audioUrl;
-  final String? imageUrl;
+  final List<String> imageUrls;
   final String transcript;
   final String explanation;
   final int order;
@@ -54,7 +54,7 @@ class ExamQuestionGroup {
     required this.title,
     required this.instruction,
     required this.audioUrl,
-    required this.imageUrl,
+    required this.imageUrls,
     required this.transcript,
     required this.explanation,
     required this.order,
@@ -68,7 +68,7 @@ class ExamQuestionGroup {
       title: json['title'] as String? ?? '',
       instruction: json['instruction'] as String? ?? '',
       audioUrl: json['audioUrl'] as String?,
-      imageUrl: json['imageUrl'] as String?,
+      imageUrls: (json['imageUrls'] as List<dynamic>? ?? const []).cast<String>(),
       transcript: json['transcript'] as String? ?? '',
       explanation: json['explanation'] as String? ?? '',
       order: (json['order'] as num?)?.toInt() ?? 0,
@@ -83,8 +83,12 @@ class ExamQuestion {
   final int id;
   final String content;
   final String? part;
+
+  /// Số câu gốc của đề (TOEIC 1–200); null với đề không đánh số hoặc snapshot cũ.
+  final int? number;
   final String explanation;
   final int order;
+  final bool excludedFromScore;
   final int? selectedOptionId;
   final int? correctOptionId;
   final bool? isCorrect;
@@ -94,8 +98,10 @@ class ExamQuestion {
     required this.id,
     required this.content,
     required this.part,
+    this.number,
     required this.explanation,
     required this.order,
+    required this.excludedFromScore,
     required this.selectedOptionId,
     required this.correctOptionId,
     required this.isCorrect,
@@ -108,8 +114,12 @@ class ExamQuestion {
       id: (json['id'] as num).toInt(),
       content: json['content'] as String? ?? '',
       part: json['part'] as String?,
+      number: (json['number'] as num?)?.toInt(),
       explanation: json['explanation'] as String? ?? '',
       order: (json['order'] as num?)?.toInt() ?? 0,
+      excludedFromScore:
+          json['excludedFromScore'] as bool? ??
+          (json['isScored'] is bool ? !(json['isScored'] as bool) : false),
       selectedOptionId: (json['selectedOptionId'] as num?)?.toInt(),
       correctOptionId: (json['correctOptionId'] as num?)?.toInt(),
       isCorrect: json['isCorrect'] as bool?,

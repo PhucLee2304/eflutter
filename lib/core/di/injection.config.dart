@@ -11,6 +11,10 @@
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 
 import 'package:dio/dio.dart' as _i361;
+import 'package:eflutter/core/attempt_lock/attempt_integrity_reporter.dart'
+    as _i649;
+import 'package:eflutter/core/attempt_lock/attempt_lock_notifier.dart' as _i668;
+import 'package:eflutter/core/attempt_lock/leave_guard.dart' as _i744;
 import 'package:eflutter/core/auth/auth_interceptor.dart' as _i393;
 import 'package:eflutter/core/auth/auth_notifier.dart' as _i549;
 import 'package:eflutter/core/base/local_data_base.dart' as _i942;
@@ -41,6 +45,10 @@ import 'package:eflutter/presentation/grammar/cubit/grammar_curriculum_cubit.dar
     as _i436;
 import 'package:eflutter/presentation/grammar/cubit/grammar_unit_cubit.dart'
     as _i690;
+import 'package:eflutter/presentation/notifications/notification_controller.dart'
+    as _i834;
+import 'package:eflutter/presentation/notifications/notification_push_service.dart'
+    as _i339;
 import 'package:eflutter/presentation/profile/cubit/profile_cubit.dart'
     as _i1004;
 import 'package:eflutter/presentation/topics/cubit/topic_cubit.dart' as _i1049;
@@ -66,8 +74,12 @@ extension GetItInjectableX on _i174.GetIt {
       () => registerModule.sharedPreferencesAsync,
     );
     gh.lazySingleton<_i207.Talker>(() => registerModule.talker);
+    gh.lazySingleton<_i744.LeaveGuard>(() => registerModule.leaveGuard);
     gh.lazySingleton<_i942.LocalDataBase>(
       () => _i264.LocalData(gh<_i460.SharedPreferencesAsync>()),
+    );
+    gh.lazySingleton<_i649.AttemptIntegrityReporter>(
+      () => _i649.SocketAttemptIntegrityReporter(gh<_i207.Talker>()),
     );
     gh.lazySingleton<_i361.Dio>(
       () => registerModule.dio(gh<_i393.AuthInterceptor>()),
@@ -81,6 +93,16 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i123.GrammarRemoteData>(
       () => _i123.GrammarRemoteData(gh<_i361.Dio>()),
     );
+    gh.lazySingleton<_i834.NotificationController>(
+      () => _i834.NotificationController(gh<_i361.Dio>()),
+    );
+    gh.lazySingleton<_i668.AttemptLockNotifier>(
+      () => _i668.AttemptLockNotifier(
+        gh<_i90.RemoteDataBase>(),
+        gh<_i649.AttemptIntegrityReporter>(),
+        gh<_i744.LeaveGuard>(),
+      ),
+    );
     gh.lazySingleton<_i234.GrammarRepository>(
       () => _i234.GrammarRepository(gh<_i123.GrammarRemoteData>()),
     );
@@ -92,6 +114,14 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.lazySingleton<_i23.DictionaryRepository>(
       () => _i23.DictionaryRepository(gh<_i100.DictionaryRemoteData>()),
+    );
+    gh.lazySingleton<_i339.NotificationPushService>(
+      () => _i339.NotificationPushService(
+        gh<_i361.Dio>(),
+        gh<_i834.NotificationController>(),
+        gh<_i460.SharedPreferencesAsync>(),
+        gh<_i942.LocalDataBase>(),
+      ),
     );
     gh.lazySingleton<_i695.AuthRepository>(
       () => _i695.AuthRepository(
@@ -105,6 +135,15 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.lazySingleton<_i180.UserRepository>(
       () => _i180.UserRepository(gh<_i90.RemoteDataBase>()),
+    );
+    gh.singleton<_i744.AuthCubit>(
+      () => _i744.AuthCubit(
+        gh<_i695.AuthRepository>(),
+        gh<_i339.NotificationPushService>(),
+      ),
+    );
+    gh.lazySingleton<_i549.AuthNotifier>(
+      () => _i549.AuthNotifier(gh<_i744.AuthCubit>()),
     );
     gh.singleton<_i912.AppCubit>(
       () => _i912.AppCubit(gh<_i180.UserRepository>()),
@@ -125,14 +164,8 @@ extension GetItInjectableX on _i174.GetIt {
       () =>
           _i1004.ProfileCubit(gh<_i180.UserRepository>(), gh<_i912.AppCubit>()),
     );
-    gh.singleton<_i744.AuthCubit>(
-      () => _i744.AuthCubit(gh<_i695.AuthRepository>()),
-    );
     gh.factory<_i1049.TopicCubit>(
       () => _i1049.TopicCubit(gh<_i441.TopicRepository>()),
-    );
-    gh.lazySingleton<_i549.AuthNotifier>(
-      () => _i549.AuthNotifier(gh<_i744.AuthCubit>()),
     );
     return this;
   }
