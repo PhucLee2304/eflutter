@@ -15,6 +15,7 @@ class SelfStudyStats {
     required this.bestScore,
     required this.lastPracticeAt,
     required this.bestByExam,
+    this.attemptsByExam = const {},
     this.averageScore,
     this.examTotal,
   });
@@ -25,6 +26,9 @@ class SelfStudyStats {
 
   /// Điểm cao nhất theo examId, dùng cho nhãn "Best" trên thẻ đề.
   final Map<int, double> bestByExam;
+
+  /// Số lượt đã nộp theo examId (trong mẫu 100 lượt gần nhất).
+  final Map<int, int> attemptsByExam;
 
   final double? averageScore;
 
@@ -39,7 +43,9 @@ class SelfStudyStats {
     var scored = 0;
     DateTime? last;
     final bestByExam = <int, double>{};
+    final attemptsByExam = <int, int>{};
     for (final attempt in attempts) {
+      attemptsByExam.update(attempt.examId, (n) => n + 1, ifAbsent: () => 1);
       final at = attempt.submittedAt ?? attempt.updatedAt;
       if (at != null && (last == null || at.isAfter(last))) last = at;
       final score = attempt.score;
@@ -55,6 +61,7 @@ class SelfStudyStats {
       bestScore: best,
       lastPracticeAt: last,
       bestByExam: bestByExam,
+      attemptsByExam: attemptsByExam,
       averageScore: scored == 0 ? null : sum / scored,
       examTotal: examTotal,
     );
