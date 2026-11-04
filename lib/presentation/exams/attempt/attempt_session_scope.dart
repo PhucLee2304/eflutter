@@ -184,17 +184,46 @@ Future<bool> confirmAttemptAction(
   required String title,
   required String message,
   required String action,
+  String cancel = 'Back',
   bool destructive = false,
 }) async =>
     await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
+        backgroundColor: ColorName.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        constraints: const BoxConstraints(maxWidth: 420),
+        titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+        contentPadding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+        actionsPadding: const EdgeInsets.all(24),
+        title: Text(
+          title,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: ColorName.labelPrimary,
+          ),
+        ),
+        content: Text(
+          message,
+          style: const TextStyle(fontSize: 14, height: 1.4, color: Color(0xFF5F6B7A)),
+        ),
         actions: [
-          TextButton(onPressed: () => context.pop(false), child: const Text('Back')),
+          OutlinedButton(
+            onPressed: () => context.pop(false),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: ColorName.labelPrimary,
+              side: const BorderSide(color: Color(0xFFE3E8EF)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: Text(cancel),
+          ),
           FilledButton(
-            style: destructive ? FilledButton.styleFrom(backgroundColor: ColorName.red) : null,
+            style: FilledButton.styleFrom(
+              backgroundColor: destructive ? const Color(0xFFD92D20) : null,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
             onPressed: () => context.pop(true),
             child: Text(action),
           ),
@@ -220,9 +249,10 @@ Future<void> confirmSubmitAttempt(
 Future<void> confirmCancelAttempt(BuildContext context, AttemptSessionCubit cubit) async {
   final accepted = await confirmAttemptAction(
     context,
-    title: 'Cancel attempt?',
-    message: 'The attempt will be saved as cancelled without a score.',
-    action: 'Cancel attempt',
+    title: 'Quit this attempt?',
+    message: 'Your answers will be discarded and this attempt won’t appear in your history.',
+    action: 'Quit attempt',
+    cancel: 'Keep going',
     destructive: true,
   );
   if (accepted) await cubit.cancel();

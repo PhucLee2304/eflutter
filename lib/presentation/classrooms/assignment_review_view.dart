@@ -208,7 +208,11 @@ class _Head extends StatelessWidget {
               ),
               if (submittedAt != null)
                 Text(
-                  'Submitted ${DateFormat('MMM d, HH:mm').format(submittedAt.toLocal())}',
+                  [
+                    'Submitted ${DateFormat('MMM d, HH:mm').format(submittedAt.toLocal())}',
+                    // Lượt tự luyện: thêm phạm vi và chế độ; bài giao thì không cần.
+                    if (!attempt.isAssignment) ...[_scope(attempt), _mode(attempt)],
+                  ].join(' · '),
                   style: const TextStyle(fontSize: 13, color: Gb.muted),
                 ),
             ],
@@ -226,6 +230,19 @@ class _Head extends StatelessWidget {
     );
   }
 }
+
+String _scope(ExamAttempt attempt) {
+  if (attempt.parts.isNotEmpty) {
+    return attempt.parts.map((part) => partLabel(part) ?? part).join(', ');
+  }
+  return switch (attempt.section) {
+    'LISTENING' => 'Listening',
+    'READING' => 'Reading',
+    _ => 'Full test',
+  };
+}
+
+String _mode(ExamAttempt attempt) => attempt.mode == 'TEST' ? 'Test' : 'Practice';
 
 GbPill _violationPill(int count, int max) {
   if (count == 0) {

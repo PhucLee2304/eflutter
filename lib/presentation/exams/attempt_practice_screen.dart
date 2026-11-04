@@ -17,7 +17,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class AttemptPracticeScreen extends StatefulWidget {
-  const AttemptPracticeScreen({super.key, required this.attemptId, this.initialAttempt});
+  const AttemptPracticeScreen({
+    super.key,
+    required this.attemptId,
+    this.initialAttempt,
+  });
 
   final int attemptId;
   final ExamAttempt? initialAttempt;
@@ -48,25 +52,34 @@ class _AttemptPracticeScreenState extends State<AttemptPracticeScreen> {
     super.dispose();
   }
 
-  GlobalKey _keyFor(int questionId) => _questionKeys.putIfAbsent(questionId, GlobalKey.new);
+  GlobalKey _keyFor(int questionId) =>
+      _questionKeys.putIfAbsent(questionId, GlobalKey.new);
 
   void _scrollTo(int questionId) {
     final target = _questionKeys[questionId]?.currentContext;
     if (target == null) return;
-    Scrollable.ensureVisible(target, duration: const Duration(milliseconds: 300), alignment: 0.1);
+    Scrollable.ensureVisible(
+      target,
+      duration: const Duration(milliseconds: 300),
+      alignment: 0.1,
+    );
   }
 
   void _openPalette(ExamAttempt attempt) {
     showQuestionPalette(
       context,
       onSelect: _scrollTo,
-      builder: (context, onTap) => BlocBuilder<AttemptSessionCubit, AttemptSessionState>(
-        bloc: _cubit,
-        builder: (context, state) => QuestionPalette(
-          groups: paletteGroupsFromSections(attempt.questions, state.selectedOptions),
-          onTap: onTap,
-        ),
-      ),
+      builder: (context, onTap) =>
+          BlocBuilder<AttemptSessionCubit, AttemptSessionState>(
+            bloc: _cubit,
+            builder: (context, state) => QuestionPalette(
+              groups: paletteGroupsFromSections(
+                attempt.questions,
+                state.selectedOptions,
+              ),
+              onTap: onTap,
+            ),
+          ),
     );
   }
 
@@ -129,6 +142,14 @@ class _AttemptBody extends StatelessWidget {
 
   static const _sideBreakpoint = 960.0;
 
+  /// Dựng hết câu (không lazy) để ensureVisible tới được câu ngoài màn hình.
+  static Widget _scrollable(Widget child, {double right = 16}) => SelectionArea(
+    child: SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(16, 24, right, 40),
+      child: child,
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     final title = attempt.exam?.title.trim().isNotEmpty == true
@@ -169,36 +190,47 @@ class _AttemptBody extends StatelessWidget {
             Expanded(
               child: ColoredBox(
                 color: const Color(0xFFF7F9FB),
-                // Dựng hết câu (không lazy) để ensureVisible tới được câu ngoài màn hình.
-                child: SelectionArea(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(16, 24, 16, 40),
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(maxWidth: wide ? 1144 : 820),
-                        child: wide
-                            ? Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                spacing: 24,
-                                children: [
-                                  Expanded(child: questions),
-                                  SizedBox(
-                                    width: 300,
-                                    child: _ProgressPanel(
-                                      attempt: attempt,
-                                      state: state,
-                                      numbers: numbers,
-                                      onJump: onJump,
-                                      onSubmit: onSubmit,
-                                    ),
+                child: wide
+                    // Cột tiến độ đứng yên bên phải, chỉ danh sách câu hỏi cuộn.
+                    ? Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 1176),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: _scrollable(questions, right: 12),
+                              ),
+                              SizedBox(
+                                width: 324,
+                                child: SingleChildScrollView(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    12,
+                                    24,
+                                    16,
+                                    24,
                                   ),
-                                ],
-                              )
-                            : questions,
+                                  child: _ProgressPanel(
+                                    attempt: attempt,
+                                    state: state,
+                                    numbers: numbers,
+                                    onJump: onJump,
+                                    onSubmit: onSubmit,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : _scrollable(
+                        Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 820),
+                            child: questions,
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                ),
               ),
             ),
           ],
@@ -229,7 +261,8 @@ class _IntroCard extends StatelessWidget {
     final meta = [
       attempt.isAssignment ? 'Assignment' : 'Practice',
       '${attempt.totalQuestions} question${attempt.totalQuestions == 1 ? '' : 's'}',
-      if (attempt.duration case final minutes? when minutes > 0) 'Time limit ${_minutes(minutes)}',
+      if (attempt.duration case final minutes? when minutes > 0)
+        'Time limit ${_minutes(minutes)}',
     ];
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -244,14 +277,28 @@ class _IntroCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           spacing: 8,
           children: [
-            Text(title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
+            ),
             if (description.isNotEmpty)
-              Text(description, style: const TextStyle(fontSize: 14, color: _muted, height: 1.4)),
+              Text(
+                description,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: _muted,
+                  height: 1.4,
+                ),
+              ),
             Padding(
               padding: const EdgeInsets.only(top: 2),
               child: Text(
                 meta.join('   ·   '),
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: _faint),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: _faint,
+                ),
               ),
             ),
           ],
@@ -263,7 +310,9 @@ class _IntroCard extends StatelessWidget {
 
 String _minutes(int minutes) {
   if (minutes < 60) return '${minutes}m';
-  return minutes % 60 == 0 ? '${minutes ~/ 60}h' : '${minutes ~/ 60}h ${minutes % 60}m';
+  return minutes % 60 == 0
+      ? '${minutes ~/ 60}h'
+      : '${minutes ~/ 60}h ${minutes % 60}m';
 }
 
 class _ProgressPanel extends StatelessWidget {
@@ -284,7 +333,8 @@ class _ProgressPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final total = attempt.totalQuestions;
     final answered = state.answeredCount;
-    final ordered = numbers.entries.toList()..sort((a, b) => a.value.compareTo(b.value));
+    final ordered = numbers.entries.toList()
+      ..sort((a, b) => a.value.compareTo(b.value));
     final integrity = state.integrity;
     return Container(
       padding: const EdgeInsets.all(20),
@@ -293,7 +343,10 @@ class _ProgressPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         spacing: 16,
         children: [
-          const Text('Progress', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+          const Text(
+            'Progress',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          ),
           Row(
             spacing: 10,
             children: [
@@ -310,7 +363,11 @@ class _ProgressPanel extends StatelessWidget {
               ),
               Text(
                 '$answered / $total',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: _muted),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: _muted,
+                ),
               ),
             ],
           ),
@@ -331,7 +388,11 @@ class _ProgressPanel extends StatelessWidget {
             spacing: 8,
             children: [
               _LegendItem(fill: ColorName.primary, label: 'Answered'),
-              _LegendItem(fill: ColorName.white, border: _border, label: 'Not answered'),
+              _LegendItem(
+                fill: ColorName.white,
+                border: _border,
+                label: 'Not answered',
+              ),
             ],
           ),
           if (integrity != null)
@@ -344,14 +405,22 @@ class _ProgressPanel extends StatelessWidget {
               child: Text(
                 'Leaving this tab or exiting full screen counts as a warning. '
                 '${integrity.maxViolations} warnings submit the attempt automatically.',
-                style: const TextStyle(fontSize: 12, color: Color(0xFFB26A00), height: 1.4),
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFFB26A00),
+                  height: 1.4,
+                ),
               ),
             ),
           FilledButton(
-            onPressed: state.isSubmitting || state.isCancelling ? null : onSubmit,
+            onPressed: state.isSubmitting || state.isCancelling
+                ? null
+                : onSubmit,
             style: FilledButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             child: const Text('Submit attempt'),
           ),
@@ -362,7 +431,11 @@ class _ProgressPanel extends StatelessWidget {
 }
 
 class _NumberCell extends StatelessWidget {
-  const _NumberCell({required this.number, required this.answered, required this.onTap});
+  const _NumberCell({
+    required this.number,
+    required this.answered,
+    required this.onTap,
+  });
   final int number;
   final bool answered;
   final VoidCallback onTap;
@@ -491,7 +564,9 @@ class _GroupBlock extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (group.title.isNotEmpty || group.instruction.isNotEmpty || group.imageUrls.isNotEmpty)
+        if (group.title.isNotEmpty ||
+            group.instruction.isNotEmpty ||
+            group.imageUrls.isNotEmpty)
           Container(
             margin: const EdgeInsets.only(bottom: 10),
             padding: const EdgeInsets.all(14),
@@ -503,9 +578,15 @@ class _GroupBlock extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (group.title.isNotEmpty)
-                  Text(group.title, style: const TextStyle(fontWeight: FontWeight.w700)),
+                  Text(
+                    group.title,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
                 if (group.instruction.isNotEmpty)
-                  Padding(padding: const EdgeInsets.only(top: 6), child: Text(group.instruction)),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(group.instruction),
+                  ),
                 for (final imageUrl in group.imageUrls)
                   Padding(
                     padding: const EdgeInsets.only(top: 12),
@@ -514,7 +595,8 @@ class _GroupBlock extends StatelessWidget {
                       child: Image.network(
                         imageUrl,
                         fit: BoxFit.contain,
-                        errorBuilder: (_, _, _) => const Text('Image unavailable'),
+                        errorBuilder: (_, _, _) =>
+                            const Text('Image unavailable'),
                       ),
                     ),
                   ),
@@ -569,7 +651,11 @@ class _QuestionCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   'Question $number',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _faint),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: _faint,
+                  ),
                 ),
               ),
               if (question.excludedFromScore) const NotScoredBadge(),
@@ -577,8 +663,14 @@ class _QuestionCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            question.content.isEmpty ? 'Choose the correct answer.' : question.content,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, height: 1.4),
+            question.content.isEmpty
+                ? 'Choose the correct answer.'
+                : question.content,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              height: 1.4,
+            ),
           ),
           const SizedBox(height: 14),
           for (final option in question.options)
@@ -587,7 +679,10 @@ class _QuestionCard extends StatelessWidget {
               selected: selected == option.id,
               locked: state.isLocked,
               // Bấm lại đáp án đang chọn để bỏ chọn.
-              onTap: () => onSelect(question.id, selected == option.id ? null : option.id),
+              onTap: () => onSelect(
+                question.id,
+                selected == option.id ? null : option.id,
+              ),
             ),
         ],
       ),
@@ -655,7 +750,9 @@ class _OptionRow extends StatelessWidget {
                       content.isEmpty ? option.key : content,
                       style: TextStyle(
                         fontSize: 14,
-                        fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
+                        fontWeight: selected
+                            ? FontWeight.w500
+                            : FontWeight.w400,
                       ),
                     ),
                   ),

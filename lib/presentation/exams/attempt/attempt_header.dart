@@ -67,13 +67,7 @@ class AttemptHeader extends StatelessWidget {
           ),
         ),
       if (onCancel != null)
-        IconButton.outlined(
-          tooltip: 'Cancel attempt',
-          onPressed: busy ? null : onCancel,
-          icon: state.isCancelling
-              ? const SizedBox.square(dimension: 18, child: AppLoader())
-              : const Icon(SolarIconsOutline.closeCircle, size: 20),
-        ),
+        _QuitButton(onPressed: busy ? null : onCancel, loading: state.isCancelling),
       if (showSubmit)
         FilledButton.icon(
           onPressed: busy ? null : onSubmit,
@@ -182,11 +176,13 @@ class _SavePill extends StatelessWidget {
     return Tooltip(
       message: 'Answers are saved automatically while you work.',
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(12)),
+        height: 36,
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(8)),
         child: Text(
           label,
-          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: foreground),
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: foreground),
         ),
       ),
     );
@@ -221,6 +217,60 @@ class AttemptTimerBadge extends StatelessWidget {
             const Text('left', style: TextStyle(fontSize: 12, color: ColorName.labelSecondary)),
         ],
       ),
+    );
+  }
+}
+
+/// Nút thoát lượt làm: viền xám, rê chuột thì chuyển đỏ để báo thao tác hủy.
+class _QuitButton extends StatelessWidget {
+  const _QuitButton({required this.onPressed, required this.loading});
+
+  final VoidCallback? onPressed;
+  final bool loading;
+
+  static const _red = Color(0xFFD92D20);
+
+  @override
+  Widget build(BuildContext context) {
+    Color pick(Set<WidgetState> states, Color hover, Color normal) =>
+        states.contains(WidgetState.hovered) || states.contains(WidgetState.pressed)
+        ? hover
+        : normal;
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      style: ButtonStyle(
+        minimumSize: const WidgetStatePropertyAll(Size(0, 36)),
+        fixedSize: const WidgetStatePropertyAll(Size.fromHeight(36)),
+        maximumSize: const WidgetStatePropertyAll(Size(double.infinity, 36)),
+        visualDensity: VisualDensity.standard,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        iconSize: const WidgetStatePropertyAll(16),
+        padding: const WidgetStatePropertyAll(EdgeInsets.only(left: 12, right: 14)),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+        textStyle: const WidgetStatePropertyAll(
+          TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        ),
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+        iconColor: WidgetStateProperty.resolveWith(
+          (states) => pick(states, _red, const Color(0xFF5F6B7A)),
+        ),
+        foregroundColor: WidgetStateProperty.resolveWith(
+          (states) => pick(states, _red, const Color(0xFF5F6B7A)),
+        ),
+        backgroundColor: WidgetStateProperty.resolveWith(
+          (states) => pick(states, const Color(0xFFFEF3F2), ColorName.white),
+        ),
+        side: WidgetStateProperty.resolveWith(
+          (states) =>
+              BorderSide(color: pick(states, const Color(0xFFFDA29B), const Color(0xFFE3E8EF))),
+        ),
+      ),
+      icon: loading
+          ? const SizedBox.square(dimension: 16, child: AppLoader())
+          : const Icon(SolarIconsOutline.logout_3, size: 16),
+      label: const Text('Quit'),
     );
   }
 }
