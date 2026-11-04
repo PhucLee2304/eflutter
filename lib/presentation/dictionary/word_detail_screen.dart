@@ -191,7 +191,7 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
     );
 
     if (result != null && mounted) {
-      final success = await _flashcardCubit.addFlashcard(wordId, note: result);
+      final success = await _flashcardCubit.createFlashcard(wordId, note: result);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -224,7 +224,7 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
             const Text('Your note:',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
             const SizedBox(height: 4),
-            Text(card.note.isNotEmpty ? card.note : '(No note)',
+            Text(card.note ?? '(No note)',
                 style: const TextStyle(fontSize: 14)),
             const SizedBox(height: 12),
             Text('Saved at: ${_formatDate(card.createdAt)}',

@@ -108,7 +108,7 @@ class _DictionaryRemoteData implements DictionaryRemoteData {
   }
 
   @override
-  Future<Flashcard> addFlashcard(Map<String, dynamic> body) async {
+  Future<Flashcard> createFlashcard(Map<String, dynamic> body) async {
     final _extra = <String, dynamic>{};
     final queryParameters = <String, dynamic>{};
     final _headers = <String, dynamic>{};

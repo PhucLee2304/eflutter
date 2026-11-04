@@ -32,7 +32,7 @@ abstract class DictionaryRemoteData {
   );
 
   @POST('/dictionary/api/v1/flashcards')
-  Future<Flashcard> addFlashcard(@Body() Map<String, dynamic> body);
+  Future<Flashcard> createFlashcard(@Body() Map<String, dynamic> body);
 
   @DELETE('/dictionary/api/v1/flashcards/{id}')
   Future<void> deleteFlashcard(@Path('id') int id);

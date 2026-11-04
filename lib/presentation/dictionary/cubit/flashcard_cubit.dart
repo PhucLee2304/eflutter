@@ -34,8 +34,8 @@ class FlashcardCubit extends Cubit<FlashcardState> {
     }
   }
 
-  Future<bool> addFlashcard(int wordId, {String note = ""}) async {
-    final result = await _repository.addFlashcard(wordId, note: note);
+  Future<bool> createFlashcard(int wordId, {String note = ""}) async {
+    final result = await _repository.createFlashcard(wordId, note: note);
     switch (result) {
       case Success():
         loadFlashcards();

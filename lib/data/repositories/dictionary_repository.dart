@@ -29,8 +29,8 @@ class DictionaryRepository with RepositorySafeCall {
     return safeCall(() => _remoteData.getFlashcards(page, pageSize));
   }
 
-  Future<Result<Flashcard>> addFlashcard(int wordId, {String note = ""}) async {
-    return safeCall(() => _remoteData.addFlashcard({
+  Future<Result<Flashcard>> createFlashcard(int wordId, {String note = ""}) async {
+    return safeCall(() => _remoteData.createFlashcard({
           'wordId': wordId,
           'note': note,
         }));

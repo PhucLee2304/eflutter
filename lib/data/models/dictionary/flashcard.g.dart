@@ -8,7 +8,7 @@ part of 'flashcard.dart';
 
 _Flashcard _$FlashcardFromJson(Map<String, dynamic> json) => _Flashcard(
   id: (json['id'] as num).toInt(),
-  note: json['note'] as String,
+  note: json['note'] as String?,
   createdAt: json['createdAt'] as String,
   word: WordSummary.fromJson(json['word'] as Map<String, dynamic>),
 );
@@ -31,7 +31,7 @@ _GetFlashcardsResponse _$GetFlashcardsResponseFromJson(
       const [],
   page: (json['page'] as num).toInt(),
   pageCounts: (json['pageCounts'] as num).toInt(),
-  total: (json['total'] as num).toInt(),
+  total: (json['total'] as num?)?.toInt() ?? 0,
 );
 
 Map<String, dynamic> _$GetFlashcardsResponseToJson(

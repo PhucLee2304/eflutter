@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$Flashcard {
 
- int get id; String get note; String get createdAt; WordSummary get word;
+ int get id; String? get note; String get createdAt; WordSummary get word;
 /// Create a copy of Flashcard
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -48,7 +48,7 @@ abstract mixin class $FlashcardCopyWith<$Res>  {
   factory $FlashcardCopyWith(Flashcard value, $Res Function(Flashcard) _then) = _$FlashcardCopyWithImpl;
 @useResult
 $Res call({
- int id, String note, String createdAt, WordSummary word
+ int id, String? note, String createdAt, WordSummary word
 });
 
 
@@ -65,11 +65,11 @@ class _$FlashcardCopyWithImpl<$Res>
 
 /// Create a copy of Flashcard
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? note = null,Object? createdAt = null,Object? word = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? note = freezed,Object? createdAt = null,Object? word = null,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
-as int,note: null == note ? _self.note : note // ignore: cast_nullable_to_non_nullable
-as String,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
+as int,note: freezed == note ? _self.note : note // ignore: cast_nullable_to_non_nullable
+as String?,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as String,word: null == word ? _self.word : word // ignore: cast_nullable_to_non_nullable
 as WordSummary,
   ));
@@ -165,7 +165,7 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int id,  String note,  String createdAt,  WordSummary word)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int id,  String? note,  String createdAt,  WordSummary word)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Flashcard() when $default != null:
 return $default(_that.id,_that.note,_that.createdAt,_that.word);case _:
@@ -186,7 +186,7 @@ return $default(_that.id,_that.note,_that.createdAt,_that.word);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int id,  String note,  String createdAt,  WordSummary word)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int id,  String? note,  String createdAt,  WordSummary word)  $default,) {final _that = this;
 switch (_that) {
 case _Flashcard():
 return $default(_that.id,_that.note,_that.createdAt,_that.word);case _:
@@ -206,7 +206,7 @@ return $default(_that.id,_that.note,_that.createdAt,_that.word);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int id,  String note,  String createdAt,  WordSummary word)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int id,  String? note,  String createdAt,  WordSummary word)?  $default,) {final _that = this;
 switch (_that) {
 case _Flashcard() when $default != null:
 return $default(_that.id,_that.note,_that.createdAt,_that.word);case _:
@@ -221,11 +221,11 @@ return $default(_that.id,_that.note,_that.createdAt,_that.word);case _:
 @JsonSerializable()
 
 class _Flashcard implements Flashcard {
-  const _Flashcard({required this.id, required this.note, required this.createdAt, required this.word});
+  const _Flashcard({required this.id, this.note, required this.createdAt, required this.word});
   factory _Flashcard.fromJson(Map<String, dynamic> json) => _$FlashcardFromJson(json);
 
 @override final  int id;
-@override final  String note;
+@override final  String? note;
 @override final  String createdAt;
 @override final  WordSummary word;
 
@@ -262,7 +262,7 @@ abstract mixin class _$FlashcardCopyWith<$Res> implements $FlashcardCopyWith<$Re
   factory _$FlashcardCopyWith(_Flashcard value, $Res Function(_Flashcard) _then) = __$FlashcardCopyWithImpl;
 @override @useResult
 $Res call({
- int id, String note, String createdAt, WordSummary word
+ int id, String? note, String createdAt, WordSummary word
 });
 
 
@@ -279,11 +279,11 @@ class __$FlashcardCopyWithImpl<$Res>
 
 /// Create a copy of Flashcard
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? note = null,Object? createdAt = null,Object? word = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? note = freezed,Object? createdAt = null,Object? word = null,}) {
   return _then(_Flashcard(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
-as int,note: null == note ? _self.note : note // ignore: cast_nullable_to_non_nullable
-as String,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
+as int,note: freezed == note ? _self.note : note // ignore: cast_nullable_to_non_nullable
+as String?,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as String,word: null == word ? _self.word : word // ignore: cast_nullable_to_non_nullable
 as WordSummary,
   ));
@@ -305,7 +305,8 @@ $WordSummaryCopyWith<$Res> get word {
 /// @nodoc
 mixin _$GetFlashcardsResponse {
 
- List<Flashcard> get data; int get page; int get pageCounts; int get total;
+ List<Flashcard> get data; int get page; int get pageCounts;// httpx.PaginatedResponse bỏ `total` khi bằng 0.
+ int get total;
 /// Create a copy of GetFlashcardsResponse
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -502,7 +503,7 @@ return $default(_that.data,_that.page,_that.pageCounts,_that.total);case _:
 @JsonSerializable()
 
 class _GetFlashcardsResponse implements GetFlashcardsResponse {
-  const _GetFlashcardsResponse({final  List<Flashcard> data = const [], required this.page, required this.pageCounts, required this.total}): _data = data;
+  const _GetFlashcardsResponse({final  List<Flashcard> data = const [], required this.page, required this.pageCounts, this.total = 0}): _data = data;
   factory _GetFlashcardsResponse.fromJson(Map<String, dynamic> json) => _$GetFlashcardsResponseFromJson(json);
 
  final  List<Flashcard> _data;
@@ -514,7 +515,8 @@ class _GetFlashcardsResponse implements GetFlashcardsResponse {
 
 @override final  int page;
 @override final  int pageCounts;
-@override final  int total;
+// httpx.PaginatedResponse bỏ `total` khi bằng 0.
+@override@JsonKey() final  int total;
 
 /// Create a copy of GetFlashcardsResponse
 /// with the given fields replaced by the non-null parameter values.

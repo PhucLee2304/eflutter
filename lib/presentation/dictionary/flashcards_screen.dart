@@ -154,11 +154,11 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                               Text(card.word.phonetic!,
                                   style: const TextStyle(
                                       color: Colors.grey, fontSize: 12)),
-                            if (card.note.isNotEmpty)
+                            if (card.note != null)
                               Padding(
                                 padding: const EdgeInsets.only(top: 2.0),
                                 child: Text(
-                                  card.note,
+                                  card.note!,
                                   style: const TextStyle(
                                       fontSize: 12,
                                       fontStyle: FontStyle.italic),
