@@ -158,6 +158,7 @@ class RemoteData implements RemoteDataBase {
     required int pageSize,
     String? excludeMode,
     List<String> examTypes = const [],
+    String? search,
   }) async {
     final response = await _dio.get(
       '/exams/api/v1/attempts',
@@ -167,6 +168,7 @@ class RemoteData implements RemoteDataBase {
         'pageSize': pageSize,
         'excludeMode': ?excludeMode,
         if (examTypes.isNotEmpty) 'examType': examTypes.join(','),
+        if (search != null && search.isNotEmpty) 'search': search,
       },
     );
     return ExamAttemptPage.fromResponse(response.data, requestedPage: page);

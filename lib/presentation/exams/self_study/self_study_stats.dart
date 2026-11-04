@@ -2,6 +2,8 @@ import 'package:eflutter/core/base/remote_data_base.dart';
 import 'package:eflutter/core/base/result.dart';
 import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/data/models/exam_attempt.dart';
+import 'package:eflutter/data/models/exam_attempt_page.dart';
+import 'package:eflutter/data/models/exam_page.dart';
 import 'package:eflutter/data/repositories/exam_repository.dart';
 import 'package:eflutter/presentation/exams/exam_history_refresh.dart';
 import 'package:flutter/foundation.dart';
@@ -13,6 +15,8 @@ class SelfStudyStats {
     required this.bestScore,
     required this.lastPracticeAt,
     required this.bestByExam,
+    this.averageScore,
+    this.examTotal,
   });
 
   final int attempts;
@@ -22,8 +26,17 @@ class SelfStudyStats {
   /// Điểm cao nhất theo examId, dùng cho nhãn "Best" trên thẻ đề.
   final Map<int, double> bestByExam;
 
-  static SelfStudyStats fromAttempts(List<ExamAttempt> attempts, int total) {
+  final double? averageScore;
+
+  /// Tổng số đề public của loại này, null khi chưa tải được.
+  final int? examTotal;
+
+  int get testsDone => bestByExam.length;
+
+  static SelfStudyStats fromAttempts(List<ExamAttempt> attempts, int total, {int? examTotal}) {
     double? best;
+    var sum = 0.0;
+    var scored = 0;
     DateTime? last;
     final bestByExam = <int, double>{};
     for (final attempt in attempts) {
@@ -31,6 +44,8 @@ class SelfStudyStats {
       if (at != null && (last == null || at.isAfter(last))) last = at;
       final score = attempt.score;
       if (score == null) continue;
+      sum += score;
+      scored++;
       if (best == null || score > best) best = score;
       final previous = bestByExam[attempt.examId];
       if (previous == null || score > previous) bestByExam[attempt.examId] = score;
@@ -40,6 +55,8 @@ class SelfStudyStats {
       bestScore: best,
       lastPracticeAt: last,
       bestByExam: bestByExam,
+      averageScore: scored == 0 ? null : sum / scored,
+      examTotal: examTotal,
     );
   }
 }
@@ -77,13 +94,20 @@ class SelfStudyStatsStore {
           excludeMode: 'ASSIGNMENT',
           examTypes: [type],
         ),
+      for (final type in types) repository.getExams(type: type, page: 1, pageSize: 1),
     ]);
     final next = <String, SelfStudyStats>{};
     for (var i = 0; i < types.length; i++) {
       final result = results[i];
+      final exams = results[types.length + i];
       if (result is Success) {
-        final page = result.dataOrNull!;
-        next[types[i]] = SelfStudyStats.fromAttempts(page.attempts, page.total);
+        final page = result.dataOrNull! as ExamAttemptPage;
+        final examTotal = exams is Success ? (exams.dataOrNull! as ExamPage).total : null;
+        next[types[i]] = SelfStudyStats.fromAttempts(
+          page.attempts,
+          page.total,
+          examTotal: examTotal,
+        );
       }
     }
     stats.value = next;

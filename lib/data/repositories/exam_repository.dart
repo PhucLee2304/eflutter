@@ -37,6 +37,7 @@ class ExamRepository {
     required int pageSize,
     String? excludeMode,
     List<String> examTypes = const [],
+    String? search,
   }) => _remoteData
       .getAttempts(
         status: status,
@@ -44,6 +45,7 @@ class ExamRepository {
         pageSize: pageSize,
         excludeMode: excludeMode,
         examTypes: examTypes,
+        search: search,
       )
       .safeResult();
 

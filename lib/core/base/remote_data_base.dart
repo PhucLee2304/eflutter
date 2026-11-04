@@ -62,6 +62,7 @@ abstract interface class RemoteDataBase {
     required int pageSize,
     String? excludeMode,
     List<String> examTypes = const [],
+    String? search,
   });
 
   Future<ExamAttempt> getAttemptQuestions(int attemptId);

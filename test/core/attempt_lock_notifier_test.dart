@@ -71,10 +71,7 @@ void main() {
       expect(lock.redirectFor('/attempts/7/take'), isNull);
       expect(lock.redirectFor('/classrooms'), '/attempts/7/take');
       expect(lock.redirectFor('/attempts/8/take'), '/attempts/7/take');
-      expect(
-        lock.redirectFor('/histories/attempts/7/history'),
-        '/attempts/7/take',
-      );
+      expect(lock.redirectFor('/histories/attempts/7/history'), '/attempts/7/take');
       expect(reporter.types, [
         AttemptIntegrityEventType.navigationBlocked,
         AttemptIntegrityEventType.navigationBlocked,
@@ -96,19 +93,14 @@ void main() {
     expect(notifications, 2);
   });
 
-  testWidgets('router guard sends the user back to the attempt screen', (
-    tester,
-  ) async {
+  testWidgets('router guard sends the user back to the attempt screen', (tester) async {
     final router = GoRouter(
       initialLocation: '/home',
       refreshListenable: lock,
       redirect: (context, state) => lock.redirectFor(state.uri.path),
       routes: [
         GoRoute(path: '/home', builder: (_, _) => const Text('home')),
-        GoRoute(
-          path: '/classrooms',
-          builder: (_, _) => const Text('classrooms'),
-        ),
+        GoRoute(path: '/classrooms', builder: (_, _) => const Text('classrooms')),
         GoRoute(
           path: '/attempts/:id/take',
           builder: (_, state) => Text('attempt ${state.pathParameters['id']}'),
@@ -146,6 +138,7 @@ class _FakeRemoteData implements RemoteDataBase {
     required int pageSize,
     String? excludeMode,
     List<String> examTypes = const [],
+    String? search,
   }) async {
     requestedStatus = status;
     if (fail) {
@@ -178,8 +171,7 @@ class _FakeRemoteData implements RemoteDataBase {
 class _FakeReporter implements AttemptIntegrityReporter {
   final events = <AttemptIntegrityEvent>[];
 
-  List<AttemptIntegrityEventType> get types =>
-      events.map((event) => event.type).toList();
+  List<AttemptIntegrityEventType> get types => events.map((event) => event.type).toList();
   List<String?> get details => events.map((event) => event.detail).toList();
 
   @override
