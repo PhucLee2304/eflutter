@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$Phonetic {
 
- String get text; String? get audioUrl; String? get sourceUrl;
+ String? get text; String? get audioUrl; String? get sourceUrl;
 /// Create a copy of Phonetic
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -48,7 +48,7 @@ abstract mixin class $PhoneticCopyWith<$Res>  {
   factory $PhoneticCopyWith(Phonetic value, $Res Function(Phonetic) _then) = _$PhoneticCopyWithImpl;
 @useResult
 $Res call({
- String text, String? audioUrl, String? sourceUrl
+ String? text, String? audioUrl, String? sourceUrl
 });
 
 
@@ -65,10 +65,10 @@ class _$PhoneticCopyWithImpl<$Res>
 
 /// Create a copy of Phonetic
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? text = null,Object? audioUrl = freezed,Object? sourceUrl = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? text = freezed,Object? audioUrl = freezed,Object? sourceUrl = freezed,}) {
   return _then(_self.copyWith(
-text: null == text ? _self.text : text // ignore: cast_nullable_to_non_nullable
-as String,audioUrl: freezed == audioUrl ? _self.audioUrl : audioUrl // ignore: cast_nullable_to_non_nullable
+text: freezed == text ? _self.text : text // ignore: cast_nullable_to_non_nullable
+as String?,audioUrl: freezed == audioUrl ? _self.audioUrl : audioUrl // ignore: cast_nullable_to_non_nullable
 as String?,sourceUrl: freezed == sourceUrl ? _self.sourceUrl : sourceUrl // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
@@ -155,7 +155,7 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String text,  String? audioUrl,  String? sourceUrl)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String? text,  String? audioUrl,  String? sourceUrl)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Phonetic() when $default != null:
 return $default(_that.text,_that.audioUrl,_that.sourceUrl);case _:
@@ -176,7 +176,7 @@ return $default(_that.text,_that.audioUrl,_that.sourceUrl);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String text,  String? audioUrl,  String? sourceUrl)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String? text,  String? audioUrl,  String? sourceUrl)  $default,) {final _that = this;
 switch (_that) {
 case _Phonetic():
 return $default(_that.text,_that.audioUrl,_that.sourceUrl);case _:
@@ -196,7 +196,7 @@ return $default(_that.text,_that.audioUrl,_that.sourceUrl);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String text,  String? audioUrl,  String? sourceUrl)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String? text,  String? audioUrl,  String? sourceUrl)?  $default,) {final _that = this;
 switch (_that) {
 case _Phonetic() when $default != null:
 return $default(_that.text,_that.audioUrl,_that.sourceUrl);case _:
@@ -211,10 +211,10 @@ return $default(_that.text,_that.audioUrl,_that.sourceUrl);case _:
 @JsonSerializable()
 
 class _Phonetic implements Phonetic {
-  const _Phonetic({required this.text, this.audioUrl, this.sourceUrl});
+  const _Phonetic({this.text, this.audioUrl, this.sourceUrl});
   factory _Phonetic.fromJson(Map<String, dynamic> json) => _$PhoneticFromJson(json);
 
-@override final  String text;
+@override final  String? text;
 @override final  String? audioUrl;
 @override final  String? sourceUrl;
 
@@ -251,7 +251,7 @@ abstract mixin class _$PhoneticCopyWith<$Res> implements $PhoneticCopyWith<$Res>
   factory _$PhoneticCopyWith(_Phonetic value, $Res Function(_Phonetic) _then) = __$PhoneticCopyWithImpl;
 @override @useResult
 $Res call({
- String text, String? audioUrl, String? sourceUrl
+ String? text, String? audioUrl, String? sourceUrl
 });
 
 
@@ -268,10 +268,10 @@ class __$PhoneticCopyWithImpl<$Res>
 
 /// Create a copy of Phonetic
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? text = null,Object? audioUrl = freezed,Object? sourceUrl = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? text = freezed,Object? audioUrl = freezed,Object? sourceUrl = freezed,}) {
   return _then(_Phonetic(
-text: null == text ? _self.text : text // ignore: cast_nullable_to_non_nullable
-as String,audioUrl: freezed == audioUrl ? _self.audioUrl : audioUrl // ignore: cast_nullable_to_non_nullable
+text: freezed == text ? _self.text : text // ignore: cast_nullable_to_non_nullable
+as String?,audioUrl: freezed == audioUrl ? _self.audioUrl : audioUrl // ignore: cast_nullable_to_non_nullable
 as String?,sourceUrl: freezed == sourceUrl ? _self.sourceUrl : sourceUrl // ignore: cast_nullable_to_non_nullable
 as String?,
   ));

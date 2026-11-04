@@ -181,7 +181,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                               _confirmDelete(context, card.id, card.word.word),
                         ),
                         onTap: () {
-                          context.push('/dictionary/${card.word.word}');
+                          context.push('/dictionary/${card.word.id}');
                         },
                       );
                     },

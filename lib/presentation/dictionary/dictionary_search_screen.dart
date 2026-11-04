@@ -52,7 +52,11 @@ class _DictionarySearchScreenState extends State<DictionarySearchScreen> {
     final maxScroll = _scrollController.position.maxScrollExtent;
     final currentScroll = _scrollController.offset;
     if (currentScroll >= maxScroll - 200) {
-      _topicCubit.loadMoreWords();
+      if (_isTopicMode) {
+        _topicCubit.loadMoreWords();
+      } else {
+        _cubit.loadMore();
+      }
     }
   }
 
@@ -471,7 +475,8 @@ class _WordListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return InkWell(
-      onTap: () => context.push('/dictionary/${word.word}'),
+      // Từ của topic không có trong từ điển thì backend trả id = 0: không mở được.
+      onTap: word.id > 0 ? () => context.push('/dictionary/${word.id}') : null,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
@@ -532,17 +537,22 @@ class _SearchResultsView extends StatelessWidget {
             ),
           ),
           loading: () => const Center(child: CircularProgressIndicator()),
-          success: (response) {
+          success: (response, _, isLoadingMore) {
             if (response.data.isEmpty) {
               return const Center(child: Text('No words found.'));
             }
             return ListView.builder(
               controller: scrollController,
               padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: response.data.length,
+              itemCount: response.data.length + (isLoadingMore ? 1 : 0),
               itemBuilder: (context, index) {
-                final word = response.data[index];
-                return _WordListTile(word: word);
+                if (index == response.data.length) {
+                  return const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                return _WordListTile(word: response.data[index]);
               },
             );
           },

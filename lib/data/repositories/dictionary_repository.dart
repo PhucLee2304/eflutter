@@ -13,12 +13,16 @@ class DictionaryRepository with RepositorySafeCall {
 
   DictionaryRepository(this._remoteData);
 
-  Future<Result<WordDetail>> lookupWord(String word) async {
-    return safeCall(() => _remoteData.lookupWord(word));
+  Future<Result<WordDetail>> getWordById(int id) async {
+    return safeCall(() => _remoteData.getWordById(id));
   }
 
-  Future<Result<SearchResponse>> searchWords(String query, int page, int pageSize) async {
-    return safeCall(() => _remoteData.searchWords(query, page, pageSize));
+  Future<Result<SearchResponse>> getWords(
+    String query, {
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    return safeCall(() => _remoteData.getWords(query, page, pageSize));
   }
 
   Future<Result<GetFlashcardsResponse>> getFlashcards(int page, int pageSize) async {

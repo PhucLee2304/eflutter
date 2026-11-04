@@ -14,18 +14,17 @@ abstract class DictionaryRemoteData {
   @factoryMethod
   factory DictionaryRemoteData(Dio dio) = _DictionaryRemoteData;
 
-  @GET('/dictionary/api/v1/words/{word}')
-  Future<WordDetail> lookupWord(@Path('word') String word);
+  @GET('/dictionary/api/v1/words/{id}')
+  Future<WordDetail> getWordById(@Path('id') int id);
 
   @GET('/dictionary/api/v1/words')
-  Future<SearchResponse> searchWords(
-    @Query('q') String query,
+  Future<SearchResponse> getWords(
+    @Query('query') String query,
     @Query('page') int page,
     @Query('pageSize') int pageSize,
   );
 
-  // Note: thesaurus is available on the backend, but we can stick to WordDetail which already has synonyms/antonyms
-  // For flashcards:
+  // Flashcards
   @GET('/dictionary/api/v1/flashcards')
   Future<GetFlashcardsResponse> getFlashcards(
     @Query('page') int page,

@@ -323,8 +323,8 @@ class NavigationItem {
       GoRoute(
         path: AppRoutes.dictionaryWord.path,
         builder: (context, state) {
-          final word = state.pathParameters['word'] ?? '';
-          return WordDetailScreen(word: word);
+          final wordId = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+          return WordDetailScreen(wordId: wordId);
         },
       ),
     ],

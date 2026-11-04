@@ -21,9 +21,9 @@ class WordDetailCubit extends Cubit<WordDetailState> {
 
   WordDetailCubit(this._repository) : super(const WordDetailState.initial());
 
-  Future<void> lookupWord(String word) async {
+  Future<void> loadWord(int id) async {
     emit(const WordDetailState.loading());
-    final result = await _repository.lookupWord(word);
+    final result = await _repository.getWordById(id);
     switch (result) {
       case Success(data: final data):
         emit(WordDetailState.success(data));
@@ -32,5 +32,19 @@ class WordDetailCubit extends Cubit<WordDetailState> {
       case Cancelled():
         break;
     }
+  }
+
+  /// Tìm id của một từ theo chữ (dùng khi bấm synonym/antonym, vốn chỉ có chữ).
+  /// Tìm theo tiền tố, sắp theo chữ cái nên từ khớp chính xác luôn đứng đầu.
+  /// Trả null nếu từ không có trong từ điển hoặc gọi API lỗi.
+  Future<int?> findWordId(String word) async {
+    final normalized = word.trim().toLowerCase();
+    if (normalized.isEmpty) return null;
+    final result = await _repository.getWords(normalized, pageSize: 1);
+    if (result case Success(data: final data)
+        when data.data.isNotEmpty && data.data.first.word == normalized) {
+      return data.data.first.id;
+    }
+    return null;
   }
 }

@@ -15,7 +15,7 @@ _SearchResponse _$SearchResponseFromJson(Map<String, dynamic> json) =>
           const [],
       page: (json['page'] as num).toInt(),
       pageCounts: (json['pageCounts'] as num).toInt(),
-      total: (json['total'] as num).toInt(),
+      total: (json['total'] as num?)?.toInt() ?? 0,
     );
 
 Map<String, dynamic> _$SearchResponseToJson(_SearchResponse instance) =>

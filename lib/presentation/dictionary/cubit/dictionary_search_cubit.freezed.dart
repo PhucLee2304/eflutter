@@ -128,12 +128,12 @@ return error(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function()?  initial,TResult Function()?  loading,TResult Function( SearchResponse response)?  success,TResult Function( String message)?  error,required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function()?  initial,TResult Function()?  loading,TResult Function( SearchResponse response,  String query,  bool isLoadingMore)?  success,TResult Function( String message)?  error,required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Initial() when initial != null:
 return initial();case _Loading() when loading != null:
 return loading();case _Success() when success != null:
-return success(_that.response);case _Error() when error != null:
+return success(_that.response,_that.query,_that.isLoadingMore);case _Error() when error != null:
 return error(_that.message);case _:
   return orElse();
 
@@ -152,12 +152,12 @@ return error(_that.message);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function()  initial,required TResult Function()  loading,required TResult Function( SearchResponse response)  success,required TResult Function( String message)  error,}) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function()  initial,required TResult Function()  loading,required TResult Function( SearchResponse response,  String query,  bool isLoadingMore)  success,required TResult Function( String message)  error,}) {final _that = this;
 switch (_that) {
 case _Initial():
 return initial();case _Loading():
 return loading();case _Success():
-return success(_that.response);case _Error():
+return success(_that.response,_that.query,_that.isLoadingMore);case _Error():
 return error(_that.message);case _:
   throw StateError('Unexpected subclass');
 
@@ -175,12 +175,12 @@ return error(_that.message);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function()?  initial,TResult? Function()?  loading,TResult? Function( SearchResponse response)?  success,TResult? Function( String message)?  error,}) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function()?  initial,TResult? Function()?  loading,TResult? Function( SearchResponse response,  String query,  bool isLoadingMore)?  success,TResult? Function( String message)?  error,}) {final _that = this;
 switch (_that) {
 case _Initial() when initial != null:
 return initial();case _Loading() when loading != null:
 return loading();case _Success() when success != null:
-return success(_that.response);case _Error() when error != null:
+return success(_that.response,_that.query,_that.isLoadingMore);case _Error() when error != null:
 return error(_that.message);case _:
   return null;
 
@@ -257,10 +257,12 @@ String toString() {
 
 
 class _Success implements DictionarySearchState {
-  const _Success(this.response);
+  const _Success(this.response, {required this.query, this.isLoadingMore = false});
   
 
  final  SearchResponse response;
+ final  String query;
+@JsonKey() final  bool isLoadingMore;
 
 /// Create a copy of DictionarySearchState
 /// with the given fields replaced by the non-null parameter values.
@@ -272,16 +274,16 @@ _$SuccessCopyWith<_Success> get copyWith => __$SuccessCopyWithImpl<_Success>(thi
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Success&&(identical(other.response, response) || other.response == response));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Success&&(identical(other.response, response) || other.response == response)&&(identical(other.query, query) || other.query == query)&&(identical(other.isLoadingMore, isLoadingMore) || other.isLoadingMore == isLoadingMore));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,response);
+int get hashCode => Object.hash(runtimeType,response,query,isLoadingMore);
 
 @override
 String toString() {
-  return 'DictionarySearchState.success(response: $response)';
+  return 'DictionarySearchState.success(response: $response, query: $query, isLoadingMore: $isLoadingMore)';
 }
 
 
@@ -292,7 +294,7 @@ abstract mixin class _$SuccessCopyWith<$Res> implements $DictionarySearchStateCo
   factory _$SuccessCopyWith(_Success value, $Res Function(_Success) _then) = __$SuccessCopyWithImpl;
 @useResult
 $Res call({
- SearchResponse response
+ SearchResponse response, String query, bool isLoadingMore
 });
 
 
@@ -309,10 +311,12 @@ class __$SuccessCopyWithImpl<$Res>
 
 /// Create a copy of DictionarySearchState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') $Res call({Object? response = null,}) {
+@pragma('vm:prefer-inline') $Res call({Object? response = null,Object? query = null,Object? isLoadingMore = null,}) {
   return _then(_Success(
 null == response ? _self.response : response // ignore: cast_nullable_to_non_nullable
-as SearchResponse,
+as SearchResponse,query: null == query ? _self.query : query // ignore: cast_nullable_to_non_nullable
+as String,isLoadingMore: null == isLoadingMore ? _self.isLoadingMore : isLoadingMore // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 

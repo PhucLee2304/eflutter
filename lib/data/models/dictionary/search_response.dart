@@ -10,7 +10,8 @@ abstract class SearchResponse with _$SearchResponse {
     @Default([]) List<WordSummary> data,
     required int page,
     required int pageCounts,
-    required int total,
+    // httpx.PaginatedResponse bỏ `total` khi bằng 0.
+    @Default(0) int total,
   }) = _SearchResponse;
 
   factory SearchResponse.fromJson(Map<String, dynamic> json) => _$SearchResponseFromJson(json);

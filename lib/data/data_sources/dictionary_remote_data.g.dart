@@ -20,7 +20,7 @@ class _DictionaryRemoteData implements DictionaryRemoteData {
   final ParseErrorLogger? errorLogger;
 
   @override
-  Future<WordDetail> lookupWord(String word) async {
+  Future<WordDetail> getWordById(int id) async {
     final _extra = <String, dynamic>{};
     final queryParameters = <String, dynamic>{};
     final _headers = <String, dynamic>{};
@@ -29,7 +29,7 @@ class _DictionaryRemoteData implements DictionaryRemoteData {
       Options(method: 'GET', headers: _headers, extra: _extra)
           .compose(
             _dio.options,
-            '/dictionary/api/v1/words/${word}',
+            '/dictionary/api/v1/words/${id}',
             queryParameters: queryParameters,
             data: _data,
           )
@@ -47,14 +47,10 @@ class _DictionaryRemoteData implements DictionaryRemoteData {
   }
 
   @override
-  Future<SearchResponse> searchWords(
-    String query,
-    int page,
-    int pageSize,
-  ) async {
+  Future<SearchResponse> getWords(String query, int page, int pageSize) async {
     final _extra = <String, dynamic>{};
     final queryParameters = <String, dynamic>{
-      r'q': query,
+      r'query': query,
       r'page': page,
       r'pageSize': pageSize,
     };

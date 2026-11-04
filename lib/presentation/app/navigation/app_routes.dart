@@ -27,7 +27,7 @@ enum AppRoutes {
   roomAttendance(path: 'rooms/:roomId/attendance'),
   dictionary(path: '/dictionary'),
   flashcards(path: '/flashcards'),
-  dictionaryWord(path: ':word'),
+  dictionaryWord(path: ':id'),
   grammar(path: '/grammar'),
   grammarUnit(path: 'units/:id'),
 

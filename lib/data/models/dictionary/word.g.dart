@@ -7,7 +7,7 @@ part of 'word.dart';
 // **************************************************************************
 
 _Phonetic _$PhoneticFromJson(Map<String, dynamic> json) => _Phonetic(
-  text: json['text'] as String,
+  text: json['text'] as String?,
   audioUrl: json['audioUrl'] as String?,
   sourceUrl: json['sourceUrl'] as String?,
 );
@@ -60,7 +60,7 @@ Map<String, dynamic> _$MeaningToJson(_Meaning instance) => <String, dynamic>{
 };
 
 _WordDetail _$WordDetailFromJson(Map<String, dynamic> json) => _WordDetail(
-  id: (json['id'] as num?)?.toInt() ?? 0,
+  id: (json['id'] as num).toInt(),
   word: json['word'] as String,
   phonetic: json['phonetic'] as String?,
   phonetics:
@@ -95,7 +95,7 @@ Map<String, dynamic> _$WordDetailToJson(_WordDetail instance) =>
     };
 
 _WordSummary _$WordSummaryFromJson(Map<String, dynamic> json) => _WordSummary(
-  id: (json['id'] as num?)?.toInt() ?? 0,
+  id: (json['id'] as num).toInt(),
   word: json['word'] as String,
   phonetic: json['phonetic'] as String?,
 );

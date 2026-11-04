@@ -15,7 +15,8 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$SearchResponse {
 
- List<WordSummary> get data; int get page; int get pageCounts; int get total;
+ List<WordSummary> get data; int get page; int get pageCounts;// httpx.PaginatedResponse bỏ `total` khi bằng 0.
+ int get total;
 /// Create a copy of SearchResponse
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -212,7 +213,7 @@ return $default(_that.data,_that.page,_that.pageCounts,_that.total);case _:
 @JsonSerializable()
 
 class _SearchResponse implements SearchResponse {
-  const _SearchResponse({final  List<WordSummary> data = const [], required this.page, required this.pageCounts, required this.total}): _data = data;
+  const _SearchResponse({final  List<WordSummary> data = const [], required this.page, required this.pageCounts, this.total = 0}): _data = data;
   factory _SearchResponse.fromJson(Map<String, dynamic> json) => _$SearchResponseFromJson(json);
 
  final  List<WordSummary> _data;
@@ -224,7 +225,8 @@ class _SearchResponse implements SearchResponse {
 
 @override final  int page;
 @override final  int pageCounts;
-@override final  int total;
+// httpx.PaginatedResponse bỏ `total` khi bằng 0.
+@override@JsonKey() final  int total;
 
 /// Create a copy of SearchResponse
 /// with the given fields replaced by the non-null parameter values.

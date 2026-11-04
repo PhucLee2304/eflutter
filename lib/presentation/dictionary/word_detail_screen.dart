@@ -12,8 +12,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
 
 class WordDetailScreen extends StatefulWidget {
-  final String word;
-  const WordDetailScreen({super.key, required this.word});
+  final int wordId;
+  const WordDetailScreen({super.key, required this.wordId});
 
   @override
   State<WordDetailScreen> createState() => _WordDetailScreenState();
@@ -30,7 +30,7 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _detailCubit.lookupWord(widget.word);
+    _detailCubit.loadWord(widget.wordId);
     _flashcardCubit.loadFlashcards();
   }
 
@@ -50,6 +50,19 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
     final normalizedBase = base.endsWith('/') ? base.substring(0, base.length - 1) : base;
     final normalizedPath = audioUrl.startsWith('/') ? audioUrl : '/$audioUrl';
     return '$normalizedBase$normalizedPath';
+  }
+
+  /// Synonym/antonym chỉ có chữ: tìm id trước rồi mới mở trang chi tiết.
+  Future<void> _openWord(String word) async {
+    final id = await _detailCubit.findWordId(word);
+    if (!mounted) return;
+    if (id == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('"$word" is not in the dictionary')),
+      );
+      return;
+    }
+    context.push('/dictionary/$id');
   }
 
   Future<void> _playAudio(String rawUrl) async {
@@ -256,7 +269,11 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
       ],
       child: Scaffold(
         appBar: AppBar(
-          title: Text(widget.word),
+          title: BlocBuilder<WordDetailCubit, WordDetailState>(
+            builder: (context, state) => Text(
+              state.maybeWhen(success: (detail) => detail.word, orElse: () => ''),
+            ),
+          ),
           actions: [
             BlocBuilder<WordDetailCubit, WordDetailState>(
               builder: (context, detailState) {
@@ -306,7 +323,7 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
                       Text(message, style: const TextStyle(color: Colors.red)),
                       const SizedBox(height: 12),
                       ElevatedButton(
-                        onPressed: () => _detailCubit.lookupWord(widget.word),
+                        onPressed: () => _detailCubit.loadWord(widget.wordId),
                         child: const Text('Retry'),
                       ),
                     ],
@@ -387,7 +404,7 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
                           runSpacing: 6,
                           children: detail.phonetics
                               .where((p) =>
-                                  p.text.isNotEmpty || (p.audioUrl != null && p.audioUrl!.isNotEmpty))
+                                  (p.text?.isNotEmpty ?? false) || (p.audioUrl != null && p.audioUrl!.isNotEmpty))
                               .map(
                                 (p) {
                                   final hasAudio = p.audioUrl != null && p.audioUrl!.isNotEmpty;
@@ -410,7 +427,7 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
                                                     : null,
                                               )
                                         : null,
-                                    label: Text(p.text.isNotEmpty ? p.text : 'Pronounce'),
+                                    label: Text((p.text?.isNotEmpty ?? false) ? p.text! : 'Pronounce'),
                                     backgroundColor: isThisPlaying
                                         ? Theme.of(context).colorScheme.primaryContainer
                                         : Theme.of(context).colorScheme.surfaceContainerHighest,
@@ -500,7 +517,7 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
                                                   words: def.synonyms,
                                                   color: Colors.green.shade50,
                                                   textColor: Colors.green.shade800,
-                                                  onWordTap: (w) => context.push('/dictionary/$w'),
+                                                  onWordTap: _openWord,
                                                 ),
                                               if (def.antonyms.isNotEmpty)
                                                 _WordChipRow(
@@ -508,7 +525,7 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
                                                   words: def.antonyms,
                                                   color: Colors.red.shade50,
                                                   textColor: Colors.red.shade800,
-                                                  onWordTap: (w) => context.push('/dictionary/$w'),
+                                                  onWordTap: _openWord,
                                                 ),
                                             ],
                                           ),
@@ -525,7 +542,7 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
                                     words: meaning.synonyms,
                                     color: Colors.green.shade50,
                                     textColor: Colors.green.shade800,
-                                    onWordTap: (w) => context.push('/dictionary/$w'),
+                                    onWordTap: _openWord,
                                   ),
 
                                 // Meaning-level antonyms
@@ -535,7 +552,7 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
                                     words: meaning.antonyms,
                                     color: Colors.red.shade50,
                                     textColor: Colors.red.shade800,
-                                    onWordTap: (w) => context.push('/dictionary/$w'),
+                                    onWordTap: _openWord,
                                   ),
                               ],
                             ),

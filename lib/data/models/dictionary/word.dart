@@ -6,7 +6,7 @@ part 'word.g.dart';
 @freezed
 abstract class Phonetic with _$Phonetic {
   const factory Phonetic({
-    required String text,
+    String? text,
     String? audioUrl,
     String? sourceUrl,
   }) = _Phonetic;
