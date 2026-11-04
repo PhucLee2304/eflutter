@@ -43,7 +43,7 @@ class ExamQuestionGroup {
   final String title;
   final String instruction;
   final String? audioUrl;
-  final String? imageUrl;
+  final List<String> imageUrls;
   final String transcript;
   final String explanation;
   final int order;
@@ -54,7 +54,7 @@ class ExamQuestionGroup {
     required this.title,
     required this.instruction,
     required this.audioUrl,
-    required this.imageUrl,
+    required this.imageUrls,
     required this.transcript,
     required this.explanation,
     required this.order,
@@ -68,7 +68,7 @@ class ExamQuestionGroup {
       title: json['title'] as String? ?? '',
       instruction: json['instruction'] as String? ?? '',
       audioUrl: json['audioUrl'] as String?,
-      imageUrl: json['imageUrl'] as String?,
+      imageUrls: (json['imageUrls'] as List<dynamic>? ?? const []).cast<String>(),
       transcript: json['transcript'] as String? ?? '',
       explanation: json['explanation'] as String? ?? '',
       order: (json['order'] as num?)?.toInt() ?? 0,

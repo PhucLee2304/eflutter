@@ -1,3 +1,4 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:flutter/material.dart';
 
 class RoomJoinControl extends StatelessWidget {
@@ -21,18 +22,12 @@ class RoomJoinControl extends StatelessWidget {
       if (error != null)
         Padding(
           padding: const EdgeInsets.only(bottom: 16),
-          child: Text(
-            error!,
-            style: TextStyle(color: Theme.of(context).colorScheme.error),
-          ),
+          child: Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
         ),
       FilledButton.icon(
         onPressed: connecting || status != 'LIVE' ? null : onJoin,
         icon: connecting
-            ? const SizedBox.square(
-                dimension: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
+            ? const SizedBox.square(dimension: 18, child: AppLoader())
             : const Icon(Icons.login),
         label: Text(
           status == 'LIVE'

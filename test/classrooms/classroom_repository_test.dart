@@ -25,12 +25,7 @@ void main() {
                 requestOptions: options,
                 data: {
                   'data': [
-                    {
-                      'id': 3,
-                      'code': 'ABC12345',
-                      'name': 'Lop 12',
-                      'active': true,
-                    },
+                    {'id': 3, 'code': 'ABC12345', 'name': 'Lop 12', 'active': true},
                   ],
                   'page': 2,
                   'pageCounts': 4,
@@ -40,9 +35,7 @@ void main() {
           },
         ),
       );
-    final result = await ClassroomRepository(
-      dio,
-    ).getMine(page: 2, query: 'Lop');
+    final result = await ClassroomRepository(dio).getMine(page: 2, query: 'Lop');
     expect(captured.path, '/classrooms/api/v1/classrooms/me');
     expect(captured.queryParameters['page'], 2);
     expect(captured.queryParameters['query'], 'Lop');
@@ -62,11 +55,7 @@ void main() {
                 data: {
                   'id': 7,
                   'approved': null,
-                  'user': {
-                    'id': 'student-1',
-                    'name': 'Student',
-                    'email': 's@example.com',
-                  },
+                  'user': {'id': 'student-1', 'name': 'Student', 'email': 's@example.com'},
                 },
               ),
             );
@@ -78,10 +67,7 @@ void main() {
     expect(requests.first.path, '/classrooms/api/v1/classrooms/join');
     expect((requests.first.data as Map)['code'], 'ABC12345');
     expect(await repository.review(5, 'student-1', true), isA<Success>());
-    expect(
-      requests.last.path,
-      '/classrooms/api/v1/classrooms/5/members/student-1/approve',
-    );
+    expect(requests.last.path, '/classrooms/api/v1/classrooms/5/members/student-1/approve');
   });
 
   test('previews a classroom using the non-conflicting code route', () async {
@@ -94,12 +80,7 @@ void main() {
             handler.resolve(
               Response(
                 requestOptions: options,
-                data: {
-                  'id': 5,
-                  'code': 'ABC12345',
-                  'name': 'Class',
-                  'active': true,
-                },
+                data: {'id': 5, 'code': 'ABC12345', 'name': 'Class', 'active': true},
               ),
             );
           },
@@ -144,48 +125,31 @@ void main() {
     expect(result.dataOrNull?.roomId, 7);
   });
 
-  test(
-    'sends the full description and an empty value when clearing it',
-    () async {
-      final requests = <RequestOptions>[];
-      final dio = Dio()
-        ..interceptors.add(
-          InterceptorsWrapper(
-            onRequest: (options, handler) {
-              requests.add(options);
-              handler.resolve(
-                Response(
-                  requestOptions: options,
-                  data: {
-                    'id': 1,
-                    'code': 'ABC12345',
-                    'name': 'Class',
-                    'active': true,
-                  },
-                ),
-              );
-            },
-          ),
-        );
-      final repository = ClassroomRepository(dio);
-      final longDescription = 'A long description. ' * 1000;
-      expect(
-        await repository.create('Class', description: longDescription),
-        isA<Success>(),
+  test('sends the full description and an empty value when clearing it', () async {
+    final requests = <RequestOptions>[];
+    final dio = Dio()
+      ..interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            requests.add(options);
+            handler.resolve(
+              Response(
+                requestOptions: options,
+                data: {'id': 1, 'code': 'ABC12345', 'name': 'Class', 'active': true},
+              ),
+            );
+          },
+        ),
       );
-      expect(
-        (requests.last.data as Map)['description'],
-        longDescription.trim(),
-      );
+    final repository = ClassroomRepository(dio);
+    final longDescription = 'A long description. ' * 1000;
+    expect(await repository.create('Class', description: longDescription), isA<Success>());
+    expect((requests.last.data as Map)['description'], longDescription.trim());
 
-      expect(
-        await repository.update(1, name: 'Class', description: ''),
-        isA<Success>(),
-      );
-      expect((requests.last.data as Map).containsKey('description'), isTrue);
-      expect((requests.last.data as Map)['description'], '');
-    },
-  );
+    expect(await repository.update(1, name: 'Class', description: ''), isA<Success>());
+    expect((requests.last.data as Map).containsKey('description'), isTrue);
+    expect((requests.last.data as Map)['description'], '');
+  });
 
   test('gets assignments using the classroom route', () async {
     late RequestOptions captured;
@@ -216,9 +180,7 @@ void main() {
         ),
       );
 
-    final result = await ClassroomRepository(
-      dio,
-    ).getAssignments(5, page: 2, pageSize: 10);
+    final result = await ClassroomRepository(dio).getAssignments(5, page: 2, pageSize: 10);
 
     expect(captured.path, '/classrooms/api/v1/classrooms/5/assignments');
     expect(captured.queryParameters, {'page': 2, 'pageSize': 10});
@@ -257,18 +219,8 @@ void main() {
 
     final result = await ClassroomRepository(dio).createAssignments(
       schedules: [
-        AssignmentScheduleInput(
-          classroomId: 5,
-          duration: 45,
-          opensAt: opensAt,
-          dueAt: dueAt,
-        ),
-        AssignmentScheduleInput(
-          classroomId: 6,
-          duration: 45,
-          opensAt: opensAt,
-          dueAt: dueAt,
-        ),
+        AssignmentScheduleInput(classroomId: 5, duration: 45, opensAt: opensAt, dueAt: dueAt),
+        AssignmentScheduleInput(classroomId: 6, duration: 45, opensAt: opensAt, dueAt: dueAt),
       ],
       title: ' Assignment ',
       description: ' Instructions ',
@@ -290,20 +242,12 @@ void main() {
     expect(body['description'], 'Instructions');
     final questions = body['questions'] as List<dynamic>;
     expect(questions, hasLength(1));
-    expect((questions.single as Map<String, dynamic>)['options'], [
-      '1',
-      '2',
-      '3',
-      '4',
-    ]);
+    expect((questions.single as Map<String, dynamic>)['options'], ['1', '2', '3', '4']);
     expect(questions.single['correctOptionIndex'], 3);
     expect((body['schedules'] as List).first['duration'], 45);
     expect(body.containsKey('exam'), isFalse);
     expect(body.containsKey('examId'), isFalse);
-    expect(
-      (body['schedules'] as List).first['opensAt'],
-      '2026-10-04T01:00:00.000Z',
-    );
+    expect((body['schedules'] as List).first['opensAt'], '2026-10-04T01:00:00.000Z');
     expect(result.dataOrNull?.assignments.single.classroomId, 5);
   });
 
@@ -328,11 +272,7 @@ void main() {
               Response(
                 requestOptions: options,
                 data: options.path.endsWith('/join')
-                    ? {
-                        'url': 'ws://localhost:7880',
-                        'token': 'jwt',
-                        'room': roomJson,
-                      }
+                    ? {'url': 'ws://localhost:7880', 'token': 'jwt', 'room': roomJson}
                     : roomJson,
               ),
             );
@@ -374,58 +314,67 @@ void main() {
     expect(await ClassroomRepository(dio).joinRoom(2, 7), isA<Failure>());
   });
 
-  test(
-    'updates assignment content with confirmation and score exclusion',
-    () async {
-      late RequestOptions captured;
-      final dio = Dio()
-        ..interceptors.add(
-          InterceptorsWrapper(
-            onRequest: (options, handler) {
-              captured = options;
-              handler.resolve(
-                Response(
-                  requestOptions: options,
-                  data: {
-                    'id': 3,
-                    'examId': 8,
-                    'title': 'Updated',
-                    'questions': [
-                      {
-                        'content': 'Question',
-                        'options': ['A', 'B', 'C', 'D'],
-                        'correctOptionIndex': 1,
-                        'excludedFromScore': true,
-                      },
-                    ],
-                  },
-                ),
-              );
-            },
-          ),
-        );
-      final result = await ClassroomRepository(dio).updateAssignmentContent(
-        classroomId: 5,
-        assignmentId: 3,
-        title: ' Updated ',
-        description: ' Description ',
-        confirm: true,
-        reason: 'Incorrect answer',
-        questions: const [
-          CreateAssignmentQuestion(
-            content: 'Question',
-            explanation: '',
-            options: ['A', 'B', 'C', 'D'],
-            correctOptionIndex: 1,
-            excludedFromScore: true,
-          ),
-        ],
+  test('saves the edit screen in one request with confirmation', () async {
+    late RequestOptions captured;
+    final dio = Dio()
+      ..interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            captured = options;
+            handler.resolve(
+              Response(
+                requestOptions: options,
+                data: {
+                  'id': 3,
+                  'classroomId': 5,
+                  'examId': 8,
+                  'title': 'Updated',
+                  'opensAt': '2026-01-01T00:00:00Z',
+                  'dueAt': '2026-01-02T00:00:00Z',
+                },
+              ),
+            );
+          },
+        ),
       );
-      final body = captured.data as Map<String, dynamic>;
-      expect(captured.path, '/classrooms/api/v1/classrooms/5/assignments/3');
-      expect(body['confirm'], isTrue);
-      expect((body['questions'] as List).single['excludedFromScore'], isTrue);
-      expect(result.dataOrNull?.questions.single.excludedFromScore, isTrue);
-    },
-  );
+    final result = await ClassroomRepository(dio).updateAssignment(
+      classroomId: 5,
+      assignmentId: 3,
+      title: ' Updated ',
+      description: ' Description ',
+      questions: const [
+        CreateAssignmentQuestion(
+          content: 'Question',
+          explanation: '',
+          options: ['A', 'B', 'C', 'D'],
+          correctOptionIndex: 1,
+          excludedFromScore: true,
+          id: 4,
+          optionIds: [10, 11, 12, 13],
+        ),
+      ],
+      schedules: [
+        AssignmentScheduleInput(
+          classroomId: 9,
+          duration: 30,
+          opensAt: DateTime.utc(2026, 1, 1),
+          dueAt: DateTime.utc(2026, 1, 2),
+        ),
+      ],
+      confirm: true,
+      reason: 'Incorrect answer',
+    );
+    final body = captured.data as Map<String, dynamic>;
+    expect(captured.method, 'PUT');
+    expect(captured.path, '/classrooms/api/v1/classrooms/5/assignments/3');
+    expect(body['title'], 'Updated');
+    expect(body['confirm'], isTrue);
+    expect(body['reason'], 'Incorrect answer');
+    final question = (body['questions'] as List).single as Map<String, dynamic>;
+    expect(question['id'], 4);
+    expect(question['optionIds'], [10, 11, 12, 13]);
+    expect(question['excludedFromScore'], isTrue);
+    expect((body['schedules'] as List).single['classroomId'], 9);
+    expect(result.dataOrNull?.id, 3);
+  });
 }

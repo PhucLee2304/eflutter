@@ -1,3 +1,7 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
+import 'dart:async';
+
+import 'package:eflutter/core/attempt_lock/attempt_integrity_reporter.dart';
 import 'package:eflutter/core/base/local_data_base.dart';
 import 'package:eflutter/core/base/remote_data_base.dart';
 import 'package:eflutter/core/di/injection.dart';
@@ -35,6 +39,12 @@ class _AttemptExamScreenState extends State<AttemptExamScreen> {
   late final AttemptNavigatorCubit _navigator;
   late final ListeningCubit _listening;
   final _preloader = ListeningAudioPreloader();
+  StreamSubscription<ListeningState>? _listeningSubscription;
+
+  /// Audio trang nghe hiện tại. Đổi theo stream của [ListeningCubit], không theo
+  /// build: tab bị ẩn thì Flutter web không build nhưng audio vẫn phải phát tiếp.
+  ListeningPlayback? _playback;
+  int? _playbackPage;
 
   /// Vừa nghe xong trong phiên này: hiện màn chuyển trước khi vào phần đọc.
   bool _readingIntro = false;
@@ -44,10 +54,11 @@ class _AttemptExamScreenState extends State<AttemptExamScreen> {
     super.initState();
     final repository = ExamRepository(getIt<RemoteDataBase>());
     _socket = AttemptSocketClient(getIt<LocalDataBase>());
-    _session = AttemptSessionCubit(repository, _socket)
+    _session = AttemptSessionCubit(repository, _socket, reporter: getIt<AttemptIntegrityReporter>())
       ..load(widget.attempt.id, initialAttempt: widget.attempt);
     _navigator = AttemptNavigatorCubit(repository, _session, widget.attempt.id);
     _listening = ListeningCubit(repository, _socket, _navigator);
+    _listeningSubscription = _listening.stream.listen(_syncPlayback);
     _start();
   }
 
@@ -66,8 +77,34 @@ class _AttemptExamScreenState extends State<AttemptExamScreen> {
     if (index != null) await _navigator.openPage(index);
   }
 
+  void _syncPlayback(ListeningState listening) {
+    final page = listening.phase == ListeningPhase.playing ? listening.page : null;
+    if (page != null && page.index == _playbackPage) return;
+    // Hết audio (gap/advancing) thì giữ player tới khi sang trang mới.
+    if (page == null &&
+        listening.phase != ListeningPhase.loading &&
+        listening.phase != ListeningPhase.finished &&
+        listening.phase != ListeningPhase.idle) {
+      return;
+    }
+    _playback?.dispose();
+    _playback = null;
+    _playbackPage = page?.index;
+    if (page == null) return;
+    _preloader.preload(page.nextAudioUrl);
+    _playback = ListeningPlayback(
+      url: page.group?.audioUrl,
+      durationMs: page.group?.audioDurationMs,
+      startOffset: listening.startOffset,
+      onCompleted: _listening.audioCompleted,
+      preloader: _preloader,
+    );
+  }
+
   @override
   void dispose() {
+    _listeningSubscription?.cancel();
+    _playback?.dispose();
     _preloader.dispose();
     _listening.close();
     _navigator.close();
@@ -80,14 +117,11 @@ class _AttemptExamScreenState extends State<AttemptExamScreen> {
       context,
       // Đang nghe thì bảng chỉ để xem.
       onSelect: _navigator.state.isListening ? null : _navigator.openQuestion,
-      builder: (context, onTap) =>
-          BlocBuilder<AttemptNavigatorCubit, AttemptNavigatorState>(
-            bloc: _navigator,
-            builder: (context, state) => QuestionPalette(
-              groups: paletteGroupsFromNavigator(state),
-              onTap: onTap,
-            ),
-          ),
+      builder: (context, onTap) => BlocBuilder<AttemptNavigatorCubit, AttemptNavigatorState>(
+        bloc: _navigator,
+        builder: (context, state) =>
+            QuestionPalette(groups: paletteGroupsFromNavigator(state), onTap: onTap),
+      ),
     );
   }
 
@@ -98,27 +132,21 @@ class _AttemptExamScreenState extends State<AttemptExamScreen> {
       child: BlocListener<AttemptNavigatorCubit, AttemptNavigatorState>(
         bloc: _navigator,
         // Vừa hết phần nghe: mở trang đọc đầu tiên.
-        listenWhen: (previous, current) =>
-            previous.isListening && !current.isListening,
+        listenWhen: (previous, current) => previous.isListening && !current.isListening,
         listener: (context, state) {
           setState(() => _readingIntro = true);
           _openViewingPage();
         },
         child: BlocBuilder<AttemptSessionCubit, AttemptSessionState>(
           bloc: _session,
-          builder: (context, session) =>
-              BlocBuilder<AttemptNavigatorCubit, AttemptNavigatorState>(
-                bloc: _navigator,
-                builder: (context, navigator) =>
-                    BlocBuilder<ListeningCubit, ListeningState>(
-                      bloc: _listening,
-                      builder: (context, listening) => Scaffold(
-                        body: SafeArea(
-                          child: _body(session, navigator, listening),
-                        ),
-                      ),
-                    ),
-              ),
+          builder: (context, session) => BlocBuilder<AttemptNavigatorCubit, AttemptNavigatorState>(
+            bloc: _navigator,
+            builder: (context, navigator) => BlocBuilder<ListeningCubit, ListeningState>(
+              bloc: _listening,
+              builder: (context, listening) =>
+                  Scaffold(body: SafeArea(child: _body(session, navigator, listening))),
+            ),
+          ),
         ),
       ),
     );
@@ -130,17 +158,10 @@ class _AttemptExamScreenState extends State<AttemptExamScreen> {
       !state.isLoading &&
       state.viewingPage == null;
 
-  Widget _listeningTop(ListeningState listening) {
-    final page = listening.page!;
-    _preloader.preload(page.nextAudioUrl);
-    return ListeningAudio(
-      key: ValueKey('audio-${page.index}'),
-      url: page.group?.audioUrl,
-      durationMs: page.group?.audioDurationMs,
-      startOffset: listening.startOffset,
-      onCompleted: _listening.audioCompleted,
-      preloader: _preloader,
-    );
+  Widget? _listeningTop() {
+    final playback = _playback;
+    if (playback == null) return null;
+    return ListeningResumeButton(key: ValueKey('audio-$_playbackPage'), playback: playback);
   }
 
   Widget _body(
@@ -150,9 +171,7 @@ class _AttemptExamScreenState extends State<AttemptExamScreen> {
   ) {
     final attempt = session.attempt;
     if (attempt == null) {
-      return session.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : const MissingAttempt();
+      return session.isLoading ? const AppLoader() : const MissingAttempt();
     }
     final title = attempt.exam?.title.trim().isNotEmpty == true
         ? attempt.exam!.title
@@ -182,28 +201,23 @@ class _AttemptExamScreenState extends State<AttemptExamScreen> {
           subtitle: stageLabel,
           state: session,
           answeredCount: navigator.answeredCount,
-          totalQuestions:
-              navigator.navigator?.totalQuestions ?? attempt.totalQuestions,
+          totalQuestions: navigator.navigator?.totalQuestions ?? attempt.totalQuestions,
           onOpenPalette: navigator.navigator == null ? null : _openPalette,
           onSubmit: submit,
-          onCancel: attempt.isAssignment
-              ? null
-              : () => confirmCancelAttempt(context, _session),
+          onCancel: attempt.isAssignment ? null : () => confirmCancelAttempt(context, _session),
         ),
         Expanded(
           child: noReadingPages
               ? _ListeningOnlyFinished(onSubmit: submit)
               : _readingIntro
-              ? _ReadingIntro(
-                  onStart: () => setState(() => _readingIntro = false),
-                )
+              ? _ReadingIntro(onStart: () => setState(() => _readingIntro = false))
               : page == null
               ? Center(
                   child:
                       navigator.isLoading ||
                           navigator.isPageLoading ||
                           listening.phase == ListeningPhase.loading
-                      ? const CircularProgressIndicator()
+                      ? const AppLoader()
                       : const Text('This page is not available.'),
                 )
               : AttemptPageViewTwoPane(
@@ -212,9 +226,7 @@ class _AttemptExamScreenState extends State<AttemptExamScreen> {
                   session: session,
                   locked: !navigator.isPageOpen(page.index),
                   onSelect: _session.selectAnswer,
-                  top: navigator.isListening && listening.page != null
-                      ? _listeningTop(listening)
-                      : null,
+                  top: navigator.isListening ? _listeningTop() : null,
                 ),
         ),
         if (!navigator.isListening &&
@@ -225,9 +237,7 @@ class _AttemptExamScreenState extends State<AttemptExamScreen> {
             onPrevious: _navigator.adjacentPage(-1) == null
                 ? null
                 : () => _navigator.openAdjacent(-1),
-            onNext: _navigator.adjacentPage(1) == null
-                ? null
-                : () => _navigator.openAdjacent(1),
+            onNext: _navigator.adjacentPage(1) == null ? null : () => _navigator.openAdjacent(1),
             loading: navigator.isPageLoading,
           ),
       ],
@@ -259,7 +269,7 @@ class _ListeningOnlyFinished extends StatelessWidget {
             style: TextStyle(color: ColorName.labelSecondary),
           ),
           const SizedBox(height: 20),
-          const CircularProgressIndicator(),
+          const AppLoader(),
           const SizedBox(height: 20),
           TextButton(
             key: const ValueKey('listening-only-submit'),
@@ -310,11 +320,7 @@ class _ReadingIntro extends StatelessWidget {
 
 /// Nút Trước/Sau của phần đọc (T8).
 class _PageNavigationBar extends StatelessWidget {
-  const _PageNavigationBar({
-    required this.onPrevious,
-    required this.onNext,
-    required this.loading,
-  });
+  const _PageNavigationBar({required this.onPrevious, required this.onNext, required this.loading});
 
   final VoidCallback? onPrevious;
   final VoidCallback? onNext;
@@ -336,11 +342,7 @@ class _PageNavigationBar extends StatelessWidget {
           label: const Text('Previous'),
         ),
         const Spacer(),
-        if (loading)
-          const SizedBox.square(
-            dimension: 18,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
+        if (loading) const SizedBox.square(dimension: 18, child: AppLoader()),
         const Spacer(),
         OutlinedButton.icon(
           key: const ValueKey('page-next'),

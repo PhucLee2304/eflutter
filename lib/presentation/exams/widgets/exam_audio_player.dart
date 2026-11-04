@@ -1,3 +1,4 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:eflutter/generated/colors.gen.dart';
 import 'package:flutter/material.dart';
 import 'package:solar_icons/solar_icons.dart';
@@ -66,10 +67,7 @@ class _ExamAudioPlayerState extends State<ExamAudioPlayer> {
             height: 40,
             child: Align(
               alignment: Alignment.centerLeft,
-              child: SizedBox.square(
-                dimension: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
+              child: SizedBox.square(dimension: 20, child: AppLoader()),
             ),
           );
         }
@@ -81,18 +79,15 @@ class _ExamAudioPlayerState extends State<ExamAudioPlayer> {
               tooltip: value.isPlaying ? 'Pause audio' : 'Play audio',
               onPressed: value.isPlaying ? _controller.pause : _controller.play,
               icon: Icon(
-                value.isPlaying
-                    ? SolarIconsOutline.pauseCircle
-                    : SolarIconsOutline.playCircle,
+                value.isPlaying ? SolarIconsOutline.pauseCircle : SolarIconsOutline.playCircle,
               ),
             ),
             Expanded(
               child: Slider(
                 value: positionMs.toDouble(),
                 max: durationMs <= 0 ? 1 : durationMs.toDouble(),
-                onChanged: (position) => _controller.seekTo(
-                  Duration(milliseconds: position.round()),
-                ),
+                onChanged: (position) =>
+                    _controller.seekTo(Duration(milliseconds: position.round())),
               ),
             ),
             Text(_durationLabel(value.position)),

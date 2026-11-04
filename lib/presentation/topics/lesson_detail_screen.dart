@@ -1,3 +1,4 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:eflutter/core/utils/extensions/toast_bar_extension.dart';
 import 'package:eflutter/data/models/topic_lesson_detail.dart';
 import 'package:eflutter/data/models/topic_transcript.dart';
@@ -132,7 +133,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 8, 16),
               child: state.isLoading && lesson == null
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const AppLoader()
                   : lesson == null
                   ? const _EmptyLessonState()
                   : _LessonDetailContent(
@@ -487,7 +488,7 @@ class _TranscriptPanel extends StatelessWidget {
                   const SizedBox(
                     width: 16,
                     height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    child: AppLoader(),
                   ),
               ],
             ),

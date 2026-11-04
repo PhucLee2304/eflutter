@@ -61,7 +61,7 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i264.LocalData(gh<_i460.SharedPreferencesAsync>()),
     );
     gh.lazySingleton<_i649.AttemptIntegrityReporter>(
-      () => _i649.LogAttemptIntegrityReporter(gh<_i207.Talker>()),
+      () => _i649.SocketAttemptIntegrityReporter(gh<_i207.Talker>()),
     );
     gh.lazySingleton<_i361.Dio>(
       () => registerModule.dio(gh<_i393.AuthInterceptor>()),
@@ -79,18 +79,19 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i744.LeaveGuard>(),
       ),
     );
-    gh.lazySingleton<_i695.AuthRepository>(
-      () => _i695.AuthRepository(
-        gh<_i942.LocalDataBase>(),
-        gh<_i207.Talker>(),
-        gh<_i90.RemoteDataBase>(),
-      ),
-    );
     gh.lazySingleton<_i339.NotificationPushService>(
       () => _i339.NotificationPushService(
         gh<_i361.Dio>(),
         gh<_i834.NotificationController>(),
         gh<_i460.SharedPreferencesAsync>(),
+        gh<_i942.LocalDataBase>(),
+      ),
+    );
+    gh.lazySingleton<_i695.AuthRepository>(
+      () => _i695.AuthRepository(
+        gh<_i942.LocalDataBase>(),
+        gh<_i207.Talker>(),
+        gh<_i90.RemoteDataBase>(),
       ),
     );
     gh.lazySingleton<_i441.TopicRepository>(

@@ -26,12 +26,6 @@ class _MainAppBarState extends State<MainAppBar> {
   final _notificationController = getIt<NotificationController>();
 
   @override
-  void initState() {
-    super.initState();
-    _notificationController.refresh();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return BlocBuilder<AppCubit, AppState>(
       builder: (context, state) {
@@ -52,10 +46,7 @@ class _MainAppBarState extends State<MainAppBar> {
                   const AppLogo(width: 40),
                   Text(
                     state.appInfo.buildName,
-                    style: const TextStyle(
-                      fontSize: 10,
-                      color: ColorName.labelSecondary,
-                    ),
+                    style: const TextStyle(fontSize: 10, color: ColorName.labelSecondary),
                   ),
                 ],
               ),
@@ -99,10 +90,7 @@ class _MainAppBarState extends State<MainAppBar> {
                       ),
                       const Text(
                         'Hello',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: ColorName.labelPrimary,
-                        ),
+                        style: TextStyle(fontSize: 12, color: ColorName.labelPrimary),
                       ),
                     ],
                   ),
@@ -115,10 +103,7 @@ class _MainAppBarState extends State<MainAppBar> {
                       borderRadius: BorderRadius.circular(8),
                       image: avatarUrl == null || avatarUrl.isEmpty
                           ? null
-                          : DecorationImage(
-                              image: NetworkImage(avatarUrl),
-                              fit: BoxFit.cover,
-                            ),
+                          : DecorationImage(image: NetworkImage(avatarUrl), fit: BoxFit.cover),
                     ),
                     child: avatarUrl == null || avatarUrl.isEmpty
                         ? const Icon(SolarIconsBold.user, color: Colors.white)

@@ -31,11 +31,7 @@ class RoomDevicePreferences {
       final [microphoneId, cameraId, speakerId] = await [
         for (final key in _keys.values) _prefs.getString(key),
       ].wait;
-      return RoomDeviceChoice(
-        microphoneId: microphoneId,
-        cameraId: cameraId,
-        speakerId: speakerId,
-      );
+      return RoomDeviceChoice(microphoneId: microphoneId, cameraId: cameraId, speakerId: speakerId);
     } catch (_) {
       return const RoomDeviceChoice();
     }

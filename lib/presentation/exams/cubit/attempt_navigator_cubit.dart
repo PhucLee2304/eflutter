@@ -36,8 +36,7 @@ class AttemptNavigatorState {
 
   bool get isListening => navigator?.isListening ?? false;
 
-  AttemptPage? get currentPage =>
-      viewingPage == null ? null : pages[viewingPage];
+  AttemptPage? get currentPage => viewingPage == null ? null : pages[viewingPage];
 
   /// Quy tắc mục 1.4: đang nghe chỉ mở trang nghe hiện tại; sang phần đọc thì mở mọi
   /// trang đọc, trang nghe khóa vĩnh viễn. Flow FREE mở mọi trang.
@@ -51,8 +50,7 @@ class AttemptNavigatorState {
     return !nav.isListening;
   }
 
-  bool isAnswered(AttemptNavigatorQuestion question) =>
-      selectedOptions.containsKey(question.id)
+  bool isAnswered(AttemptNavigatorQuestion question) => selectedOptions.containsKey(question.id)
       ? selectedOptions[question.id] != null
       : question.answered;
 
@@ -82,9 +80,7 @@ class AttemptNavigatorState {
     Object? failure = _sentinel,
   }) => AttemptNavigatorState(
     navigator: navigator ?? this.navigator,
-    viewingPage: identical(viewingPage, _sentinel)
-        ? this.viewingPage
-        : viewingPage as int?,
+    viewingPage: identical(viewingPage, _sentinel) ? this.viewingPage : viewingPage as int?,
     pages: pages ?? this.pages,
     selectedOptions: selectedOptions ?? this.selectedOptions,
     isLoading: isLoading ?? this.isLoading,
@@ -153,12 +149,7 @@ class AttemptNavigatorCubit extends Cubit<AttemptNavigatorState> {
       answeredCount: nav.answeredCount,
       pages: nav.pages,
     );
-    emit(
-      state.copyWith(
-        navigator: updated,
-        viewingPage: _viewingFor(updated, state.viewingPage),
-      ),
-    );
+    emit(state.copyWith(navigator: updated, viewingPage: _viewingFor(updated, state.viewingPage)));
   }
 
   /// Mở một trang phần đọc (hoặc trang bất kỳ ở flow FREE). Trang khóa bị bỏ qua.
@@ -205,8 +196,7 @@ class AttemptNavigatorCubit extends Cubit<AttemptNavigatorState> {
   /// Nạp đáp án đã lưu của trang vào session; trang đọc được cache.
   void registerPage(AttemptPage page) {
     _session.mergeAnswers({
-      for (final question in page.questions)
-        question.id: question.selectedOptionId,
+      for (final question in page.questions) question.id: question.selectedOptionId,
     });
     if (page.isListening) return;
     emit(state.copyWith(pages: {...state.pages, page.index: page}));
@@ -219,8 +209,7 @@ class AttemptNavigatorCubit extends Cubit<AttemptNavigatorState> {
     // Câu bị QUESTION_LOCKED nghĩa là bảng câu hỏi đã cũ: tải lại.
     final newlyRejected = session.syncStatuses.entries.any(
       (e) =>
-          e.value == AnswerSyncStatus.rejected &&
-          _lastStatuses[e.key] != AnswerSyncStatus.rejected,
+          e.value == AnswerSyncStatus.rejected && _lastStatuses[e.key] != AnswerSyncStatus.rejected,
     );
     _lastStatuses = session.syncStatuses;
     if (newlyRejected) unawaited(refresh());

@@ -1,3 +1,4 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:eflutter/core/utils/extensions/toast_bar_extension.dart';
 import 'package:eflutter/data/models/topic_lesson.dart';
 import 'package:eflutter/data/models/topic_section.dart';
@@ -321,7 +322,7 @@ class _TopicPanel<T> extends StatelessWidget {
             child: Builder(
               builder: (context) {
                 if (isLoading) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const AppLoader();
                 }
                 if (items.isEmpty) {
                   return Center(

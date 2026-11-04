@@ -159,14 +159,14 @@ class AttemptPage {
 class AttemptPageGroup {
   final String title;
   final String instruction;
-  final String? imageUrl;
+  final List<String> imageUrls;
   final String? audioUrl;
   final int? audioDurationMs;
 
   const AttemptPageGroup({
     required this.title,
     required this.instruction,
-    required this.imageUrl,
+    required this.imageUrls,
     required this.audioUrl,
     required this.audioDurationMs,
   });
@@ -175,7 +175,7 @@ class AttemptPageGroup {
     return AttemptPageGroup(
       title: json['title'] as String? ?? '',
       instruction: json['instruction'] as String? ?? '',
-      imageUrl: json['imageUrl'] as String?,
+      imageUrls: (json['imageUrls'] as List<dynamic>? ?? const []).cast<String>(),
       audioUrl: json['audioUrl'] as String?,
       audioDurationMs: (json['audioDurationMs'] as num?)?.toInt(),
     );

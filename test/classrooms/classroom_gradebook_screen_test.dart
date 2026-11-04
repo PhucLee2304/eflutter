@@ -51,7 +51,7 @@ void main() {
 
     expect(find.text('Students'), findsOneWidget);
     expect(find.text('50'), findsOneWidget);
-    expect(find.byType(DataTable), findsOneWidget);
+    expect(find.text('STUDENT'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -60,7 +60,7 @@ void main() {
   ) async {
     await pumpGradebook(tester, const Size(390, 800));
 
-    expect(find.byType(DataTable), findsNothing);
+    expect(find.text('STUDENT'), findsNothing);
     expect(find.text('Student 1'), findsOneWidget);
     await tester.enterText(find.byType(TextField), 'student50@example.com');
     await tester.pump();
@@ -141,7 +141,7 @@ void main() {
         ),
       ),
     );
-    expect(find.text('Questions with the highest wrong rate'), findsOneWidget);
-    expect(find.text('50.0%'), findsOneWidget);
+    expect(find.text('Hardest questions'), findsOneWidget);
+    expect(find.text('50%'), findsOneWidget);
   });
 }

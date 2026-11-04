@@ -1,3 +1,4 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:eflutter/core/base/remote_data_base.dart';
 import 'package:eflutter/core/base/result.dart';
 import 'package:eflutter/core/di/injection.dart';
@@ -11,11 +12,7 @@ import 'package:flutter/material.dart';
 /// trang; còn lại giữ list cuộn. Vào thẳng route (F5, AttemptLockNotifier) thì không
 /// có `extra`: tìm attempt trong danh sách ACTIVE để biết flow.
 class AttemptRouteScreen extends StatefulWidget {
-  const AttemptRouteScreen({
-    super.key,
-    required this.attemptId,
-    this.initialAttempt,
-  });
+  const AttemptRouteScreen({super.key, required this.attemptId, this.initialAttempt});
 
   final int attemptId;
   final ExamAttempt? initialAttempt;
@@ -43,9 +40,7 @@ class _AttemptRouteScreenState extends State<AttemptRouteScreen> {
     if (!mounted) return;
     setState(() {
       if (result case Success(data: final page)) {
-        _attempt = page.attempts
-            .where((attempt) => attempt.id == widget.attemptId)
-            .firstOrNull;
+        _attempt = page.attempts.where((attempt) => attempt.id == widget.attemptId).firstOrNull;
       }
       _resolved = true;
     });
@@ -54,7 +49,7 @@ class _AttemptRouteScreenState extends State<AttemptRouteScreen> {
   @override
   Widget build(BuildContext context) {
     if (!_resolved) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(body: AppLoader());
     }
     final attempt = _attempt;
     if (attempt != null && attempt.isStrict) {

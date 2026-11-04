@@ -1,6 +1,5 @@
 import 'package:eflutter/data/models/attempt_page.dart';
 import 'package:eflutter/generated/colors.gen.dart';
-import 'package:eflutter/presentation/exams/attempt/attempt_header.dart';
 import 'package:eflutter/presentation/exams/attempt/question_palette.dart';
 import 'package:eflutter/presentation/exams/cubit/attempt_session_cubit.dart';
 import 'package:flutter/material.dart';
@@ -43,12 +42,7 @@ class AttemptPageViewTwoPane extends StatelessWidget {
           return SelectionArea(
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-              children: [
-                ?top,
-                pageContext,
-                const SizedBox(height: 16),
-                questions,
-              ],
+              children: [?top, pageContext, const SizedBox(height: 16), questions],
             ),
           );
         }
@@ -57,17 +51,11 @@ class AttemptPageViewTwoPane extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.all(20),
-                  children: [?top, pageContext],
-                ),
+                child: ListView(padding: const EdgeInsets.all(20), children: [?top, pageContext]),
               ),
               const VerticalDivider(width: 1, color: ColorName.gray5),
               Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.all(20),
-                  children: [questions],
-                ),
+                child: ListView(padding: const EdgeInsets.all(20), children: [questions]),
               ),
             ],
           ),
@@ -88,17 +76,15 @@ class _PageContext extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (group != null && group.instruction.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Text(group.instruction),
-          ),
-        if (group?.imageUrl != null)
+          Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(group.instruction)),
+        // TOEIC Part 6/7 có thể nhiều ảnh, hiển thị theo thứ tự.
+        for (final imageUrl in group?.imageUrls ?? const <String>[])
           Padding(
             padding: const EdgeInsets.only(top: 12),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 420),
               child: Image.network(
-                group!.imageUrl!,
+                imageUrl,
                 fit: BoxFit.contain,
                 errorBuilder: (_, _, _) => const Text('Image unavailable'),
               ),
@@ -131,7 +117,6 @@ class _PageQuestions extends StatelessWidget {
           _PageQuestionCard(
             question: question,
             selected: session.selectedOptions[question.id],
-            sync: session.syncStatuses[question.id],
             locked: locked || session.isLocked,
             onSelect: onSelect,
           ),
@@ -144,14 +129,12 @@ class _PageQuestionCard extends StatelessWidget {
   const _PageQuestionCard({
     required this.question,
     required this.selected,
-    required this.sync,
     required this.locked,
     required this.onSelect,
   });
 
   final AttemptPageQuestion question;
   final int? selected;
-  final AnswerSyncStatus? sync;
   final bool locked;
   final void Function(int, int?) onSelect;
 
@@ -179,15 +162,12 @@ class _PageQuestionCard extends StatelessWidget {
                 ),
               ),
               if (question.excludedFromScore) const NotScoredBadge(),
-              if (sync != null) AttemptSyncIcon(status: sync!),
             ],
           ),
           const SizedBox(height: 10),
           RadioGroup<int>(
             groupValue: selected,
-            onChanged: locked
-                ? (_) {}
-                : (value) => onSelect(question.id, value),
+            onChanged: locked ? (_) {} : (value) => onSelect(question.id, value),
             child: Column(
               children: question.options.map((option) {
                 final isSelected = selected == option.id;
@@ -203,10 +183,7 @@ class _PageQuestionCard extends StatelessWidget {
                       ? IconButton(
                           tooltip: 'Clear answer',
                           onPressed: () => onSelect(question.id, null),
-                          icon: const Icon(
-                            SolarIconsOutline.closeCircle,
-                            size: 20,
-                          ),
+                          icon: const Icon(SolarIconsOutline.closeCircle, size: 20),
                         )
                       : null,
                 );

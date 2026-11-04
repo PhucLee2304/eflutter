@@ -38,9 +38,7 @@ class ExamDetailState {
       isLoading: isLoading ?? this.isLoading,
       isStarting: isStarting ?? this.isStarting,
       attemptStarted: attemptStarted ?? this.attemptStarted,
-      failure: identical(failure, _failureSentinel)
-          ? this.failure
-          : failure as Failure?,
+      failure: identical(failure, _failureSentinel) ? this.failure : failure as Failure?,
     );
   }
 }
@@ -69,31 +67,15 @@ class ExamDetailCubit extends Cubit<ExamDetailState> {
     }
   }
 
-  Future<void> createAttempt(
-    int examId,
-    CreateExamAttemptRequest request,
-  ) async {
+  Future<void> createAttempt(int examId, CreateExamAttemptRequest request) async {
     emit(
-      state.copyWith(
-        isStarting: true,
-        failure: null,
-        attemptStarted: false,
-        startedAttempt: null,
-      ),
+      state.copyWith(isStarting: true, failure: null, attemptStarted: false, startedAttempt: null),
     );
-    final result = await _examRepository
-        .createExamAttempt(examId, request)
-        .withLoading();
+    final result = await _examRepository.createExamAttempt(examId, request).withLoading();
 
     switch (result) {
       case Success(data: final attempt):
-        emit(
-          state.copyWith(
-            startedAttempt: attempt,
-            isStarting: false,
-            attemptStarted: true,
-          ),
-        );
+        emit(state.copyWith(startedAttempt: attempt, isStarting: false, attemptStarted: true));
         emit(state.copyWith(attemptStarted: false));
       case Failure():
         if (result.code == 409 && request.contextType == 'STANDALONE') {
@@ -102,9 +84,9 @@ class ExamDetailCubit extends Cubit<ExamDetailState> {
             page: 1,
             pageSize: 1,
           );
-          if (activeResult case Success(data: final page)
-              when page.attempts.isNotEmpty &&
-                  page.attempts.first.examId == examId) {
+          if (activeResult case Success(
+            data: final page,
+          ) when page.attempts.isNotEmpty && page.attempts.first.examId == examId) {
             emit(
               state.copyWith(
                 startedAttempt: page.attempts.first,

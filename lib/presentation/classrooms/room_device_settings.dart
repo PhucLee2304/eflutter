@@ -78,12 +78,7 @@ class RoomDeviceSettingsDialog extends StatelessWidget {
         ),
       ),
     ),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.of(context).pop(),
-        child: const Text('Done'),
-      ),
-    ],
+    actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Done'))],
   );
 }
 
@@ -116,9 +111,7 @@ class _DevicePicker extends StatelessWidget {
         child: Text(emptyText ?? 'No ${label.toLowerCase()} found'),
       );
     }
-    final value = devices
-        .where((device) => device.deviceId == selected?.deviceId)
-        .firstOrNull;
+    final value = devices.where((device) => device.deviceId == selected?.deviceId).firstOrNull;
     return DropdownButtonFormField<MediaDevice>(
       // Key theo lựa chọn để field nhận giá trị mới khi thiết bị bị rút.
       key: ValueKey('${label}_${value?.deviceId}'),

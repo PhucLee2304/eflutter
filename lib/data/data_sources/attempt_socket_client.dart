@@ -20,6 +20,9 @@ class AttemptSocketEvent {
   /// Payload của ACK (vd `ListeningState` cho ATTEMPT_LISTENING_ADVANCE).
   final Map<String, dynamic>? payload;
 
+  /// Dữ liệu kèm lỗi (vd `retryAfterMs` của SESSION_RECOVERING).
+  final Map<String, dynamic>? details;
+
   const AttemptSocketEvent({
     required this.requestId,
     required this.success,
@@ -28,6 +31,7 @@ class AttemptSocketEvent {
     this.type,
     this.attemptId,
     this.payload,
+    this.details,
   });
 }
 
@@ -39,6 +43,36 @@ abstract final class AttemptSocketCode {
   static const listeningAdvanceTooEarly = 'LISTENING_ADVANCE_TOO_EARLY';
   static const attemptExpired = 'ATTEMPT_EXPIRED';
   static const attemptNotActive = 'ATTEMPT_NOT_ACTIVE';
+  static const attemptNotFound = 'ATTEMPT_NOT_FOUND';
+
+  // Giám sát (PLAN_ATTEMPT_INTEGRITY.md mục 1.9).
+  static const attemptNotProctored = 'ATTEMPT_NOT_PROCTORED';
+  static const sessionInUse = 'SESSION_IN_USE';
+  static const sessionRecovering = 'SESSION_RECOVERING';
+  static const sessionTakeoverRequired = 'SESSION_TAKEOVER_REQUIRED';
+  static const integrityEventInvalid = 'INTEGRITY_EVENT_INVALID';
+}
+
+/// Push server gửi tới học sinh, payload luôn có `attemptId`.
+abstract final class AttemptSocketPush {
+  static const submitting = 'ATTEMPT_SUBMITTING';
+  static const submitted = 'ATTEMPT_SUBMITTED';
+  static const violation = 'ATTEMPT_VIOLATION';
+
+  /// Giáo viên cho tiếp tục làm bài: vi phạm được xóa, số vi phạm giảm.
+  static const violationCleared = 'ATTEMPT_VIOLATION_CLEARED';
+  static const terminated = 'ATTEMPT_TERMINATED';
+  static const sessionRevoked = 'ATTEMPT_SESSION_REVOKED';
+  static const reset = 'ATTEMPT_RESET';
+
+  static const all = {
+    submitting,
+    submitted,
+    violation,
+    terminated,
+    sessionRevoked,
+    reset,
+  };
 }
 
 abstract interface class AttemptSocketGateway {
@@ -51,6 +85,22 @@ abstract interface class AttemptSocketGateway {
     required int? optionId,
   });
   String sendListeningAdvance({required int attemptId, required int page});
+  String sendSessionClaim({
+    required int attemptId,
+    String? sessionToken,
+    bool takeover = false,
+  });
+  String sendIntegrityEvent({
+    required int attemptId,
+    required int sessionEpoch,
+    required String eventId,
+    required String type,
+    required DateTime at,
+    bool replayed = false,
+    String? startEventId,
+    int? clientDurationMs,
+    String? detail,
+  });
   Future<void> close();
 }
 
@@ -121,6 +171,40 @@ class AttemptSocketClient implements AttemptSocketGateway {
         'page': page,
       });
 
+  @override
+  String sendSessionClaim({
+    required int attemptId,
+    String? sessionToken,
+    bool takeover = false,
+  }) => _send('ATTEMPT_SESSION_CLAIM', {
+    'attemptId': attemptId,
+    'sessionToken': ?sessionToken,
+    if (takeover) 'takeover': true,
+  });
+
+  @override
+  String sendIntegrityEvent({
+    required int attemptId,
+    required int sessionEpoch,
+    required String eventId,
+    required String type,
+    required DateTime at,
+    bool replayed = false,
+    String? startEventId,
+    int? clientDurationMs,
+    String? detail,
+  }) => _send('ATTEMPT_INTEGRITY_EVENT', {
+    'attemptId': attemptId,
+    'sessionEpoch': sessionEpoch,
+    'eventId': eventId,
+    'type': type,
+    'at': at.toUtc().toIso8601String(),
+    if (replayed) 'replayed': true,
+    'startEventId': ?startEventId,
+    'clientDurationMs': ?clientDurationMs,
+    'detail': ?detail,
+  });
+
   String _send(String type, Map<String, dynamic> payload) {
     final channel = _channel;
     if (channel == null) throw StateError('Socket is not connected.');
@@ -135,7 +219,7 @@ class AttemptSocketClient implements AttemptSocketGateway {
     try {
       final data = jsonDecode(raw as String) as Map<String, dynamic>;
       final type = data['type'] as String?;
-      if (type == 'ATTEMPT_SUBMITTING' || type == 'ATTEMPT_SUBMITTED') {
+      if (AttemptSocketPush.all.contains(type)) {
         final payload = data['payload'] as Map<String, dynamic>?;
         _events.add(
           AttemptSocketEvent(
@@ -143,6 +227,7 @@ class AttemptSocketClient implements AttemptSocketGateway {
             success: true,
             type: type,
             attemptId: (payload?['attemptId'] as num?)?.toInt(),
+            payload: payload,
           ),
         );
         return;
@@ -157,6 +242,9 @@ class AttemptSocketClient implements AttemptSocketGateway {
           type: type,
           payload: data['payload'] is Map<String, dynamic>
               ? data['payload'] as Map<String, dynamic>
+              : null,
+          details: data['details'] is Map<String, dynamic>
+              ? data['details'] as Map<String, dynamic>
               : null,
         ),
       );

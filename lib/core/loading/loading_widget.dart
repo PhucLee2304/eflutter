@@ -38,3 +38,31 @@ class LoadingWidget extends StatelessWidget {
     );
   }
 }
+
+/// Đặt vào chỗ đang tải thay cho spinner: không tự vẽ gì mà bật overlay tam giác của
+/// [LoadingWidget]. Nhiều chỗ cùng tải vẫn chỉ hiện một overlay nhờ bộ đếm của [LoadingService].
+class AppLoader extends StatefulWidget {
+  const AppLoader({super.key});
+
+  @override
+  State<AppLoader> createState() => _AppLoaderState();
+}
+
+class _AppLoaderState extends State<AppLoader> {
+  final _service = getIt<LoadingService>();
+
+  @override
+  void initState() {
+    super.initState();
+    _service.show();
+  }
+
+  @override
+  void dispose() {
+    _service.hide();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.shrink();
+}

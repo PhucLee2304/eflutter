@@ -135,8 +135,10 @@ class ListeningCubit extends Cubit<ListeningState> {
       _advance();
       return;
     }
+    // Tính theo đồng hồ thật: tab bị ẩn thì timer có thể bị trình duyệt gọi trễ.
+    final deadline = DateTime.now().add(gap);
     _gapTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      remaining -= const Duration(seconds: 1);
+      remaining = deadline.difference(DateTime.now());
       if (remaining <= Duration.zero) {
         timer.cancel();
         _advance();
@@ -149,17 +151,9 @@ class ListeningCubit extends Cubit<ListeningState> {
   void _advance() {
     final page = state.page;
     if (isClosed || page == null) return;
-    emit(
-      state.copyWith(
-        phase: ListeningPhase.advancing,
-        gapRemaining: Duration.zero,
-      ),
-    );
+    emit(state.copyWith(phase: ListeningPhase.advancing, gapRemaining: Duration.zero));
     try {
-      _pendingRequest = _socket.sendListeningAdvance(
-        attemptId: _attemptId,
-        page: page.index,
-      );
+      _pendingRequest = _socket.sendListeningAdvance(attemptId: _attemptId, page: page.index);
       _ackTimer?.cancel();
       _ackTimer = Timer(ackTimeout, () {
         _pendingRequest = null;
@@ -219,13 +213,7 @@ class ListeningCubit extends Cubit<ListeningState> {
 
   void _finish() {
     _cancelTimers();
-    emit(
-      state.copyWith(
-        phase: ListeningPhase.finished,
-        page: null,
-        gapRemaining: null,
-      ),
-    );
+    emit(state.copyWith(phase: ListeningPhase.finished, page: null, gapRemaining: null));
   }
 
   void _cancelTimers() {

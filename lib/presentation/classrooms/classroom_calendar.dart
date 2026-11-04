@@ -1,3 +1,5 @@
+import 'package:eflutter/core/utils/extensions/toast_bar_extension.dart';
+import 'package:eflutter/core/loading/loading_widget.dart';
 import 'dart:async';
 
 import 'package:eflutter/core/base/local_data_base.dart';
@@ -7,7 +9,11 @@ import 'package:eflutter/data/data_sources/room_socket_client.dart';
 import 'package:eflutter/data/models/classroom.dart';
 import 'package:eflutter/data/repositories/classroom_repository.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:eflutter/generated/colors.gen.dart';
+import 'package:eflutter/presentation/classrooms/confirm_action_dialog.dart';
+import 'package:eflutter/presentation/classrooms/gradebook_widgets.dart';
 import 'package:go_router/go_router.dart';
 import 'package:eflutter/presentation/app/navigation/app_routes.dart';
 
@@ -32,13 +38,13 @@ class ClassroomCalendarView extends StatefulWidget {
 }
 
 class _ClassroomCalendarViewState extends State<ClassroomCalendarView> {
-  late final RoomSocketClient roomSocket = RoomSocketClient(
-    getIt<LocalDataBase>(),
-  );
+  late final RoomSocketClient roomSocket = RoomSocketClient(getIt<LocalDataBase>());
   StreamSubscription<ClassroomRoom>? roomSubscription;
   Timer? clockTimer;
   DateTime month = DateTime(DateTime.now().year, DateTime.now().month);
+  late DateTime selected = _today();
   List<CalendarEntry> entries = const [];
+  List<CalendarEntry> upcoming = const [];
   bool loading = true;
   bool busy = false;
   String? error;
@@ -64,21 +70,39 @@ class _ClassroomCalendarViewState extends State<ClassroomCalendarView> {
     super.dispose();
   }
 
+  /// Ngày đầu lưới (thứ Hai của tuần chứa ngày 1) và số tuần hiển thị.
+  DateTime get gridStart => month.subtract(Duration(days: month.weekday - 1));
+  int get weeks {
+    final days = DateUtils.getDaysInMonth(month.year, month.month) + month.weekday - 1;
+    return (days / 7).ceil();
+  }
+
   Future<void> load() async {
     setState(() {
-      loading = true;
+      loading = entries.isEmpty;
       error = null;
     });
-    final result = await widget.repository.getCalendar(
-      classroomId: widget.classroomId,
-      from: month,
-      to: DateTime(month.year, month.month + 1),
-    );
+    final now = DateTime.now();
+    final results = await Future.wait([
+      widget.repository.getCalendar(
+        classroomId: widget.classroomId,
+        from: gridStart,
+        to: gridStart.add(Duration(days: weeks * 7)),
+      ),
+      widget.repository.getCalendar(
+        classroomId: widget.classroomId,
+        from: now,
+        to: now.add(const Duration(days: 30)),
+      ),
+    ]);
     if (!mounted) return;
-    switch (result) {
+    switch (results[0]) {
       case Success(data: final value):
         setState(() {
           entries = value;
+          if (results[1] case Success(data: final next)) {
+            upcoming = next.where((entry) => entry.startsAt.isAfter(now)).take(5).toList();
+          }
           loading = false;
         });
       case Failure(message: final message):
@@ -93,18 +117,28 @@ class _ClassroomCalendarViewState extends State<ClassroomCalendarView> {
 
   Future<void> changeMonth(int offset) async {
     month = DateTime(month.year, month.month + offset);
+    final today = _today();
+    selected = today.year == month.year && today.month == month.month ? today : month;
+    await load();
+  }
+
+  Future<void> goToday() => jumpTo(_today());
+
+  /// Chuyển tới tháng chứa [day] và chọn ngày đó.
+  Future<void> jumpTo(DateTime day) async {
+    final target = DateTime(day.year, day.month);
+    setState(() => selected = day);
+    if (target == month) return;
+    month = target;
     await load();
   }
 
   Future<void> edit([CalendarEntry? schedule]) async {
-    final input = await showScheduleEditor(context, schedule);
+    final input = await showScheduleEditor(context, schedule, day: selected);
     if (input == null || !mounted) return;
     setState(() => busy = true);
     final result = schedule == null
-        ? await widget.repository.createSchedule(
-            classroomId: widget.classroomId,
-            input: input,
-          )
+        ? await widget.repository.createSchedule(classroomId: widget.classroomId, input: input)
         : await widget.repository.updateSchedule(
             classroomId: widget.classroomId,
             scheduleId: schedule.id,
@@ -123,24 +157,17 @@ class _ClassroomCalendarViewState extends State<ClassroomCalendarView> {
   }
 
   Future<void> remove(CalendarEntry schedule) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete class schedule?'),
-        content: Text(schedule.title),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+    final confirmed = await showConfirmAction(
+      context,
+      icon: Icons.event_busy_outlined,
+      color: ConfirmActionColors.red,
+      tint: ConfirmActionColors.redBg,
+      title: 'Delete "${schedule.title}"?',
+      message:
+          'This session is removed from the class calendar for everyone. This cannot be undone.',
+      action: 'Delete session',
     );
-    if (confirmed != true || !mounted) return;
+    if (confirmed == null || !mounted) return;
     setState(() => busy = true);
     final result = await widget.repository.deleteSchedule(
       classroomId: widget.classroomId,
@@ -162,10 +189,7 @@ class _ClassroomCalendarViewState extends State<ClassroomCalendarView> {
     final room = entry.room;
     if (room == null) return;
     setState(() => busy = true);
-    final result = await widget.repository.startRoom(
-      widget.classroomId,
-      room.id,
-    );
+    final result = await widget.repository.startRoom(widget.classroomId, room.id);
     if (!mounted) return;
     setState(() => busy = false);
     switch (result) {
@@ -181,314 +205,794 @@ class _ClassroomCalendarViewState extends State<ClassroomCalendarView> {
     }
   }
 
-  void _message(String value) => ScaffoldMessenger.of(
-    context,
-  ).showSnackBar(SnackBar(content: Text(value)));
+  void _message(String value, {ToastType type = ToastType.error}) =>
+      context.showToast(value, type: type);
+
+  List<CalendarEntry> entriesOn(DateTime day) =>
+      entries.where((entry) => DateUtils.isSameDay(entry.startsAt, day)).toList();
 
   @override
   Widget build(BuildContext context) {
-    if (loading) return const Center(child: CircularProgressIndicator());
-    if (error != null) {
-      return Center(
-        child: TextButton.icon(
-          onPressed: load,
-          icon: const Icon(Icons.refresh),
-          label: Text(error!),
-        ),
-      );
-    }
-    final grouped = <DateTime, List<CalendarEntry>>{};
-    for (final entry in entries) {
-      final day = DateTime(
-        entry.startsAt.year,
-        entry.startsAt.month,
-        entry.startsAt.day,
-      );
-      grouped.putIfAbsent(day, () => []).add(entry);
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            IconButton(
-              tooltip: 'Previous month',
-              onPressed: busy ? null : () => changeMonth(-1),
-              icon: const Icon(Icons.chevron_left),
-            ),
-            Expanded(
-              child: Text(
-                DateFormat('MMMM yyyy').format(month),
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-            ),
-            IconButton(
-              tooltip: 'Next month',
-              onPressed: busy ? null : () => changeMonth(1),
-              icon: const Icon(Icons.chevron_right),
-            ),
-            if (widget.isTeacher && widget.classroomActive) ...[
-              const SizedBox(width: 8),
-              FilledButton.icon(
-                onPressed: busy ? null : () => edit(),
-                icon: const Icon(Icons.add),
-                label: const Text('Add class schedule'),
-              ),
+    if (loading) return const AppLoader();
+    if (error != null) return GbError(message: error!, onRetry: load);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final wide = constraints.maxWidth >= 900;
+        final aside = [_dayDetail(), const SizedBox(height: 16), _upcoming()];
+        if (!wide) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _grid(compact: constraints.maxWidth < 600),
+              const SizedBox(height: 16),
+              ...aside,
             ],
-          ],
-        ),
-        const SizedBox(height: 16),
-        if (entries.isEmpty)
-          const Padding(
-            padding: EdgeInsets.all(36),
-            child: Center(
-              child: Text('No class schedules or deadlines this month'),
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: _grid()),
+            const SizedBox(width: 20),
+            SizedBox(
+              width: 300,
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: aside),
             ),
-          )
-        else
-          ...grouped.entries.map(
-            (entry) => Padding(
-              padding: const EdgeInsets.only(bottom: 18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    DateFormat('EEEE, MMM d').format(entry.key),
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
-                  const SizedBox(height: 6),
-                  ...entry.value.map(
-                    (entry) => ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: Icon(_calendarIcon(entry.calendarType)),
-                      title: Text(entry.title),
-                      subtitle: Text(_calendarDetails(entry)),
-                      onTap: entry.relatedAssignmentId != null
-                          ? () => widget.onOpenAssignment(
-                              entry.relatedAssignmentId!,
-                            )
-                          : null,
-                      trailing: Wrap(
-                        spacing: 2,
-                        children: [
-                          if (widget.isTeacher &&
-                              widget.classroomActive &&
-                              entry.editable) ...[
-                            IconButton(
-                              tooltip: 'Edit class schedule',
-                              onPressed: busy ? null : () => edit(entry),
-                              icon: const Icon(Icons.edit_outlined),
-                            ),
-                            IconButton(
-                              tooltip: 'Delete class schedule',
-                              onPressed: busy ? null : () => remove(entry),
-                              icon: const Icon(Icons.delete_outline),
-                            ),
-                          ],
-                          if (entry.room case final room?)
-                            ..._roomActions(entry, room),
-                        ],
-                      ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _grid({bool compact = false}) {
+    final today = _today();
+    return GbCard(
+      padding: EdgeInsets.zero,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+          child: Row(
+            spacing: 10,
+            children: [
+              _iconButton(Icons.chevron_left, 'Previous month', () => changeMonth(-1)),
+              _iconButton(Icons.chevron_right, 'Next month', () => changeMonth(1)),
+              Text(
+                DateFormat('MMMM yyyy').format(month),
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: Gb.text),
+              ),
+              OutlinedButton(
+                onPressed: busy ? null : goToday,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Gb.text,
+                  side: const BorderSide(color: Gb.border),
+                  minimumSize: const Size(0, 32),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                child: const Text('Today'),
+              ),
+              const Spacer(),
+              if (widget.isTeacher && widget.classroomActive)
+                FilledButton.icon(
+                  onPressed: busy ? null : () => edit(),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: Text(compact ? 'Add' : 'Add class schedule'),
+                ),
+            ],
+          ),
+        ),
+        Container(
+          decoration: const BoxDecoration(
+            color: Gb.soft,
+            border: Border.symmetric(horizontal: BorderSide(color: Gb.border)),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          child: Row(
+            children: [
+              for (final day in const ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'])
+                Expanded(
+                  child: Text(
+                    day,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: Gb.muted,
                     ),
                   ),
-                ],
-              ),
-            ),
+                ),
+            ],
           ),
+        ),
+        for (var week = 0; week < weeks; week++)
+          Row(
+            children: [
+              for (var weekday = 0; weekday < 7; weekday++)
+                Expanded(
+                  child: _dayCell(
+                    gridStart.add(Duration(days: week * 7 + weekday)),
+                    today: today,
+                    compact: compact,
+                    lastRow: week == weeks - 1,
+                    lastColumn: weekday == 6,
+                  ),
+                ),
+            ],
+          ),
+        Container(
+          decoration: const BoxDecoration(
+            border: Border(top: BorderSide(color: Gb.border)),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Wrap(
+            spacing: 18,
+            children: [_legend(Gb.red, 'Deadline'), _legend(_session, 'Class session')],
+          ),
+        ),
       ],
     );
   }
 
-  List<Widget> _roomActions(CalendarEntry entry, ClassroomRoom room) {
-    if (room.status == 'LIVE') {
-      return [
-        _attendanceAction(room),
-        FilledButton.icon(
-          onPressed: busy
-              ? null
-              : () => context.push(
-                  classroomRoomPath(widget.classroomId, room.id),
+  Widget _iconButton(IconData icon, String tooltip, VoidCallback onPressed) => SizedBox.square(
+    dimension: 32,
+    child: OutlinedButton(
+      onPressed: busy ? null : onPressed,
+      style: OutlinedButton.styleFrom(
+        padding: EdgeInsets.zero,
+        foregroundColor: Gb.muted,
+        side: const BorderSide(color: Gb.border),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+      child: Tooltip(message: tooltip, child: Icon(icon, size: 18)),
+    ),
+  );
+
+  Widget _legend(Color color, String label) => Row(
+    mainAxisSize: MainAxisSize.min,
+    spacing: 6,
+    children: [
+      _dot(color, 8),
+      Text(label, style: const TextStyle(fontSize: 12, color: Gb.muted)),
+    ],
+  );
+
+  Widget _dot(Color color, double size) => Container(
+    width: size,
+    height: size,
+    decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+  );
+
+  Widget _dayCell(
+    DateTime day, {
+    required DateTime today,
+    required bool compact,
+    required bool lastRow,
+    required bool lastColumn,
+  }) {
+    final inMonth = day.month == month.month;
+    final isToday = DateUtils.isSameDay(day, today);
+    final isSelected = DateUtils.isSameDay(day, selected);
+    final events = entriesOn(day);
+    const line = BorderSide(color: Color(0xFFEEF0F2));
+    return InkWell(
+      onTap: () => inMonth ? setState(() => selected = day) : jumpTo(day),
+      child: Container(
+        height: compact ? 64 : 112,
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? const Color(0xFFF5FAFE)
+              : !inMonth
+              ? const Color(0xFFFAFAFA)
+              : Colors.white,
+          border: isSelected
+              ? Border.all(color: ColorName.primary, width: 2)
+              : Border(
+                  right: lastColumn ? BorderSide.none : line,
+                  bottom: lastRow ? BorderSide.none : line,
                 ),
-          icon: const Icon(Icons.video_call_outlined),
-          label: const Text('Join'),
         ),
-      ];
-    }
-    if (room.status == 'ENDED') {
-      return [
-        const Padding(padding: EdgeInsets.all(12), child: Text('Ended')),
-        _attendanceAction(room),
-      ];
-    }
-    if (widget.isTeacher && widget.classroomActive) {
-      final now = DateTime.now();
-      if (now.isBefore(room.startsAt.subtract(const Duration(minutes: 30)))) {
-        return [
-          Padding(
-            padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          spacing: 4,
+          children: [
+            Container(
+              width: 24,
+              height: 24,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: isToday ? ColorName.primary : null,
+                shape: BoxShape.circle,
+              ),
+              child: Text(
+                '${day.day}',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: isToday || isSelected ? FontWeight.w700 : FontWeight.w500,
+                  color: isToday
+                      ? Colors.white
+                      : inMonth
+                      ? Gb.text
+                      : const Color(0xFFB0B5BD),
+                ),
+              ),
+            ),
+            if (compact)
+              Wrap(
+                spacing: 3,
+                children: [for (final event in events.take(4)) _dot(_calendarColors(event).$1, 6)],
+              )
+            else ...[
+              for (final event in events.take(2)) _chip(event),
+              if (events.length > 2)
+                Text(
+                  '+${events.length - 2} more',
+                  style: const TextStyle(fontSize: 11, color: Gb.muted),
+                ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _chip(CalendarEntry event) {
+    final (color, background) = _calendarColors(event);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(5)),
+      child: Row(
+        spacing: 5,
+        children: [
+          _dot(color, 6),
+          Expanded(
             child: Text(
-              'Starts ${DateFormat('MMM d, HH:mm').format(room.startsAt)}',
+              '${DateFormat('HH:mm').format(event.startsAt)} ${_title(event)}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: color),
             ),
           ),
-        ];
-      }
-      if (!room.canStartAt(now)) {
-        return [
-          const Padding(
-            padding: EdgeInsets.all(12),
-            child: Text('Start window ended'),
-          ),
-        ];
-      }
-      return [
-        FilledButton.icon(
-          onPressed: busy ? null : () => startRoom(entry),
-          icon: const Icon(Icons.play_arrow),
-          label: const Text('Start'),
-        ),
-      ];
-    }
-    return [
-      const Padding(
-        padding: EdgeInsets.all(12),
-        child: Text('Waiting for the teacher to start'),
+        ],
       ),
-    ];
-  }
-
-  Widget _attendanceAction(ClassroomRoom room) => IconButton(
-    tooltip: widget.isTeacher ? 'Attendance' : 'My attendance',
-    onPressed: () =>
-        context.push(roomAttendancePath(widget.classroomId, room.id)),
-    icon: const Icon(Icons.fact_check_outlined),
-  );
-}
-
-IconData _calendarIcon(String type) => switch (type) {
-  'CLASS_SCHEDULE' => Icons.school_outlined,
-  'ASSIGNMENT_DEADLINE' => Icons.assignment_late_outlined,
-  _ => Icons.event_outlined,
-};
-
-String _calendarDetails(CalendarEntry entry) {
-  final values = <String>[DateFormat('HH:mm').format(entry.startsAt)];
-  if (entry.endsAt != null) {
-    values[0] += ' - ${DateFormat('HH:mm').format(entry.endsAt!)}';
-  }
-  if (entry.description?.trim().isNotEmpty == true) {
-    values.add(entry.description!.trim());
-  }
-  return values.join(' · ');
-}
-
-Future<ClassroomScheduleInput?> showScheduleEditor(
-  BuildContext context,
-  CalendarEntry? schedule,
-) async {
-  final title = TextEditingController(text: schedule?.title ?? '');
-  final description = TextEditingController(text: schedule?.description ?? '');
-  var startsAt =
-      schedule?.startsAt ?? DateTime.now().add(const Duration(hours: 1));
-  var endsAt = schedule?.endsAt ?? startsAt.add(const Duration(hours: 1));
-
-  Future<DateTime?> pickDateTime(
-    BuildContext dialogContext,
-    DateTime initial,
-  ) async {
-    final date = await showDatePicker(
-      context: dialogContext,
-      initialDate: initial,
-      firstDate: DateTime.now().subtract(const Duration(days: 365)),
-      lastDate: DateTime.now().add(const Duration(days: 3650)),
     );
-    if (date == null || !dialogContext.mounted) return null;
-    final time = await showTimePicker(
-      context: dialogContext,
-      initialTime: TimeOfDay.fromDateTime(initial),
-    );
-    if (time == null) return null;
-    return DateTime(date.year, date.month, date.day, time.hour, time.minute);
   }
 
-  final result = await showDialog<ClassroomScheduleInput>(
-    context: context,
-    builder: (dialogContext) => StatefulBuilder(
-      builder: (context, setDialogState) => AlertDialog(
-        title: Text(
-          schedule == null ? 'Add class schedule' : 'Edit class schedule',
+  Widget _dayDetail() {
+    final events = entriesOn(selected);
+    return GbCard(
+      padding: const EdgeInsets.all(18),
+      children: [
+        Text(
+          DateFormat('EEEE, MMM d').format(selected),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Gb.text),
         ),
-        content: SizedBox(
-          width: 520,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+        const SizedBox(height: 14),
+        if (events.isEmpty) _emptyDay(),
+        for (final event in events) _detailItem(event),
+        if (widget.isTeacher && widget.classroomActive && !selected.isBefore(_today())) ...[
+          const SizedBox(height: 2),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              onPressed: busy ? null : () => edit(),
+              icon: const Icon(Icons.add, size: 18),
+              label: Text('Add session on ${DateFormat('MMM d').format(selected)}'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: ColorName.primary,
+                side: const BorderSide(color: ColorName.primary),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _emptyDay() {
+    final past = selected.isBefore(_today());
+    final canAdd = widget.isTeacher && widget.classroomActive && !past;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
+      decoration: BoxDecoration(color: Gb.soft, borderRadius: BorderRadius.circular(10)),
+      child: Column(
+        spacing: 4,
+        children: [
+          Text(
+            past ? 'Nothing on this day' : 'Nothing scheduled',
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Gb.text),
+          ),
+          if (canAdd || (past && widget.isTeacher))
+            Text(
+              past ? 'Past days can’t get new sessions' : 'Add a session for this day',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 12, color: Gb.faint),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Một mục trong khung ngày (Figma 29:4): nhãn trạng thái góc phải, nút chính bên trái,
+  /// sửa/xoá dạng icon bên phải.
+  Widget _detailItem(CalendarEntry event) {
+    final (color, _) = _calendarColors(event);
+    final deadline = _isDeadline(event);
+    final time = DateFormat('HH:mm').format(event.startsAt);
+    final end = event.endsAt == null ? '' : ' – ${DateFormat('HH:mm').format(event.endsAt!)}';
+    final assignmentId = event.relatedAssignmentId;
+    final room = event.room;
+    final editable = widget.isTeacher && widget.classroomActive && event.editable;
+    final status = deadline ? null : _sessionStatus(event);
+    final meta = _sessionMeta(room);
+    final actions = [
+      if (assignmentId != null)
+        _entryButton(
+          widget.isTeacher ? 'Open gradebook' : 'Open assignment',
+          Icons.arrow_forward,
+          () => widget.onOpenAssignment(assignmentId),
+        ),
+      if (room != null) ..._roomActions(event, room),
+    ];
+    final tools = [
+      // Buổi đã bắt đầu không đổi giờ được nữa; buổi đang live không xoá được.
+      if (editable && event.startsAt.isAfter(DateTime.now()))
+        _toolButton(Icons.edit_outlined, 'Edit class schedule', Gb.muted, () => edit(event)),
+      if (editable && room?.status != 'LIVE')
+        _toolButton(Icons.delete_outline, 'Delete class schedule', Gb.red, () => remove(event)),
+    ];
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: deadline ? const Color(0xFFFEF6F5) : const Color(0xFFF3F8FC),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+        decoration: BoxDecoration(
+          border: Border(left: BorderSide(color: color, width: 3)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          spacing: 4,
+          children: [
+            Row(
+              spacing: 8,
               children: [
-                TextField(
-                  controller: title,
-                  decoration: const InputDecoration(labelText: 'Title'),
-                ),
-                TextField(
-                  controller: description,
-                  decoration: const InputDecoration(labelText: 'Description'),
-                  maxLines: 2,
-                ),
-                const SizedBox(height: 12),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Starts'),
-                  subtitle: Text(
-                    DateFormat('MMM d, yyyy HH:mm').format(startsAt),
+                Expanded(
+                  child: Text(
+                    deadline ? 'Deadline · $time' : 'Class session · $time$end',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: color),
                   ),
-                  trailing: const Icon(Icons.edit_calendar_outlined),
-                  onTap: () async {
-                    final value = await pickDateTime(dialogContext, startsAt);
-                    if (value != null) setDialogState(() => startsAt = value);
-                  },
                 ),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Ends'),
-                  subtitle: Text(
-                    DateFormat('MMM d, yyyy HH:mm').format(endsAt),
+                ?status,
+              ],
+            ),
+            Text(
+              _title(event),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Gb.text),
+            ),
+            if (event.description?.trim().isNotEmpty == true)
+              Text(
+                event.description!.trim(),
+                style: const TextStyle(fontSize: 12, color: Gb.muted),
+              ),
+            if (meta != null) Text(meta, style: const TextStyle(fontSize: 12, color: Gb.muted)),
+            if (actions.isNotEmpty || tools.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Row(
+                  spacing: 6,
+                  children: [
+                    Expanded(child: Wrap(spacing: 6, runSpacing: 6, children: actions)),
+                    ...tools,
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Nhãn trạng thái buổi học, màu Live/Waiting giống màn pre-join.
+  Widget _sessionStatus(CalendarEntry event) {
+    final room = event.room;
+    final now = DateTime.now();
+    final ended = room?.status == 'ENDED' || (event.endsAt ?? event.startsAt).isBefore(now);
+    return switch (room?.status) {
+      'LIVE' => _statusPill('Live', const Color(0xFF1E8E3E), const Color(0xFFE7F6EC), dot: true),
+      _ when ended => _statusPill('Ended', const Color(0xFF475467), const Color(0xFFF2F4F7)),
+      _ when !now.isBefore(event.startsAt.subtract(const Duration(minutes: 30))) => _statusPill(
+        'Waiting',
+        const Color(0xFFB26A00),
+        const Color(0xFFFFF4E5),
+        dot: true,
+      ),
+      _ => _statusPill('Scheduled', const Color(0xFF475467), const Color(0xFFF2F4F7)),
+    };
+  }
+
+  String? _sessionMeta(ClassroomRoom? room) {
+    final started = room?.startedAt?.toLocal();
+    if (room == null || started == null) return null;
+    if (room.status == 'LIVE') return 'Started ${DateFormat('HH:mm').format(started)}';
+    final ended = room.endedAt?.toLocal();
+    if (room.status != 'ENDED' || ended == null) return null;
+    final minutes = ended.difference(started).inMinutes;
+    final hours = minutes ~/ 60;
+    return 'Lasted ${hours > 0 ? '${hours}h ' : ''}${minutes % 60}m';
+  }
+
+  Widget _statusPill(String label, Color foreground, Color background, {bool dot = false}) =>
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(10)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          spacing: 5,
+          children: [
+            if (dot) _dot(foreground, 6),
+            Text(
+              label,
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: foreground),
+            ),
+          ],
+        ),
+      );
+
+  Widget _entryButton(String label, IconData icon, VoidCallback onPressed, {bool primary = false}) {
+    final style = ButtonStyle(
+      visualDensity: VisualDensity.compact,
+      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 12)),
+      minimumSize: const WidgetStatePropertyAll(Size(0, 32)),
+      shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+      textStyle: const WidgetStatePropertyAll(TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+    );
+    final onTap = busy ? null : onPressed;
+    final iconWidget = Icon(icon, size: 16);
+    if (primary) {
+      return FilledButton.icon(
+        onPressed: onTap,
+        style: style.merge(FilledButton.styleFrom(backgroundColor: ColorName.primary)),
+        icon: iconWidget,
+        label: Text(label),
+      );
+    }
+    return OutlinedButton.icon(
+      onPressed: onTap,
+      style: style.merge(
+        OutlinedButton.styleFrom(
+          foregroundColor: Gb.text,
+          backgroundColor: Colors.white,
+          side: const BorderSide(color: Gb.border),
+        ),
+      ),
+      icon: iconWidget,
+      label: Text(label),
+    );
+  }
+
+  Widget _toolButton(IconData icon, String tooltip, Color color, VoidCallback onPressed) =>
+      SizedBox.square(
+        dimension: 30,
+        child: Tooltip(
+          message: tooltip,
+          child: Material(
+            color: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+              side: const BorderSide(color: Gb.border),
+            ),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: busy ? null : onPressed,
+              child: Icon(icon, size: 16, color: color),
+            ),
+          ),
+        ),
+      );
+
+  Widget _upcoming() => GbCard(
+    padding: const EdgeInsets.all(18),
+    children: [
+      const Text(
+        'Coming up',
+        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Gb.text),
+      ),
+      const SizedBox(height: 12),
+      if (upcoming.isEmpty)
+        const Text('Nothing in the next 30 days.', style: TextStyle(fontSize: 12, color: Gb.faint)),
+      for (final event in upcoming)
+        InkWell(
+          onTap: () => jumpTo(DateUtils.dateOnly(event.startsAt)),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Row(
+              spacing: 10,
+              children: [
+                _dot(_calendarColors(event).$1, 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    spacing: 2,
+                    children: [
+                      Text(
+                        _title(event),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: Gb.text,
+                        ),
+                      ),
+                      Text(
+                        _relativeDay(event.startsAt),
+                        style: const TextStyle(fontSize: 12, color: Gb.muted),
+                      ),
+                    ],
                   ),
-                  trailing: const Icon(Icons.edit_calendar_outlined),
-                  onTap: () async {
-                    final value = await pickDateTime(dialogContext, endsAt);
-                    if (value != null) setDialogState(() => endsAt = value);
-                  },
                 ),
               ],
             ),
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              if (title.text.trim().isEmpty || !endsAt.isAfter(startsAt)) {
-                return;
-              }
-              Navigator.pop(
-                context,
-                ClassroomScheduleInput(
-                  title: title.text,
-                  description: description.text,
-                  startsAt: startsAt,
-                  endsAt: endsAt,
-                ),
-              );
-            },
-            child: const Text('Save'),
-          ),
+    ],
+  );
+
+  String _relativeDay(DateTime value) {
+    final days = DateUtils.dateOnly(value).difference(_today()).inDays;
+    final day = switch (days) {
+      0 => 'Today',
+      1 => 'Tomorrow',
+      _ => DateFormat('EEE, MMM d').format(value),
+    };
+    return '$day · ${DateFormat('HH:mm').format(value)}';
+  }
+
+  /// Nút chính theo trạng thái phòng; trạng thái chờ/đã qua đã nằm ở nhãn nên không lặp lại.
+  List<Widget> _roomActions(CalendarEntry entry, ClassroomRoom room) {
+    if (room.status == 'LIVE') {
+      return [
+        _entryButton(
+          'Join class',
+          Icons.video_call_outlined,
+          () => context.push(classroomRoomPath(widget.classroomId, room.id)),
+          primary: true,
+        ),
+      ];
+    }
+    if (room.status == 'ENDED') {
+      return [
+        _entryButton(
+          widget.isTeacher ? 'Attendance' : 'My attendance',
+          Icons.fact_check_outlined,
+          () => context.push(roomAttendancePath(widget.classroomId, room.id)),
+        ),
+      ];
+    }
+    final now = DateTime.now();
+    if (widget.isTeacher &&
+        widget.classroomActive &&
+        !now.isBefore(room.startsAt.subtract(const Duration(minutes: 30))) &&
+        room.canStartAt(now)) {
+      return [_entryButton('Start class', Icons.play_arrow, () => startRoom(entry), primary: true)];
+    }
+    return const [];
+  }
+}
+
+DateTime _today() => DateUtils.dateOnly(DateTime.now());
+
+/// Bỏ tiền tố "Deadline:" vì màu và nhãn đã cho biết loại sự kiện.
+String _title(CalendarEntry entry) => entry.title.replaceFirst(RegExp(r'^Deadline:\s*'), '');
+
+bool _isDeadline(CalendarEntry entry) => entry.calendarType == 'ASSIGNMENT_DEADLINE';
+
+/// Màu chữ và màu nền theo loại sự kiện (Figma 22:2).
+(Color, Color) _calendarColors(CalendarEntry entry) =>
+    _isDeadline(entry) ? (Gb.red, Gb.redBg) : (_session, _sessionBg);
+
+const _session = Color(0xFF0369A1);
+const _sessionBg = Color(0xFFE6F3FB);
+
+/// Hộp thoại thêm/sửa buổi học (Figma 23:554): ngày lấy từ ô đang chọn, chỉ nhập tiêu đề, mô tả, giờ.
+Future<ClassroomScheduleInput?> showScheduleEditor(
+  BuildContext context,
+  CalendarEntry? schedule, {
+  DateTime? day,
+}) async {
+  final title = TextEditingController(text: schedule?.title ?? '');
+  final description = TextEditingController(text: schedule?.description ?? '');
+  final now = DateTime.now();
+  var startsAt =
+      schedule?.startsAt ??
+      (day == null || !day.isAfter(DateUtils.dateOnly(now))
+          ? now.add(const Duration(hours: 1))
+          : DateTime(day.year, day.month, day.day, 19));
+  startsAt = startsAt.subtract(Duration(minutes: startsAt.minute % 5));
+  final endsAt = schedule?.endsAt ?? startsAt.add(const Duration(hours: 1));
+  final date = DateUtils.dateOnly(startsAt);
+  // Giờ gõ tự do dạng "HH:mm", chỉ kiểm tra khi bấm Save.
+  final startText = TextEditingController(text: DateFormat('HH:mm').format(startsAt));
+  final endText = TextEditingController(text: DateFormat('HH:mm').format(endsAt));
+  String? error;
+
+  DateTime? parse(String text) {
+    final match = RegExp(r'^(\d{1,2}):(\d{2})$').firstMatch(text.trim());
+    if (match == null) return null;
+    final hour = int.parse(match[1]!), minute = int.parse(match[2]!);
+    if (hour > 23 || minute > 59) return null;
+    return DateTime(date.year, date.month, date.day, hour, minute);
+  }
+
+  InputDecoration decoration(String hint) => InputDecoration(
+    hintText: hint,
+    hintStyle: const TextStyle(color: Gb.faint),
+    isDense: true,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(10),
+      borderSide: const BorderSide(color: Gb.border),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(10),
+      borderSide: const BorderSide(color: ColorName.primary, width: 2),
+    ),
+  );
+
+  Widget label(String text, {bool required = false}) => Padding(
+    padding: const EdgeInsets.only(bottom: 6),
+    child: Text.rich(
+      TextSpan(
+        text: text,
+        children: [
+          if (required)
+            const TextSpan(
+              text: ' *',
+              style: TextStyle(color: Gb.red),
+            ),
         ],
       ),
+      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Gb.muted),
+    ),
+  );
+
+  final result = await showDialog<ClassroomScheduleInput>(
+    context: context,
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (context, setDialogState) {
+        Widget timeField(String name, TextEditingController controller) => Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              label(name, required: true),
+              TextField(
+                controller: controller,
+                keyboardType: TextInputType.datetime,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp('[0-9:]')),
+                  LengthLimitingTextInputFormatter(5),
+                ],
+                decoration: decoration('HH:mm'),
+                onChanged: (_) {
+                  if (error != null) setDialogState(() => error = null);
+                },
+              ),
+            ],
+          ),
+        );
+
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          titlePadding: const EdgeInsets.fromLTRB(24, 20, 12, 0),
+          title: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: 2,
+                  children: [
+                    Text(
+                      schedule == null ? 'Add class schedule' : 'Edit class schedule',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                    ),
+                    Text(
+                      DateFormat('EEE, MMM d, yyyy').format(startsAt),
+                      style: const TextStyle(fontSize: 12, color: Gb.muted),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: 'Close',
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.close, size: 20, color: Gb.faint),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 512,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  label('Title', required: true),
+                  TextField(controller: title, decoration: decoration('e.g. Speaking practice')),
+                  const SizedBox(height: 16),
+                  label('Description'),
+                  TextField(
+                    controller: description,
+                    minLines: 3,
+                    maxLines: 4,
+                    decoration: decoration('Room, topic, what to prepare…'),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    spacing: 12,
+                    children: [timeField('Starts', startText), timeField('Ends', endText)],
+                  ),
+                  if (error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: Text(error!, style: const TextStyle(color: Gb.red, fontSize: 13)),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          actionsPadding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
+          actions: [
+            OutlinedButton(
+              onPressed: () => Navigator.pop(context),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Gb.text,
+                side: const BorderSide(color: Gb.border),
+              ),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final start = parse(startText.text);
+                final end = parse(endText.text);
+                final message = title.text.trim().isEmpty
+                    ? 'Enter a title'
+                    : start == null || end == null
+                    ? 'Enter times as HH:mm, e.g. 21:30'
+                    : start.isBefore(DateTime.now())
+                    ? 'Start time cannot be in the past'
+                    : !end.isAfter(start)
+                    ? 'End time must be after start time'
+                    : null;
+                setDialogState(() => error = message);
+                if (message != null) return;
+                Navigator.pop(
+                  context,
+                  ClassroomScheduleInput(
+                    title: title.text,
+                    description: description.text,
+                    startsAt: start!,
+                    endsAt: end!,
+                  ),
+                );
+              },
+              child: const Text('Save schedule'),
+            ),
+          ],
+        );
+      },
     ),
   );
   title.dispose();
   description.dispose();
+  startText.dispose();
+  endText.dispose();
   return result;
 }

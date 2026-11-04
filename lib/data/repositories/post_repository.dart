@@ -5,6 +5,10 @@ import 'package:eflutter/core/utils/helpers/file_picker/local_picked_file.dart';
 class PostRepository {
   PostRepository(this._dio);
   final Dio _dio;
+
+  /// Dio không có interceptor: URL presigned đã chứa chữ ký, MinIO từ chối nếu
+  /// request còn kèm header Authorization của app.
+  static final _storageDio = Dio();
   static const _base = '/posts/api/v1';
   Future<PostPage> getPosts({
     required int page,
@@ -68,7 +72,7 @@ class PostRepository {
     final data = intent.data as Map<String, dynamic>;
     final id = (data['id'] as num).toInt();
     try {
-      await _dio.putUri(
+      await _storageDio.putUri(
         Uri.parse(data['uploadUrl'] as String),
         data: file.bytes,
         options: Options(headers: {'Content-Type': data['contentType']}),
@@ -92,10 +96,15 @@ class PostRepository {
     int id,
     String content, {
     required bool allowComments,
+    List<int>? attachmentIds,
   }) async {
     final r = await _dio.patch(
       '$_base/posts/$id',
-      data: {'content': content, 'allowComments': allowComments},
+      data: {
+        'content': content,
+        'allowComments': allowComments,
+        'attachmentIds': ?attachmentIds,
+      },
     );
     return PostItem.fromJson(r.data as Map<String, dynamic>);
   }
@@ -107,12 +116,32 @@ class PostRepository {
   Future<void> setPin(int classroomId, int id, bool value) => value
       ? _dio.post('$_base/classrooms/$classroomId/posts/$id/pin')
       : _dio.delete('$_base/classrooms/$classroomId/posts/$id/pin');
-  Future<List<PostCommentItem>> getComments(int postId) async {
-    final r = await _dio.get('$_base/posts/$postId/comments');
-    return ((r.data as Map<String, dynamic>)['comments'] as List<dynamic>? ??
-            const [])
-        .map((e) => PostCommentItem.fromJson(e as Map<String, dynamic>))
-        .toList();
+  Future<PostItem> getPost(int id) async {
+    final r = await _dio.get('$_base/posts/$id');
+    return PostItem.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  Future<PostCommentItem> getComment(int id) async {
+    final r = await _dio.get('$_base/comments/$id');
+    return PostCommentItem.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  /// Một trang comment gốc (không có [parentId]) hoặc reply của comment gốc [parentId].
+  Future<PostCommentPage> getComments(
+    int postId, {
+    int? parentId,
+    int page = 1,
+    int? pageSize,
+  }) async {
+    final r = await _dio.get(
+      '$_base/posts/$postId/comments',
+      queryParameters: {
+        'page': page,
+        'pageSize': pageSize ?? (parentId == null ? 20 : 5),
+        'parentId': ?parentId,
+      },
+    );
+    return PostCommentPage.fromJson(r.data as Map<String, dynamic>);
   }
 
   Future<PostCommentItem> comment(
@@ -127,7 +156,6 @@ class PostRepository {
     return PostCommentItem.fromJson(r.data as Map<String, dynamic>);
   }
 
-  Future<void> deleteComment(int id) => _dio.delete('$_base/comments/$id');
   Future<void> setCommentLike(int id, bool value) => value
       ? _dio.post('$_base/comments/$id/like')
       : _dio.delete('$_base/comments/$id/like');

@@ -1,3 +1,5 @@
+import 'package:eflutter/core/utils/extensions/toast_bar_extension.dart';
+import 'package:eflutter/core/loading/loading_widget.dart';
 import 'dart:async';
 
 import 'package:dio/dio.dart';
@@ -5,12 +7,21 @@ import 'package:eflutter/core/base/local_data_base.dart';
 import 'package:eflutter/core/base/result.dart';
 import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/data/data_sources/gradebook_socket_client.dart';
+import 'package:eflutter/data/models/attempt_integrity.dart';
 import 'package:eflutter/data/models/classroom.dart';
 import 'package:eflutter/data/repositories/classroom_repository.dart';
+import 'package:eflutter/presentation/classrooms/confirm_action_dialog.dart';
 import 'package:eflutter/presentation/app/navigation/app_routes.dart';
+import 'package:eflutter/presentation/classrooms/integrity_log_dialog.dart';
+import 'package:eflutter/presentation/classrooms/integrity_violation_panel.dart';
+import 'package:eflutter/presentation/classrooms/gradebook_widgets.dart';
+import 'package:eflutter/presentation/app/theme/app_button_styles.dart';
+import 'package:eflutter/generated/colors.gen.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+
+part 'classroom_gradebook_integrity.dart';
 
 class ClassroomGradebookScreen extends StatefulWidget {
   const ClassroomGradebookScreen({
@@ -19,24 +30,30 @@ class ClassroomGradebookScreen extends StatefulWidget {
     required this.assignmentId,
     this.repository,
     this.socket,
+    this.onBack,
   });
 
   final int classroomId;
   final int assignmentId;
+
+  /// Mở trong tab Classwork: Back quay về danh sách bài. Null thì quay về trang lớp.
+  final VoidCallback? onBack;
   final ClassroomRepository? repository;
   final GradebookSocketGateway? socket;
 
   @override
-  State<ClassroomGradebookScreen> createState() =>
-      _ClassroomGradebookScreenState();
+  State<ClassroomGradebookScreen> createState() => _ClassroomGradebookScreenState();
 }
 
-class _ClassroomGradebookScreenState extends State<ClassroomGradebookScreen> {
+class _ClassroomGradebookScreenState extends State<ClassroomGradebookScreen>
+    with _GradebookIntegrity {
+  @override
   late final ClassroomRepository repository;
   late final GradebookSocketGateway socket;
   StreamSubscription<GradebookSocketEvent>? eventSubscription;
   StreamSubscription<GradebookSocketStatus>? statusSubscription;
   Timer? refreshDebounce;
+  @override
   ClassroomAssignment? assignment;
   AssignmentAnalytics? analytics;
   String? error;
@@ -51,23 +68,25 @@ class _ClassroomGradebookScreenState extends State<ClassroomGradebookScreen> {
     eventSubscription = socket.events.listen(handleSocketEvent);
     statusSubscription = socket.statuses.listen((status) {
       if (mounted) setState(() => socketStatus = status);
+      // Nối lại: có thể đã lỡ push, tải lại cả vi phạm chờ xử lý.
+      if (status == GradebookSocketStatus.connected && assignment != null) {
+        load(showLoading: false);
+      }
     });
     load();
     socket.connect().catchError((_) {});
   }
 
   void handleSocketEvent(GradebookSocketEvent event) {
-    if (event.classroomId != widget.classroomId ||
-        event.assignmentId != widget.assignmentId) {
+    if (event.classroomId != widget.classroomId || event.assignmentId != widget.assignmentId) {
       return;
     }
+    if (event.integrity case final update?) applyIntegrityUpdate(update);
     refreshDebounce?.cancel();
-    refreshDebounce = Timer(
-      const Duration(milliseconds: 250),
-      () => load(showLoading: false),
-    );
+    refreshDebounce = Timer(const Duration(milliseconds: 250), () => load(showLoading: false));
   }
 
+  @override
   Future<void> load({bool showLoading = true}) async {
     if (showLoading) {
       setState(() {
@@ -75,10 +94,7 @@ class _ClassroomGradebookScreenState extends State<ClassroomGradebookScreen> {
         error = null;
       });
     }
-    final result = await repository.getGradebook(
-      widget.classroomId,
-      widget.assignmentId,
-    );
+    final result = await repository.getGradebook(widget.classroomId, widget.assignmentId);
     final analyticsResult = await repository.getAssignmentAnalytics(
       widget.classroomId,
       widget.assignmentId,
@@ -93,6 +109,7 @@ class _ClassroomGradebookScreenState extends State<ClassroomGradebookScreen> {
           }
           loading = false;
         });
+        await loadPendingViolations();
       case Failure(message: final message):
         setState(() {
           error = message ?? 'Could not load the gradebook';
@@ -115,27 +132,18 @@ class _ClassroomGradebookScreenState extends State<ClassroomGradebookScreen> {
   Future<void> resetAttempt(AssignmentSubmission submission) async {
     final student = submission.student;
     if (student == null || submission.attemptId == 0) return;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Reset attempt?'),
-        content: Text(
-          '${student.name} will be able to start this assignment again. '
-          'The current answers, score, and history will be removed.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Reset attempt'),
-          ),
-        ],
-      ),
+    final confirmed = await showConfirmAction(
+      context,
+      icon: Icons.restart_alt,
+      color: ConfirmActionColors.red,
+      tint: ConfirmActionColors.redBg,
+      title: "Reset ${student.name}'s attempt?",
+      message:
+          'Their answers, score and history for this assignment are deleted, and they can '
+          'start again. This cannot be undone.',
+      action: 'Reset attempt',
     );
-    if (confirmed != true || !mounted) return;
+    if (confirmed == null || !mounted) return;
     final result = await repository.resetAssignmentAttempt(
       classroomId: widget.classroomId,
       assignmentId: widget.assignmentId,
@@ -146,9 +154,7 @@ class _ClassroomGradebookScreenState extends State<ClassroomGradebookScreen> {
       case Success():
         await load();
       case Failure(message: final message):
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message ?? 'Could not reset the attempt')),
-        );
+        context.showToast(message ?? 'Could not reset the attempt', type: ToastType.error);
       case Cancelled():
         break;
     }
@@ -162,72 +168,90 @@ class _ClassroomGradebookScreenState extends State<ClassroomGradebookScreen> {
     if (!mounted) return;
     switch (result) {
       case Success(data: final count):
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$count submission updates queued')),
-        );
+        context.showToast('$count submission updates queued', type: ToastType.success);
         await Future<void>.delayed(const Duration(seconds: 2));
         await load();
       case Failure(message: final message):
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message ?? 'Could not reconcile gradebook')),
-        );
+        context.showToast(message ?? 'Could not reconcile gradebook', type: ToastType.error);
       case Cancelled():
         break;
     }
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const Text('Gradebook'),
+  Widget build(BuildContext context) {
+    final live = socketStatus == GradebookSocketStatus.connected;
+    final header = GbHeader(
+      onBack: widget.onBack ?? () => context.go(classroomPath(widget.classroomId)),
       actions: [
-        IconButton(
-          tooltip: switch (socketStatus) {
+        Tooltip(
+          message: switch (socketStatus) {
             GradebookSocketStatus.connected => 'Live updates connected',
             GradebookSocketStatus.connecting => 'Connecting live updates',
             GradebookSocketStatus.disconnected => 'Live updates disconnected',
           },
-          onPressed: null,
-          icon: Icon(
-            socketStatus == GradebookSocketStatus.connected
-                ? Icons.cloud_done_outlined
-                : Icons.cloud_off_outlined,
+          child: Row(
+            spacing: 6,
+            children: [
+              Icon(Icons.circle, size: 8, color: live ? Gb.green : Gb.faint),
+              Text(
+                live ? 'Live' : 'Offline',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: live ? Gb.green : Gb.faint,
+                ),
+              ),
+            ],
           ),
         ),
         IconButton(
-          tooltip: 'Retry grade sync',
+          tooltip: 'Sync grades',
           onPressed: reconcile,
-          icon: const Icon(Icons.sync),
+          style: IconButton.styleFrom(
+            backgroundColor: AppButtonStyles.tint,
+            foregroundColor: ColorName.primary,
+          ),
+          icon: const Icon(Icons.sync, size: 20),
         ),
       ],
-      leading: IconButton(
-        tooltip: 'Back to classroom',
-        icon: const Icon(Icons.arrow_back),
-        onPressed: () => context.go(classroomPath(widget.classroomId)),
-      ),
-    ),
-    body: loading
-        ? const Center(child: CircularProgressIndicator())
+    );
+    final body = loading
+        ? const Padding(padding: EdgeInsets.symmetric(vertical: 48), child: AppLoader())
         : error != null
-        ? Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(error!),
-                TextButton(onPressed: load, child: const Text('Retry')),
-              ],
-            ),
-          )
+        ? GbError(message: error!, onRetry: load)
         : assignment == null
-        ? const Center(child: Text('Assignment not found'))
+        ? const GbError(message: 'Assignment not found', onRetry: _noop)
         : GradebookView(
             assignment: assignment!,
             analytics: analytics,
-            onRefresh: load,
             onResetAttempt: resetAttempt,
-          ),
-  );
+            integrityPanel: integrityPanel(),
+            awaySince: awaySince,
+            onOpenIntegrity: openIntegrityLog,
+            scrollable: false,
+          );
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: 16,
+      children: [header, body],
+    );
+    if (widget.onBack != null) {
+      return Padding(padding: const EdgeInsets.only(top: 12, bottom: 32), child: content);
+    }
+    // Mở trực tiếp qua URL: tự cuộn, căn giữa như trang lớp.
+    return Scaffold(
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Center(
+          child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 1100), child: content),
+        ),
+      ),
+    );
+  }
 }
+
+void _noop() {}
 
 enum GradebookSort { name, status, score }
 
@@ -238,12 +262,24 @@ class GradebookView extends StatefulWidget {
     this.analytics,
     this.onRefresh,
     this.onResetAttempt,
+    this.integrityPanel,
+    this.awaySince = const {},
+    this.onOpenIntegrity,
+    this.scrollable = true,
   });
 
   final ClassroomAssignment assignment;
   final AssignmentAnalytics? analytics;
   final Future<void> Function()? onRefresh;
   final ValueChanged<AssignmentSubmission>? onResetAttempt;
+
+  /// Giám sát: panel vi phạm chờ xử lý, học sinh đang rời màn, mở log.
+  final Widget? integrityPanel;
+  final Map<String, DateTime> awaySince;
+  final ValueChanged<AssignmentSubmission>? onOpenIntegrity;
+
+  /// false khi nằm trong một danh sách cuộn khác (tab Classwork).
+  final bool scrollable;
 
   @override
   State<GradebookView> createState() => _GradebookViewState();
@@ -281,320 +317,540 @@ class _GradebookViewState extends State<GradebookView> {
     return items;
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final submissions = widget.assignment.submissions;
-    final submitted = submissions
-        .where((item) => item.status == 'SUBMITTED')
-        .length;
-    final inProgress = submissions
-        .where((item) => item.status == 'IN_PROGRESS')
-        .length;
-    final notStarted = submissions
-        .where((item) => item.status == 'NOT_STARTED')
-        .length;
+  Widget _summary() {
+    final assignment = widget.assignment;
+    final submissions = assignment.submissions;
+    final submitted = submissions.where((item) => item.status == 'SUBMITTED').length;
     final late = submissions.where((item) => item.status == 'LATE').length;
-    final scores = submissions
-        .where((item) => item.score != null)
-        .map((item) => item.score!)
-        .toList();
-    final average = scores.isEmpty
-        ? null
-        : scores.reduce((left, right) => left + right) / scores.length;
-    final visible = visibleSubmissions;
-
-    final content = ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+    final inProgress = submissions.where((item) => item.status == 'IN_PROGRESS').length;
+    final notStarted = submissions.where((item) => item.status == 'NOT_STARTED').length;
+    final scores = submissions.map((item) => item.score).whereType<double>().toList();
+    final analytics = widget.analytics;
+    final average =
+        analytics?.averageScore ??
+        (scores.isEmpty ? null : scores.reduce((a, b) => a + b) / scores.length);
+    final minimum =
+        analytics?.minimumScore ?? (scores.isEmpty ? null : scores.reduce((a, b) => a < b ? a : b));
+    final maximum =
+        analytics?.maximumScore ?? (scores.isEmpty ? null : scores.reduce((a, b) => a > b ? a : b));
+    final done = submitted + late;
+    final rate = submissions.isEmpty ? 0.0 : done / submissions.length;
+    final now = DateTime.now();
+    final (label, background, foreground) = !assignment.active
+        ? ('Paused', Gb.field, Gb.muted)
+        : now.isBefore(assignment.opensAt)
+        ? ('Upcoming', AppButtonStyles.tint, ColorName.primary)
+        : now.isAfter(assignment.dueAt)
+        ? ('Closed', Gb.field, Gb.muted)
+        : ('Open', Gb.greenBg, Gb.green);
+    final format = DateFormat('MMM d, HH:mm');
+    final meta = [
+      '${now.isBefore(assignment.opensAt) ? 'Opens' : 'Opened'} '
+          '${format.format(assignment.opensAt)}',
+      'Due ${format.format(assignment.dueAt)}',
+      '${assignment.duration} min',
+      if (assignment.proctored) 'Proctored · ${assignment.maxViolations} violations',
+    ].join(' · ');
+    return GbCard(
       children: [
-        Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1100),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  widget.assignment.title,
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Due ${DateFormat('MMM d, yyyy • HH:mm').format(widget.assignment.dueAt)}',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 20),
-                Wrap(
-                  spacing: 24,
-                  runSpacing: 12,
-                  children: [
-                    _Metric(label: 'Students', value: '${submissions.length}'),
-                    _Metric(label: 'Not started', value: '$notStarted'),
-                    _Metric(label: 'In progress', value: '$inProgress'),
-                    _Metric(label: 'Submitted', value: '$submitted'),
-                    _Metric(label: 'Late', value: '$late'),
-                    _Metric(
-                      label: 'Average',
-                      value: average == null
-                          ? '—'
-                          : '${average.toStringAsFixed(2)}/10',
-                    ),
-                    if (widget.analytics != null) ...[
-                      const SizedBox(height: 16),
-                      Wrap(
-                        spacing: 24,
-                        runSpacing: 8,
-                        children: [
-                          Text(
-                            'Average: ${widget.analytics!.averageScore?.toStringAsFixed(2) ?? '-'}',
-                          ),
-                          Text(
-                            'Minimum: ${widget.analytics!.minimumScore?.toStringAsFixed(2) ?? '-'}',
-                          ),
-                          Text(
-                            'Maximum: ${widget.analytics!.maximumScore?.toStringAsFixed(2) ?? '-'}',
-                          ),
-                          Text(
-                            'Completion: ${widget.analytics!.completionRate.toStringAsFixed(1)}%',
-                          ),
-                        ],
-                      ),
-                      if (widget.analytics!.questions.isNotEmpty) ...[
-                        const SizedBox(height: 16),
-                        Text(
-                          'Questions with the highest wrong rate',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        ...([...widget.analytics!.questions]..sort(
-                              (a, b) => b.wrongRate.compareTo(a.wrongRate),
-                            ))
-                            .take(5)
-                            .map(
-                              (question) => ListTile(
-                                contentPadding: EdgeInsets.zero,
-                                title: Text(
-                                  '${question.order}. ${question.content}',
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                trailing: Text(
-                                  '${question.wrongRate.toStringAsFixed(1)}%',
-                                ),
-                              ),
-                            ),
-                      ],
-                    ],
-                  ],
-                ),
-                const Divider(height: 32),
-                _GradebookToolbar(
-                  status: status,
-                  sort: sort,
-                  onQueryChanged: (value) => setState(() => query = value),
-                  onStatusChanged: (value) => setState(() => status = value),
-                  onSortChanged: (value) => setState(() => sort = value),
-                ),
-                const SizedBox(height: 16),
-                if (visible.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.all(32),
-                    child: Center(child: Text('No matching students')),
-                  )
-                else
-                  LayoutBuilder(
-                    builder: (context, constraints) =>
-                        constraints.maxWidth < 700
-                        ? _GradebookList(
-                            submissions: visible,
-                            onResetAttempt: widget.onResetAttempt,
-                          )
-                        : _GradebookTable(
-                            submissions: visible,
-                            onResetAttempt: widget.onResetAttempt,
-                          ),
-                  ),
-              ],
+        Wrap(
+          spacing: 10,
+          runSpacing: 6,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text(
+              assignment.title,
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
             ),
+            GbPill(label, background: background, foreground: foreground),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(meta, style: const TextStyle(fontSize: 13, color: Gb.muted)),
+        const SizedBox(height: 16),
+        GbStats(
+          children: [
+            GbStat(label: 'Students', value: '${submissions.length}'),
+            GbStat(
+              label: 'Submitted',
+              value: '$done',
+              sub: late > 0 ? 'incl. $late late' : null,
+              color: Gb.green,
+            ),
+            GbStat(label: 'In progress', value: '$inProgress', color: ColorName.primary),
+            GbStat(label: 'Not started', value: '$notStarted'),
+            GbStat(
+              label: 'Average',
+              value: average == null ? '—' : average.toStringAsFixed(1),
+              sub: minimum == null || maximum == null
+                  ? null
+                  : 'min ${minimum.toStringAsFixed(1)} · max ${maximum.toStringAsFixed(1)}',
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Text(
+          '${(rate * 100).round()}% submitted',
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Gb.muted),
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: LinearProgressIndicator(
+            value: rate,
+            minHeight: 8,
+            backgroundColor: Gb.field,
+            color: ColorName.primary,
           ),
         ),
       ],
     );
-    if (widget.onRefresh == null) return content;
-    return RefreshIndicator(onRefresh: widget.onRefresh!, child: content);
+  }
+
+  Widget _toolbar(bool compact) {
+    Widget option(String value, String label) {
+      final selected = status == value;
+      return InkWell(
+        borderRadius: BorderRadius.circular(6),
+        onTap: () => setState(() => status = value),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: selected ? Colors.white : null,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+              color: selected ? ColorName.primary : Gb.muted,
+            ),
+          ),
+        ),
+      );
+    }
+
+    final sortLabel = switch (sort) {
+      GradebookSort.name => 'Name',
+      GradebookSort.status => 'Status',
+      GradebookSort.score => 'Score',
+    };
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Wrap(
+        spacing: 10,
+        runSpacing: 10,
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          GbSearchField(
+            width: compact ? double.infinity : 200,
+            onChanged: (value) => setState(() => query = value),
+          ),
+          Container(
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(color: Gb.field, borderRadius: BorderRadius.circular(8)),
+            child: Wrap(
+              spacing: 2,
+              children: [
+                option('ALL', 'All'),
+                option('NOT_STARTED', 'Not started'),
+                option('IN_PROGRESS', 'In progress'),
+                option('SUBMITTED', 'Submitted'),
+                option('LATE', 'Late'),
+              ],
+            ),
+          ),
+          PopupMenuButton<GradebookSort>(
+            tooltip: 'Sort gradebook',
+            onSelected: (value) => setState(() => sort = value),
+            position: PopupMenuPosition.under,
+            offset: const Offset(0, 6),
+            color: Colors.white,
+            surfaceTintColor: Colors.transparent,
+            elevation: 6,
+            shadowColor: Colors.black26,
+            menuPadding: const EdgeInsets.all(6),
+            constraints: const BoxConstraints(minWidth: 180),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+              side: const BorderSide(color: Gb.border),
+            ),
+            itemBuilder: (context) => [
+              for (final (value, label, icon) in const [
+                (GradebookSort.name, 'Name', Icons.sort_by_alpha),
+                (GradebookSort.status, 'Status', Icons.flag_outlined),
+                (GradebookSort.score, 'Score', Icons.leaderboard_outlined),
+              ])
+                PopupMenuItem(
+                  value: value,
+                  height: 38,
+                  padding: EdgeInsets.zero,
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(vertical: 1),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: sort == value ? AppButtonStyles.tint : null,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      spacing: 10,
+                      children: [
+                        Icon(icon, size: 16, color: sort == value ? ColorName.primary : Gb.muted),
+                        Expanded(
+                          child: Text(
+                            label,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: sort == value ? FontWeight.w600 : FontWeight.w500,
+                              color: sort == value ? ColorName.primary : Gb.text,
+                            ),
+                          ),
+                        ),
+                        if (sort == value)
+                          const Icon(Icons.check, size: 16, color: ColorName.primary),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Gb.border),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                spacing: 6,
+                children: [
+                  Text(
+                    'Sort: $sortLabel',
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                  ),
+                  const Icon(Icons.expand_more, size: 16, color: Gb.muted),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _students(bool compact) {
+    final visible = visibleSubmissions;
+    final proctored = widget.assignment.proctored || visible.any((item) => item.proctored);
+    Widget integrity(AssignmentSubmission submission) => IntegrityStatusCell(
+      submission: submission,
+      maxViolations: widget.assignment.maxViolations,
+      awaySince: widget.awaySince[submission.student?.id],
+      onTap: widget.onOpenIntegrity == null || submission.attemptId == 0
+          ? null
+          : () => widget.onOpenIntegrity!(submission),
+    );
+    return GbCard(
+      padding: const EdgeInsets.only(bottom: 8),
+      children: [
+        _toolbar(compact),
+        if (visible.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(32),
+            child: Center(
+              child: Text('No matching students', style: TextStyle(color: Gb.muted)),
+            ),
+          )
+        else if (compact)
+          for (final submission in visible)
+            _GradebookCompactRow(
+              submission: submission,
+              integrity: proctored ? integrity(submission) : null,
+              onResetAttempt: widget.onResetAttempt,
+            )
+        else ...[
+          _GradebookRow.header(
+            proctored: proctored,
+            maxViolations: widget.assignment.maxViolations,
+          ),
+          for (final submission in visible)
+            _GradebookRow(
+              submission: submission,
+              integrity: proctored ? integrity(submission) : null,
+              onResetAttempt: widget.onResetAttempt,
+            ),
+        ],
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+          child: Text(
+            'Showing ${visible.length} of ${widget.assignment.submissions.length} students',
+            style: const TextStyle(fontSize: 12, color: Gb.faint),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget? _hardest() {
+    final questions = [...?widget.analytics?.questions.where((item) => item.answeredCount > 0)]
+      ..sort((a, b) => b.wrongRate.compareTo(a.wrongRate));
+    if (questions.isEmpty) return null;
+    return GbCard(
+      children: [
+        const GbCardHead('Hardest questions', 'Highest wrong rate among submissions'),
+        for (final question in questions.take(5)) ...[
+          const SizedBox(height: 12),
+          Row(
+            spacing: 8,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppButtonStyles.tint,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  'Q${question.order}',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: ColorName.primary,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  question.content,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 13),
+                ),
+              ),
+              Text(
+                '${question.wrongRate.toStringAsFixed(0)}%',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: question.wrongRate >= 50 ? Gb.red : Gb.text,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: (question.wrongRate / 100).clamp(0, 1),
+              minHeight: 6,
+              backgroundColor: Gb.field,
+              color: question.wrongRate >= 50 ? const Color(0xFFF28B82) : ColorName.primary,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final content = LayoutBuilder(
+      builder: (context, constraints) {
+        final wide = constraints.maxWidth >= 900;
+        final aside = [?_hardest()];
+        final students = _students(constraints.maxWidth < 700);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: 20,
+          children: [
+            _summary(),
+            // Panel T2: cần quyết định ngay nên đặt rộng, ngay trên bảng.
+            ?widget.integrityPanel,
+            if (wide && aside.isNotEmpty)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                spacing: 20,
+                children: [
+                  Expanded(child: students),
+                  SizedBox(
+                    width: 320,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      spacing: 16,
+                      children: aside,
+                    ),
+                  ),
+                ],
+              )
+            else ...[
+              ...aside,
+              students,
+            ],
+          ],
+        );
+      },
+    );
+    if (!widget.scrollable) return content;
+    final list = ListView(padding: const EdgeInsets.all(20), children: [content]);
+    if (widget.onRefresh == null) return list;
+    return RefreshIndicator(onRefresh: widget.onRefresh!, child: list);
   }
 }
 
-class _Metric extends StatelessWidget {
-  const _Metric({required this.label, required this.value});
-  final String label;
-  final String value;
+class _GradebookRow extends StatelessWidget {
+  const _GradebookRow({required this.submission, this.integrity, this.onResetAttempt})
+    : proctored = integrity != null,
+      maxViolations = 0,
+      isHeader = false;
+  const _GradebookRow.header({required this.proctored, required this.maxViolations})
+    : submission = null,
+      integrity = null,
+      onResetAttempt = null,
+      isHeader = true;
 
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    width: 120,
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(value, style: Theme.of(context).textTheme.titleLarge),
-        Text(label, style: Theme.of(context).textTheme.bodySmall),
-      ],
-    ),
-  );
-}
-
-class _GradebookToolbar extends StatelessWidget {
-  const _GradebookToolbar({
-    required this.status,
-    required this.sort,
-    required this.onQueryChanged,
-    required this.onStatusChanged,
-    required this.onSortChanged,
-  });
-
-  final String status;
-  final GradebookSort sort;
-  final ValueChanged<String> onQueryChanged;
-  final ValueChanged<String> onStatusChanged;
-  final ValueChanged<GradebookSort> onSortChanged;
-
-  @override
-  Widget build(BuildContext context) => Wrap(
-    spacing: 12,
-    runSpacing: 12,
-    crossAxisAlignment: WrapCrossAlignment.center,
-    children: [
-      SizedBox(
-        width: 280,
-        child: TextField(
-          onChanged: onQueryChanged,
-          decoration: const InputDecoration(
-            hintText: 'Search students',
-            prefixIcon: Icon(Icons.search),
-          ),
-        ),
-      ),
-      DropdownButton<String>(
-        value: status,
-        onChanged: (value) {
-          if (value != null) onStatusChanged(value);
-        },
-        items: const [
-          DropdownMenuItem(value: 'ALL', child: Text('All statuses')),
-          DropdownMenuItem(value: 'NOT_STARTED', child: Text('Not started')),
-          DropdownMenuItem(value: 'IN_PROGRESS', child: Text('In progress')),
-          DropdownMenuItem(value: 'SUBMITTED', child: Text('Submitted')),
-          DropdownMenuItem(value: 'LATE', child: Text('Late')),
-        ],
-      ),
-      PopupMenuButton<GradebookSort>(
-        tooltip: 'Sort gradebook',
-        initialValue: sort,
-        onSelected: onSortChanged,
-        itemBuilder: (context) => const [
-          PopupMenuItem(value: GradebookSort.name, child: Text('Sort by name')),
-          PopupMenuItem(
-            value: GradebookSort.status,
-            child: Text('Sort by status'),
-          ),
-          PopupMenuItem(
-            value: GradebookSort.score,
-            child: Text('Sort by score'),
-          ),
-        ],
-        icon: const Icon(Icons.sort),
-      ),
-    ],
-  );
-}
-
-class _GradebookTable extends StatelessWidget {
-  const _GradebookTable({required this.submissions, this.onResetAttempt});
-  final List<AssignmentSubmission> submissions;
+  final AssignmentSubmission? submission;
+  final Widget? integrity;
   final ValueChanged<AssignmentSubmission>? onResetAttempt;
+  final bool proctored;
+  final int maxViolations;
+  final bool isHeader;
+
+  static const _head = TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Gb.muted);
 
   @override
-  Widget build(BuildContext context) => SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    child: DataTable(
-      columns: const [
-        DataColumn(label: Text('Student')),
-        DataColumn(label: Text('Email')),
-        DataColumn(label: Text('Status')),
-        DataColumn(label: Text('Score'), numeric: true),
-        DataColumn(label: Text('Sync')),
-        DataColumn(label: Text('Actions')),
-      ],
-      rows: submissions
-          .map(
-            (submission) => DataRow(
-              cells: [
-                DataCell(Text(submission.student?.name ?? 'Unavailable')),
-                DataCell(Text(submission.student?.email ?? '')),
-                DataCell(Text(_statusLabel(submission.status))),
-                DataCell(Text(_scoreLabel(submission.score))),
-                DataCell(Text(_statusLabel(submission.syncStatus))),
-                DataCell(
-                  IconButton(
-                    tooltip: 'Reset attempt',
-                    onPressed:
-                        submission.attemptId > 0 && onResetAttempt != null
-                        ? () => onResetAttempt!(submission)
-                        : null,
-                    icon: const Icon(Icons.restart_alt),
+  Widget build(BuildContext context) {
+    final item = submission;
+    final student = item?.student;
+    final canReset = item != null && item.attemptId > 0 && onResetAttempt != null;
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 20, vertical: isHeader ? 10 : 12),
+      decoration: BoxDecoration(
+        color: isHeader ? Gb.soft : Colors.white,
+        border: const Border(bottom: BorderSide(color: Gb.border)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: isHeader
+                ? const Text('STUDENT', style: _head)
+                : Row(
+                    spacing: 10,
+                    children: [
+                      GbAvatar(name: student?.name ?? '', url: student?.avatar),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          spacing: 2,
+                          children: [
+                            Text(
+                              student?.name ?? 'Unavailable',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                            ),
+                            Text(
+                              student?.email ?? '',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 12, color: Gb.faint),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
+          ),
+          SizedBox(
+            width: 120,
+            child: isHeader
+                ? const Text('STATUS', style: _head)
+                : Align(alignment: Alignment.centerLeft, child: GbPill.status(item!.status)),
+          ),
+          if (proctored)
+            SizedBox(
+              width: 300,
+              child: isHeader
+                  ? Text('PROCTORING · $maxViolations ALLOWED', style: _head)
+                  : integrity,
             ),
-          )
-          .toList(),
-    ),
-  );
+          SizedBox(
+            width: 80,
+            child: isHeader
+                ? const Text('SCORE', style: _head)
+                : Text(
+                    item!.score == null ? '—' : '${Gb.scoreText(item.score)}/10',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Gb.score(item.score),
+                    ),
+                  ),
+          ),
+          SizedBox(
+            width: 40,
+            child: isHeader
+                ? null
+                : IconButton(
+                    tooltip: 'Reset attempt',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: canReset ? () => onResetAttempt!(item) : null,
+                    icon: const Icon(Icons.restart_alt, size: 18),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-class _GradebookList extends StatelessWidget {
-  const _GradebookList({required this.submissions, this.onResetAttempt});
-  final List<AssignmentSubmission> submissions;
+class _GradebookCompactRow extends StatelessWidget {
+  const _GradebookCompactRow({required this.submission, this.integrity, this.onResetAttempt});
+  final AssignmentSubmission submission;
+  final Widget? integrity;
   final ValueChanged<AssignmentSubmission>? onResetAttempt;
 
   @override
-  Widget build(BuildContext context) => Column(
-    children: submissions
-        .map(
-          (submission) => ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(submission.student?.name ?? 'Unavailable'),
-            subtitle: Text(
-              '${submission.student?.email ?? ''}\n${_statusLabel(submission.status)}',
-            ),
-            isThreeLine: true,
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
+  Widget build(BuildContext context) {
+    final student = submission.student;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: Gb.border)),
+      ),
+      child: Row(
+        spacing: 10,
+        children: [
+          GbAvatar(name: student?.name ?? '', url: student?.avatar),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: 4,
               children: [
-                Text(_scoreLabel(submission.score)),
-                IconButton(
-                  tooltip: 'Reset attempt',
-                  onPressed: submission.attemptId > 0 && onResetAttempt != null
-                      ? () => onResetAttempt!(submission)
-                      : null,
-                  icon: const Icon(Icons.restart_alt),
+                Text(
+                  student?.name ?? 'Unavailable',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                ),
+                Text(student?.email ?? '', style: const TextStyle(fontSize: 12, color: Gb.faint)),
+                Wrap(
+                  spacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [GbPill.status(submission.status), ?integrity],
                 ),
               ],
             ),
           ),
-        )
-        .toList(),
-  );
+          Text(
+            submission.score == null ? '—' : '${Gb.scoreText(submission.score)}/10',
+            style: TextStyle(fontWeight: FontWeight.w600, color: Gb.score(submission.score)),
+          ),
+          IconButton(
+            tooltip: 'Reset attempt',
+            onPressed: submission.attemptId > 0 && onResetAttempt != null
+                ? () => onResetAttempt!(submission)
+                : null,
+            icon: const Icon(Icons.restart_alt, size: 18),
+          ),
+        ],
+      ),
+    );
+  }
 }
-
-String _statusLabel(String status) {
-  final words = status
-      .trim()
-      .split('_')
-      .where((word) => word.isNotEmpty)
-      .toList();
-  if (words.isEmpty) return '-';
-  return words
-      .map((word) => '${word[0]}${word.substring(1).toLowerCase()}')
-      .join(' ');
-}
-
-String _scoreLabel(double? score) =>
-    score == null ? '—' : '${score.toStringAsFixed(2)}/10';
