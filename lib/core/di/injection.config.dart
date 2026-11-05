@@ -9,6 +9,7 @@
 // coverage:ignore-file
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
+
 import 'package:dio/dio.dart' as _i361;
 import 'package:eflutter/core/attempt_lock/attempt_integrity_reporter.dart'
     as _i649;
@@ -20,13 +21,30 @@ import 'package:eflutter/core/base/local_data_base.dart' as _i942;
 import 'package:eflutter/core/base/remote_data_base.dart' as _i90;
 import 'package:eflutter/core/di/register_module.dart' as _i63;
 import 'package:eflutter/core/loading/loading_service.dart' as _i513;
+import 'package:eflutter/data/data_sources/dictionary_remote_data.dart'
+    as _i100;
+import 'package:eflutter/data/data_sources/grammar_remote_data.dart' as _i123;
 import 'package:eflutter/data/data_sources/local_data.dart' as _i264;
 import 'package:eflutter/data/data_sources/remote_data.dart' as _i81;
 import 'package:eflutter/data/repositories/auth_repository.dart' as _i695;
+import 'package:eflutter/data/repositories/dictionary_repository.dart' as _i23;
+import 'package:eflutter/data/repositories/grammar_repository.dart' as _i234;
 import 'package:eflutter/data/repositories/topic_repository.dart' as _i441;
 import 'package:eflutter/data/repositories/user_repository.dart' as _i180;
 import 'package:eflutter/presentation/app/cubit/app_cubit.dart' as _i912;
 import 'package:eflutter/presentation/auth/cubit/auth_cubit.dart' as _i744;
+import 'package:eflutter/presentation/dictionary/cubit/dictionary_search_cubit.dart'
+    as _i303;
+import 'package:eflutter/presentation/dictionary/cubit/dictionary_topic_cubit.dart'
+    as _i1071;
+import 'package:eflutter/presentation/dictionary/cubit/flashcard_cubit.dart'
+    as _i358;
+import 'package:eflutter/presentation/dictionary/cubit/word_detail_cubit.dart'
+    as _i673;
+import 'package:eflutter/presentation/grammar/cubit/grammar_curriculum_cubit.dart'
+    as _i436;
+import 'package:eflutter/presentation/grammar/cubit/grammar_unit_cubit.dart'
+    as _i690;
 import 'package:eflutter/presentation/notifications/notification_controller.dart'
     as _i834;
 import 'package:eflutter/presentation/notifications/notification_push_service.dart'
@@ -69,6 +87,12 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i90.RemoteDataBase>(
       () => _i81.RemoteData(gh<_i361.Dio>()),
     );
+    gh.lazySingleton<_i100.DictionaryRemoteData>(
+      () => _i100.DictionaryRemoteData(gh<_i361.Dio>()),
+    );
+    gh.lazySingleton<_i123.GrammarRemoteData>(
+      () => _i123.GrammarRemoteData(gh<_i361.Dio>()),
+    );
     gh.lazySingleton<_i834.NotificationController>(
       () => _i834.NotificationController(gh<_i361.Dio>()),
     );
@@ -78,6 +102,18 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i649.AttemptIntegrityReporter>(),
         gh<_i744.LeaveGuard>(),
       ),
+    );
+    gh.lazySingleton<_i234.GrammarRepository>(
+      () => _i234.GrammarRepository(gh<_i123.GrammarRemoteData>()),
+    );
+    gh.factory<_i436.GrammarCurriculumCubit>(
+      () => _i436.GrammarCurriculumCubit(gh<_i234.GrammarRepository>()),
+    );
+    gh.factory<_i690.GrammarUnitCubit>(
+      () => _i690.GrammarUnitCubit(gh<_i234.GrammarRepository>()),
+    );
+    gh.lazySingleton<_i23.DictionaryRepository>(
+      () => _i23.DictionaryRepository(gh<_i100.DictionaryRemoteData>()),
     );
     gh.lazySingleton<_i339.NotificationPushService>(
       () => _i339.NotificationPushService(
@@ -111,6 +147,18 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.singleton<_i912.AppCubit>(
       () => _i912.AppCubit(gh<_i180.UserRepository>()),
+    );
+    gh.factory<_i303.DictionarySearchCubit>(
+      () => _i303.DictionarySearchCubit(gh<_i23.DictionaryRepository>()),
+    );
+    gh.factory<_i1071.DictionaryTopicCubit>(
+      () => _i1071.DictionaryTopicCubit(gh<_i23.DictionaryRepository>()),
+    );
+    gh.factory<_i358.FlashcardCubit>(
+      () => _i358.FlashcardCubit(gh<_i23.DictionaryRepository>()),
+    );
+    gh.factory<_i673.WordDetailCubit>(
+      () => _i673.WordDetailCubit(gh<_i23.DictionaryRepository>()),
     );
     gh.factory<_i1004.ProfileCubit>(
       () =>

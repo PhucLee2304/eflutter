@@ -25,6 +25,11 @@ enum AppRoutes {
   studentProgress(path: 'students/:userId/progress'),
   classroomRoom(path: 'rooms/:roomId'),
   roomAttendance(path: 'rooms/:roomId/attendance'),
+  dictionary(path: '/dictionary'),
+  flashcards(path: '/flashcards'),
+  dictionaryWord(path: ':id'),
+  grammar(path: '/grammar'),
+  grammarUnit(path: 'units/:id'),
 
   other(path: '/other'),
   subOther(path: 'other-sub-route');
@@ -128,3 +133,5 @@ String? notificationPath(Map<String, String> data) {
   // Loại chưa biết: mở lớp nếu có, để thông báo nào cũng bấm được.
   return classroomId == null ? null : classroomPath(classroomId);
 }
+String grammarUnitPath(int unitId) =>
+    '${AppRoutes.grammar.path}/units/$unitId';

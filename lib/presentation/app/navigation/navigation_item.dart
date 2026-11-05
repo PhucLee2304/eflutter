@@ -24,6 +24,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:solar_icons/solar_icons.dart';
+import 'package:eflutter/presentation/dictionary/dictionary_search_screen.dart';
+import 'package:eflutter/presentation/dictionary/word_detail_screen.dart';
+import 'package:eflutter/presentation/grammar/grammar_curriculum_screen.dart';
+import 'package:eflutter/presentation/grammar/grammar_lesson_screen.dart';
 
 enum NavigationItemGroup {
   general('General');
@@ -83,6 +87,8 @@ class NavigationItem {
       topicItem,
       classroomsItem,
       selfStudyItem,
+      dictionaryItem,
+      grammarItem,
       profileItem,
       otherItem,
     ],
@@ -303,6 +309,47 @@ class NavigationItem {
     screen: const Placeholder(),
     subRoutes: [
       GoRoute(path: AppRoutes.subOther.path, builder: (context, state) => const Placeholder()),
+    ],
+  );
+
+  static final dictionaryItem = NavigationItem(
+    title: 'Dictionary',
+    shortTitle: 'Dictionary',
+    icon: SolarIconsOutline.book,
+    selectedIcon: SolarIconsBold.book,
+    route: AppRoutes.dictionary,
+    screen: const DictionarySearchScreen(),
+    subRoutes: [
+      GoRoute(
+        path: AppRoutes.dictionaryWord.path,
+        builder: (context, state) {
+          final wordId = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+          return WordDetailScreen(wordId: wordId);
+        },
+      ),
+    ],
+  );
+
+  static final grammarItem = NavigationItem(
+    title: 'Grammar',
+    shortTitle: 'Grammar',
+    icon: SolarIconsOutline.pen2,
+    selectedIcon: SolarIconsBold.pen2,
+    route: AppRoutes.grammar,
+    screen: const GrammarCurriculumScreen(),
+    subRoutes: [
+      GoRoute(
+        path: AppRoutes.grammarUnit.path,
+        builder: (context, state) {
+          final id = int.tryParse(state.pathParameters['id'] ?? '');
+          if (id == null) {
+            return const Scaffold(
+              body: Center(child: Text('Invalid unit id')),
+            );
+          }
+          return GrammarLessonScreen(unitId: id);
+        },
+      ),
     ],
   );
 

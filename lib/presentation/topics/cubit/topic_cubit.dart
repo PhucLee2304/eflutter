@@ -69,7 +69,9 @@ class TopicCubit extends Cubit<TopicState> {
 
   TopicCubit(this._topicRepository) : super(const TopicState());
 
-  Future<void> load() async {
+  /// [reloadIfMissing]: topic đầu tiên trả 404 thì tải lại danh sách một lần.
+  /// Lần tải lại truyền false để không lặp vô hạn.
+  Future<void> load({bool reloadIfMissing = true}) async {
     emit(state.copyWith(isLoadingTopics: true, failure: null));
     final result = await _topicRepository.getTopics().withLoading();
     switch (result) {
@@ -86,7 +88,7 @@ class TopicCubit extends Cubit<TopicState> {
           ),
         );
         if (selectedTopic != null) {
-          await selectTopic(selectedTopic);
+          await selectTopic(selectedTopic, reloadIfMissing: reloadIfMissing);
         }
       case Failure():
         emit(state.copyWith(isLoadingTopics: false, failure: result));
@@ -96,7 +98,10 @@ class TopicCubit extends Cubit<TopicState> {
     }
   }
 
-  Future<void> selectTopic(TopicSummary topic) async {
+  Future<void> selectTopic(
+    TopicSummary topic, {
+    bool reloadIfMissing = true,
+  }) async {
     emit(
       state.copyWith(
         selectedTopic: topic,
@@ -126,6 +131,12 @@ class TopicCubit extends Cubit<TopicState> {
         if (selectedSection != null) {
           await selectSection(selectedSection);
         }
+      case Failure(code: 404) when reloadIfMissing:
+        // Topic không còn tồn tại (vd. dữ liệu vừa seed lại): báo lỗi rồi tải lại
+        // danh sách để bỏ topic cũ khỏi màn hình.
+        emit(state.copyWith(isLoadingSections: false, failure: result));
+        emit(state.copyWith(failure: null));
+        await load(reloadIfMissing: false);
       case Failure():
         emit(state.copyWith(isLoadingSections: false, failure: result));
         emit(state.copyWith(failure: null));
