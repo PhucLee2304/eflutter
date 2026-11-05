@@ -8,7 +8,7 @@ part of 'dictionary_topic.dart';
 
 _DictionaryTopic _$DictionaryTopicFromJson(Map<String, dynamic> json) =>
     _DictionaryTopic(
-      id: json['id'] as String,
+      id: (json['id'] as num).toInt(),
       name: json['name'] as String,
       category: json['category'] as String,
       description: json['description'] as String?,
@@ -35,7 +35,7 @@ _TopicWordsResponse _$TopicWordsResponseFromJson(Map<String, dynamic> json) =>
           const [],
       page: (json['page'] as num).toInt(),
       pageCounts: (json['pageCounts'] as num).toInt(),
-      total: (json['total'] as num).toInt(),
+      total: (json['total'] as num?)?.toInt() ?? 0,
     );
 
 Map<String, dynamic> _$TopicWordsResponseToJson(_TopicWordsResponse instance) =>

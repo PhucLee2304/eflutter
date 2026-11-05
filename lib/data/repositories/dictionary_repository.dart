@@ -45,7 +45,7 @@ class DictionaryRepository with RepositorySafeCall {
   }
 
   Future<Result<TopicWordsResponse>> getTopicWords(
-    String topicId, {
+    int topicId, {
     int page = 1,
     int pageSize = 20,
   }) async {

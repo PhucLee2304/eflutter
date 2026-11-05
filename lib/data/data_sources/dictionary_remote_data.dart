@@ -43,7 +43,7 @@ abstract class DictionaryRemoteData {
 
   @GET('/dictionary/api/v1/topics/{id}/words')
   Future<TopicWordsResponse> getTopicWords(
-    @Path('id') String topicId,
+    @Path('id') int topicId,
     @Query('page') int page,
     @Query('pageSize') int pageSize,
   );

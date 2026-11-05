@@ -187,7 +187,7 @@ class _DictionaryRemoteData implements DictionaryRemoteData {
 
   @override
   Future<TopicWordsResponse> getTopicWords(
-    String topicId,
+    int topicId,
     int page,
     int pageSize,
   ) async {

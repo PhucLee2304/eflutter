@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$DictionaryTopic {
 
- String get id; String get name; String get category; String? get description; String? get icon; String? get level;
+ int get id; String get name; String get category; String? get description; String? get icon; String? get level;
 /// Create a copy of DictionaryTopic
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -48,7 +48,7 @@ abstract mixin class $DictionaryTopicCopyWith<$Res>  {
   factory $DictionaryTopicCopyWith(DictionaryTopic value, $Res Function(DictionaryTopic) _then) = _$DictionaryTopicCopyWithImpl;
 @useResult
 $Res call({
- String id, String name, String category, String? description, String? icon, String? level
+ int id, String name, String category, String? description, String? icon, String? level
 });
 
 
@@ -68,7 +68,7 @@ class _$DictionaryTopicCopyWithImpl<$Res>
 @pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? category = null,Object? description = freezed,Object? icon = freezed,Object? level = freezed,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
-as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
+as int,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,category: null == category ? _self.category : category // ignore: cast_nullable_to_non_nullable
 as String,description: freezed == description ? _self.description : description // ignore: cast_nullable_to_non_nullable
 as String?,icon: freezed == icon ? _self.icon : icon // ignore: cast_nullable_to_non_nullable
@@ -158,7 +158,7 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  String category,  String? description,  String? icon,  String? level)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int id,  String name,  String category,  String? description,  String? icon,  String? level)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _DictionaryTopic() when $default != null:
 return $default(_that.id,_that.name,_that.category,_that.description,_that.icon,_that.level);case _:
@@ -179,7 +179,7 @@ return $default(_that.id,_that.name,_that.category,_that.description,_that.icon,
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  String category,  String? description,  String? icon,  String? level)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int id,  String name,  String category,  String? description,  String? icon,  String? level)  $default,) {final _that = this;
 switch (_that) {
 case _DictionaryTopic():
 return $default(_that.id,_that.name,_that.category,_that.description,_that.icon,_that.level);case _:
@@ -199,7 +199,7 @@ return $default(_that.id,_that.name,_that.category,_that.description,_that.icon,
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  String category,  String? description,  String? icon,  String? level)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int id,  String name,  String category,  String? description,  String? icon,  String? level)?  $default,) {final _that = this;
 switch (_that) {
 case _DictionaryTopic() when $default != null:
 return $default(_that.id,_that.name,_that.category,_that.description,_that.icon,_that.level);case _:
@@ -217,7 +217,7 @@ class _DictionaryTopic implements DictionaryTopic {
   const _DictionaryTopic({required this.id, required this.name, required this.category, this.description, this.icon, this.level});
   factory _DictionaryTopic.fromJson(Map<String, dynamic> json) => _$DictionaryTopicFromJson(json);
 
-@override final  String id;
+@override final  int id;
 @override final  String name;
 @override final  String category;
 @override final  String? description;
@@ -257,7 +257,7 @@ abstract mixin class _$DictionaryTopicCopyWith<$Res> implements $DictionaryTopic
   factory _$DictionaryTopicCopyWith(_DictionaryTopic value, $Res Function(_DictionaryTopic) _then) = __$DictionaryTopicCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String name, String category, String? description, String? icon, String? level
+ int id, String name, String category, String? description, String? icon, String? level
 });
 
 
@@ -277,7 +277,7 @@ class __$DictionaryTopicCopyWithImpl<$Res>
 @override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? category = null,Object? description = freezed,Object? icon = freezed,Object? level = freezed,}) {
   return _then(_DictionaryTopic(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
-as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
+as int,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,category: null == category ? _self.category : category // ignore: cast_nullable_to_non_nullable
 as String,description: freezed == description ? _self.description : description // ignore: cast_nullable_to_non_nullable
 as String?,icon: freezed == icon ? _self.icon : icon // ignore: cast_nullable_to_non_nullable
@@ -490,7 +490,7 @@ return $default(_that.data,_that.page,_that.pageCounts,_that.total);case _:
 @JsonSerializable()
 
 class _TopicWordsResponse implements TopicWordsResponse {
-  const _TopicWordsResponse({final  List<WordSummary> data = const [], required this.page, required this.pageCounts, required this.total}): _data = data;
+  const _TopicWordsResponse({final  List<WordSummary> data = const [], required this.page, required this.pageCounts, this.total = 0}): _data = data;
   factory _TopicWordsResponse.fromJson(Map<String, dynamic> json) => _$TopicWordsResponseFromJson(json);
 
  final  List<WordSummary> _data;
@@ -502,7 +502,7 @@ class _TopicWordsResponse implements TopicWordsResponse {
 
 @override final  int page;
 @override final  int pageCounts;
-@override final  int total;
+@override@JsonKey() final  int total;
 
 /// Create a copy of TopicWordsResponse
 /// with the given fields replaced by the non-null parameter values.

@@ -7,7 +7,7 @@ part 'dictionary_topic.g.dart';
 @freezed
 abstract class DictionaryTopic with _$DictionaryTopic {
   const factory DictionaryTopic({
-    required String id,
+    required int id,
     required String name,
     required String category,
     String? description,
@@ -25,7 +25,7 @@ abstract class TopicWordsResponse with _$TopicWordsResponse {
     @Default([]) List<WordSummary> data,
     required int page,
     required int pageCounts,
-    required int total,
+    @Default(0) int total,
   }) = _TopicWordsResponse;
 
   factory TopicWordsResponse.fromJson(Map<String, dynamic> json) =>
