@@ -29,7 +29,7 @@ class _GrammarRemoteData implements GrammarRemoteData {
       Options(method: 'GET', headers: _headers, extra: _extra)
           .compose(
             _dio.options,
-            '/grammar/api/v1/curriculum',
+            '/grammar/api/v1/units',
             queryParameters: queryParameters,
             data: _data,
           )
@@ -81,7 +81,7 @@ class _GrammarRemoteData implements GrammarRemoteData {
     final _data = <String, dynamic>{};
     _data.addAll(body);
     final _options = _setStreamType<void>(
-      Options(method: 'POST', headers: _headers, extra: _extra)
+      Options(method: 'PUT', headers: _headers, extra: _extra)
           .compose(
             _dio.options,
             '/grammar/api/v1/units/${id}/progress',

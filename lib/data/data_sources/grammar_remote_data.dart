@@ -11,13 +11,13 @@ abstract class GrammarRemoteData {
   @factoryMethod
   factory GrammarRemoteData(Dio dio) = _GrammarRemoteData;
 
-  @GET('/grammar/api/v1/curriculum')
+  @GET('/grammar/api/v1/units')
   Future<CurriculumResponse> getCurriculum();
 
   @GET('/grammar/api/v1/units/{id}')
   Future<UnitDetail> getUnitDetail(@Path('id') int id);
 
-  @POST('/grammar/api/v1/units/{id}/progress')
+  @PUT('/grammar/api/v1/units/{id}/progress')
   Future<void> submitProgress(
     @Path('id') int id,
     @Body() Map<String, dynamic> body,

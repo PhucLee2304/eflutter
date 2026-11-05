@@ -164,7 +164,7 @@ class _DictionaryRemoteData implements DictionaryRemoteData {
       Options(method: 'GET', headers: _headers, extra: _extra)
           .compose(
             _dio.options,
-            '/dictionary/api/v1/topics',
+            '/dictionary/api/v1/themes',
             queryParameters: queryParameters,
             data: _data,
           )
@@ -202,7 +202,7 @@ class _DictionaryRemoteData implements DictionaryRemoteData {
       Options(method: 'GET', headers: _headers, extra: _extra)
           .compose(
             _dio.options,
-            '/dictionary/api/v1/topics/${topicId}/words',
+            '/dictionary/api/v1/themes/${topicId}',
             queryParameters: queryParameters,
             data: _data,
           )

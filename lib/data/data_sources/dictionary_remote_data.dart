@@ -37,11 +37,11 @@ abstract class DictionaryRemoteData {
   @DELETE('/dictionary/api/v1/flashcards/{id}')
   Future<void> deleteFlashcard(@Path('id') int id);
 
-  // Topics
-  @GET('/dictionary/api/v1/topics')
+  // Themes
+  @GET('/dictionary/api/v1/themes')
   Future<List<DictionaryTopic>> getTopics();
 
-  @GET('/dictionary/api/v1/topics/{id}/words')
+  @GET('/dictionary/api/v1/themes/{id}')
   Future<TopicWordsResponse> getTopicWords(
     @Path('id') int topicId,
     @Query('page') int page,
