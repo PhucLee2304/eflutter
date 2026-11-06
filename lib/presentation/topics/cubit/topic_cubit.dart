@@ -69,27 +69,21 @@ class TopicCubit extends Cubit<TopicState> {
 
   TopicCubit(this._topicRepository) : super(const TopicState());
 
-  /// [reloadIfMissing]: topic đầu tiên trả 404 thì tải lại danh sách một lần.
-  /// Lần tải lại truyền false để không lặp vô hạn.
-  Future<void> load({bool reloadIfMissing = true}) async {
+  Future<void> load() async {
     emit(state.copyWith(isLoadingTopics: true, failure: null));
     final result = await _topicRepository.getTopics().withLoading();
     switch (result) {
       case Success(data: final topics):
-        final selectedTopic = topics.isEmpty ? null : topics.first;
         emit(
           state.copyWith(
             topics: topics,
-            selectedTopic: selectedTopic,
+            selectedTopic: null,
             sections: const [],
             lessons: const [],
             selectedSection: null,
             isLoadingTopics: false,
           ),
         );
-        if (selectedTopic != null) {
-          await selectTopic(selectedTopic, reloadIfMissing: reloadIfMissing);
-        }
       case Failure():
         emit(state.copyWith(isLoadingTopics: false, failure: result));
         emit(state.copyWith(failure: null));
@@ -98,10 +92,21 @@ class TopicCubit extends Cubit<TopicState> {
     }
   }
 
-  Future<void> selectTopic(
-    TopicSummary topic, {
-    bool reloadIfMissing = true,
-  }) async {
+  /// Quay về danh sách topic.
+  void clearTopic() {
+    emit(
+      state.copyWith(
+        selectedTopic: null,
+        selectedSection: null,
+        sections: const [],
+        lessons: const [],
+        isLoadingSections: false,
+        isLoadingLessons: false,
+      ),
+    );
+  }
+
+  Future<void> selectTopic(TopicSummary topic) async {
     emit(
       state.copyWith(
         selectedTopic: topic,
@@ -119,30 +124,30 @@ class TopicCubit extends Cubit<TopicState> {
         .withLoading();
     switch (result) {
       case Success(data: final sections):
-        final selectedSection = sections.isEmpty ? null : sections.first;
-        emit(
-          state.copyWith(
-            sections: sections,
-            selectedSection: selectedSection,
-            lessons: const [],
-            isLoadingSections: false,
-          ),
-        );
-        if (selectedSection != null) {
-          await selectSection(selectedSection);
-        }
-      case Failure(code: 404) when reloadIfMissing:
+        emit(state.copyWith(sections: sections, isLoadingSections: false));
+      case Failure(code: 404):
         // Topic không còn tồn tại (vd. dữ liệu vừa seed lại): báo lỗi rồi tải lại
         // danh sách để bỏ topic cũ khỏi màn hình.
         emit(state.copyWith(isLoadingSections: false, failure: result));
         emit(state.copyWith(failure: null));
-        await load(reloadIfMissing: false);
+        await load();
       case Failure():
         emit(state.copyWith(isLoadingSections: false, failure: result));
         emit(state.copyWith(failure: null));
       case Cancelled():
         emit(state.copyWith(isLoadingSections: false));
     }
+  }
+
+  /// Quay về danh sách section của topic đang chọn.
+  void clearSection() {
+    emit(
+      state.copyWith(
+        selectedSection: null,
+        lessons: const [],
+        isLoadingLessons: false,
+      ),
+    );
   }
 
   Future<void> selectSection(TopicSection section) async {

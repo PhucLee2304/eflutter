@@ -34,39 +34,97 @@ class _TopicScreenState extends State<TopicScreen> {
         }
       },
       builder: (context, state) {
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            final isCompact = constraints.maxWidth < 960;
-            return Scaffold(
-              body: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    spacing: 16,
-                    children: [
-                      _TopicHeader(selectedTopic: state.selectedTopic),
-                      Expanded(
-                        child: isCompact
-                            ? _CompactTopicView(state: state)
-                            : _WideTopicView(state: state),
+        return Scaffold(
+          body: SafeArea(
+            child: SingleChildScrollView(
+              child: Center(
+                // Cùng khung nội dung với Classrooms.
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1224),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
+                    child: switch ((
+                      state.selectedTopic,
+                      state.selectedSection,
+                    )) {
+                      (null, _) => _TopicListView(state: state),
+                      (final topic?, null) => _SectionListView(
+                        topic: topic,
+                        state: state,
                       ),
-                    ],
+                      (final topic?, final section?) => _LessonListView(
+                        topic: topic,
+                        section: section,
+                        state: state,
+                      ),
+                    },
                   ),
                 ),
               ),
-            );
-          },
+            ),
+          ),
         );
       },
     );
   }
 }
 
-class _TopicHeader extends StatelessWidget {
-  const _TopicHeader({required this.selectedTopic});
+class _Breadcrumb extends StatelessWidget {
+  const _Breadcrumb({required this.items});
 
-  final TopicSummary? selectedTopic;
+  /// Mục cuối là trang hiện tại nên không có onTap.
+  final List<(String, VoidCallback?)> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Wrap(
+        spacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          for (final (index, (label, onTap)) in items.indexed) ...[
+            if (index > 0)
+              const Icon(
+                SolarIconsOutline.altArrowRight,
+                size: 14,
+                color: ColorName.gray1,
+              ),
+            if (onTap == null)
+              Text(
+                label,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: ColorName.labelPrimary,
+                ),
+              )
+            else
+              InkWell(
+                onTap: onTap,
+                child: Text(
+                  label,
+                  style: const TextStyle(color: ColorName.primary),
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _TopicHeader extends StatelessWidget {
+  const _TopicHeader({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.onBack,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback? onBack;
 
   @override
   Widget build(BuildContext context) {
@@ -77,28 +135,32 @@ class _TopicHeader extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
+        spacing: 12,
         children: [
+          if (onBack != null)
+            IconButton(
+              onPressed: onBack,
+              tooltip: 'Back',
+              style: IconButton.styleFrom(
+                side: const BorderSide(color: ColorName.gray5),
+              ),
+              icon: const Icon(SolarIconsOutline.arrowLeft, size: 18),
+            ),
           Container(
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: ColorName.secondary.withValues(alpha: 0.14),
+              color: ColorName.primary.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(
-              selectedTopic?.isAudio == true
-                  ? SolarIconsBold.microphoneLarge
-                  : SolarIconsBold.notebook,
-              color: ColorName.primary,
-            ),
+            child: Icon(icon, color: ColorName.primary),
           ),
-          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  selectedTopic?.name ?? 'Topics',
+                  title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -109,11 +171,7 @@ class _TopicHeader extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  selectedTopic == null
-                      ? 'Browse topics, sections, and lessons.'
-                      : selectedTopic!.isAudio
-                      ? 'Audio topic'
-                      : 'Reading topic',
+                  subtitle,
                   style: const TextStyle(color: ColorName.labelSecondary),
                 ),
               ],
@@ -125,380 +183,398 @@ class _TopicHeader extends StatelessWidget {
   }
 }
 
-class _WideTopicView extends StatelessWidget {
-  const _WideTopicView({required this.state});
+class _TopicListView extends StatelessWidget {
+  const _TopicListView({required this.state});
 
   final TopicState state;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final videoTopics = state.topics.where((topic) => !topic.isAudio).toList();
+    final audioTopics = state.topics.where((topic) => topic.isAudio).toList();
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(
-          flex: 3,
-          child: _TopicPanel<TopicSummary>(
-            title: 'Topics',
-            isLoading: state.isLoadingTopics,
-            items: state.topics,
-            selectedItem: state.selectedTopic,
-            emptyLabel: 'No topics found',
-            itemBuilder: (topic, selected) => _TopicTile(
-              topic: topic,
-              selected: selected,
-              onTap: () => context.read<TopicCubit>().selectTopic(topic),
-            ),
-          ),
+        const _TopicHeader(
+          icon: SolarIconsBold.notebook,
+          title: 'Topics',
+          subtitle: 'Choose a topic to start learning',
         ),
-        const SizedBox(width: 16),
-        Expanded(
-          flex: 3,
-          child: _TopicPanel<TopicSection>(
-            title: 'Sections',
-            isLoading: state.isLoadingSections,
-            items: state.sections,
-            selectedItem: state.selectedSection,
-            emptyLabel: state.selectedTopic == null
-                ? 'Select a topic'
-                : 'No sections found',
-            itemBuilder: (section, selected) => _SectionTile(
-              section: section,
-              selected: selected,
-              onTap: () => context.read<TopicCubit>().selectSection(section),
-            ),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          flex: 4,
-          child: _TopicPanel<TopicLesson>(
-            title: 'Lessons',
-            isLoading: state.isLoadingLessons,
-            items: state.lessons,
-            selectedItem: null,
-            emptyLabel: state.selectedSection == null
-                ? 'Select a section'
-                : 'No lessons found',
-            itemBuilder: (lesson, _) => _LessonTile(lesson: lesson),
-          ),
-        ),
+        const SizedBox(height: 24),
+        if (state.isLoadingTopics)
+          const SizedBox(height: 200, child: AppLoader())
+        else if (state.topics.isEmpty)
+          const _EmptyLabel('No topics found')
+        else
+          for (final (label, topics) in [
+            ('Video', videoTopics),
+            ('Audio', audioTopics),
+          ])
+            if (topics.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: 12,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      spacing: 8,
+                      children: [
+                        Text(
+                          label,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                            color: ColorName.labelPrimary,
+                          ),
+                        ),
+                        Text(
+                          '${topics.length} topics',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: ColorName.labelSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    _CardGrid(
+                      children: [
+                        for (final topic in topics)
+                          _NavCard(
+                            icon: topic.isAudio
+                                ? SolarIconsOutline.microphone
+                                : SolarIconsOutline.videoFramePlayHorizontal,
+                            title: topic.name,
+                            subtitle: topic.isAudio ? 'Audio' : 'Video',
+                            onTap: () =>
+                                context.read<TopicCubit>().selectTopic(topic),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
       ],
     );
   }
 }
 
-class _CompactTopicView extends StatelessWidget {
-  const _CompactTopicView({required this.state});
+class _SectionListView extends StatelessWidget {
+  const _SectionListView({required this.topic, required this.state});
 
+  final TopicSummary topic;
   final TopicState state;
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      children: [
-        _CompactBlock(
-          title: 'Topics',
-          child: _TopicPanel<TopicSummary>(
-            title: 'Topics',
-            isLoading: state.isLoadingTopics,
-            items: state.topics,
-            selectedItem: state.selectedTopic,
-            emptyLabel: 'No topics found',
-            showTitle: false,
-            itemBuilder: (topic, selected) => _TopicTile(
-              topic: topic,
-              selected: selected,
-              onTap: () => context.read<TopicCubit>().selectTopic(topic),
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        _CompactBlock(
-          title: 'Sections',
-          child: _TopicPanel<TopicSection>(
-            title: 'Sections',
-            isLoading: state.isLoadingSections,
-            items: state.sections,
-            selectedItem: state.selectedSection,
-            emptyLabel: state.selectedTopic == null
-                ? 'Select a topic'
-                : 'No sections found',
-            showTitle: false,
-            itemBuilder: (section, selected) => _SectionTile(
-              section: section,
-              selected: selected,
-              onTap: () => context.read<TopicCubit>().selectSection(section),
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        _CompactBlock(
-          title: 'Lessons',
-          child: _TopicPanel<TopicLesson>(
-            title: 'Lessons',
-            isLoading: state.isLoadingLessons,
-            items: state.lessons,
-            selectedItem: null,
-            emptyLabel: state.selectedSection == null
-                ? 'Select a section'
-                : 'No lessons found',
-            showTitle: false,
-            itemBuilder: (lesson, _) => _LessonTile(lesson: lesson),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _CompactBlock extends StatelessWidget {
-  const _CompactBlock({required this.title, required this.child});
-
-  final String title;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
+    final cubit = context.read<TopicCubit>();
+    final kind = topic.isAudio ? 'Audio topic' : 'Video topic';
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: ColorName.labelPrimary,
-          ),
+        _Breadcrumb(items: [('Topics', cubit.clearTopic), (topic.name, null)]),
+        _TopicHeader(
+          icon: topic.isAudio
+              ? SolarIconsOutline.microphone
+              : SolarIconsOutline.videoFramePlayHorizontal,
+          title: topic.name,
+          subtitle: state.isLoadingSections
+              ? kind
+              : '$kind · ${state.sections.length} sections',
+          onBack: cubit.clearTopic,
         ),
-        const SizedBox(height: 8),
-        SizedBox(height: 220, child: child),
+        const SizedBox(height: 24),
+        if (state.isLoadingSections)
+          const SizedBox(height: 200, child: AppLoader())
+        else if (state.sections.isEmpty)
+          const _EmptyLabel('No sections found')
+        else
+          _CardGrid(
+            children: [
+              for (final section in state.sections)
+                _NavCard(
+                  icon: SolarIconsOutline.layers,
+                  title: section.name,
+                  onTap: () => cubit.selectSection(section),
+                ),
+            ],
+          ),
       ],
     );
   }
 }
 
-class _TopicPanel<T> extends StatelessWidget {
-  const _TopicPanel({
-    required this.title,
-    required this.isLoading,
-    required this.items,
-    required this.selectedItem,
-    required this.emptyLabel,
-    required this.itemBuilder,
-    this.showTitle = true,
-  });
-
-  final String title;
-  final bool isLoading;
-  final List<T> items;
-  final T? selectedItem;
-  final String emptyLabel;
-  final Widget Function(T item, bool selected) itemBuilder;
-  final bool showTitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: ColorName.gray5),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (showTitle)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: ColorName.labelPrimary,
-                ),
-              ),
-            ),
-          Expanded(
-            child: Builder(
-              builder: (context) {
-                if (isLoading) {
-                  return const AppLoader();
-                }
-                if (items.isEmpty) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Text(
-                        emptyLabel,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: ColorName.labelSecondary),
-                      ),
-                    ),
-                  );
-                }
-                return ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-                  itemBuilder: (context, index) {
-                    final item = items[index];
-                    return itemBuilder(item, identical(item, selectedItem));
-                  },
-                  separatorBuilder: (_, index) => const SizedBox(height: 8),
-                  itemCount: items.length,
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TopicTile extends StatelessWidget {
-  const _TopicTile({
+class _LessonListView extends StatelessWidget {
+  const _LessonListView({
     required this.topic,
-    required this.selected,
-    required this.onTap,
+    required this.section,
+    required this.state,
   });
 
   final TopicSummary topic;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return _SelectableTile(
-      selected: selected,
-      onTap: onTap,
-      leading: Icon(
-        topic.isAudio ? SolarIconsOutline.microphone : SolarIconsOutline.book,
-        color: selected ? ColorName.primary : ColorName.labelSecondary,
-      ),
-      title: topic.name,
-      subtitle: topic.isAudio ? 'Audio' : 'Reading',
-    );
-  }
-}
-
-class _SectionTile extends StatelessWidget {
-  const _SectionTile({
-    required this.section,
-    required this.selected,
-    required this.onTap,
-  });
-
   final TopicSection section;
-  final bool selected;
-  final VoidCallback onTap;
+  final TopicState state;
 
   @override
   Widget build(BuildContext context) {
-    return _SelectableTile(
-      selected: selected,
-      onTap: onTap,
-      leading: Icon(
-        SolarIconsOutline.layers,
-        color: selected ? ColorName.primary : ColorName.labelSecondary,
-      ),
-      title: section.name,
-      subtitle: 'Section #${section.id}',
+    final cubit = context.read<TopicCubit>();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _Breadcrumb(
+          items: [
+            ('Topics', cubit.clearTopic),
+            (topic.name, cubit.clearSection),
+            (section.name, null),
+          ],
+        ),
+        _TopicHeader(
+          icon: SolarIconsOutline.layers,
+          title: section.name,
+          subtitle: state.isLoadingLessons
+              ? topic.name
+              : '${topic.name} · ${state.lessons.length} lessons',
+          onBack: cubit.clearSection,
+        ),
+        const SizedBox(height: 24),
+        if (state.isLoadingLessons)
+          const SizedBox(height: 200, child: AppLoader())
+        else if (state.lessons.isEmpty)
+          const _EmptyLabel('No lessons found')
+        else
+          Material(
+            color: ColorName.white,
+            clipBehavior: Clip.antiAlias,
+            shape: RoundedRectangleBorder(
+              side: const BorderSide(color: ColorName.gray5),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              children: [
+                for (final (index, lesson) in state.lessons.indexed) ...[
+                  if (index > 0)
+                    const Divider(height: 1, color: ColorName.gray6),
+                  _LessonRow(index: index, lesson: lesson),
+                ],
+              ],
+            ),
+          ),
+      ],
     );
   }
 }
 
-class _LessonTile extends StatelessWidget {
-  const _LessonTile({required this.lesson});
+class _LessonRow extends StatelessWidget {
+  const _LessonRow({required this.index, required this.lesson});
 
+  final int index;
   final TopicLesson lesson;
 
   @override
   Widget build(BuildContext context) {
-    return _SelectableTile(
-      selected: false,
+    // description có dạng "29 parts · Vocab level: B1"; một số topic để trống.
+    final detail = lesson.description.isNotEmpty
+        ? lesson.description
+        : lesson.subtitle;
+    return InkWell(
       onTap: () => context.push(topicLessonPath(lesson.id)),
-      leading: const Icon(
-        SolarIconsOutline.playCircle,
-        color: ColorName.labelSecondary,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        child: Row(
+          spacing: 16,
+          children: [
+            SizedBox(
+              width: 24,
+              child: Text(
+                '${index + 1}'.padLeft(2, '0'),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w500,
+                  color: ColorName.gray1,
+                ),
+              ),
+            ),
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: ColorName.primary.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                SolarIconsOutline.playCircle,
+                color: ColorName.primary,
+                size: 22,
+              ),
+            ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                spacing: 4,
+                children: [
+                  Text(
+                    lesson.title.isEmpty ? 'Untitled lesson' : lesson.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: ColorName.labelPrimary,
+                    ),
+                  ),
+                  if (detail.isNotEmpty)
+                    Text(
+                      detail,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: ColorName.labelSecondary,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const Icon(
+              SolarIconsOutline.altArrowRight,
+              size: 20,
+              color: ColorName.labelSecondary,
+            ),
+          ],
+        ),
       ),
-      title: lesson.title.isEmpty ? 'Untitled lesson' : lesson.title,
-      subtitle: lesson.subtitle.isNotEmpty
-          ? lesson.subtitle
-          : lesson.description.isNotEmpty
-          ? lesson.description
-          : 'Lesson #${lesson.id}',
-      trailing: const Icon(SolarIconsOutline.arrowRight),
     );
   }
 }
 
-class _SelectableTile extends StatelessWidget {
-  const _SelectableTile({
-    required this.selected,
-    required this.leading,
-    required this.title,
-    required this.subtitle,
-    this.onTap,
-    this.trailing,
-  });
+class _EmptyLabel extends StatelessWidget {
+  const _EmptyLabel(this.label);
 
-  final bool selected;
-  final Widget leading;
-  final String title;
-  final String subtitle;
-  final VoidCallback? onTap;
-  final Widget? trailing;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: selected ? ColorName.primary.withValues(alpha: 0.08) : null,
-          border: Border.all(
-            color: selected ? ColorName.primary : ColorName.gray5,
-          ),
-          borderRadius: BorderRadius.circular(8),
+    return Padding(
+      padding: const EdgeInsets.all(32),
+      child: Center(
+        child: Text(
+          label,
+          style: const TextStyle(color: ColorName.labelSecondary),
         ),
-        child: Row(
+      ),
+    );
+  }
+}
+
+/// Lưới card tự đổi số cột theo bề rộng (tối đa 3, giống Classrooms).
+class _CardGrid extends StatelessWidget {
+  const _CardGrid({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final columns = width >= 880
+            ? 3
+            : width >= 560
+            ? 2
+            : 1;
+        final cardWidth = (width - 16 * (columns - 1)) / columns;
+        return Wrap(
+          spacing: 16,
+          runSpacing: 16,
           children: [
-            leading,
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: selected
-                          ? ColorName.primary
-                          : ColorName.labelPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: ColorName.labelSecondary,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            ...switch (trailing) {
-              final Widget trailingWidget => [trailingWidget],
-              null => const <Widget>[],
-            },
+            for (final child in children)
+              SizedBox(width: cardWidth, child: child),
           ],
+        );
+      },
+    );
+  }
+}
+
+class _NavCard extends StatelessWidget {
+  const _NavCard({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+    this.subtitle,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: ColorName.white,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          height: subtitle == null ? 72 : 88,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            border: Border.all(color: ColorName.gray5),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            spacing: 16,
+            children: [
+              Container(
+                width: subtitle == null ? 40 : 44,
+                height: subtitle == null ? 40 : 44,
+                decoration: BoxDecoration(
+                  color: ColorName.primary.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  icon,
+                  color: ColorName.primary,
+                  size: subtitle == null ? 20 : 22,
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: 4,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: ColorName.labelPrimary,
+                      ),
+                    ),
+                    if (subtitle case final subtitle?)
+                      Text(
+                        subtitle,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: ColorName.labelSecondary,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const Icon(
+                SolarIconsOutline.altArrowRight,
+                size: 20,
+                color: ColorName.labelSecondary,
+              ),
+            ],
+          ),
         ),
       ),
     );
