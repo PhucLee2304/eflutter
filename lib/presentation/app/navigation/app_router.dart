@@ -82,6 +82,9 @@ class AppRouter {
         user.role.toUpperCase() != 'ADMIN') {
       return AppRoutes.home.path;
     }
+    if (state.uri.path == adminPathPrefix || state.uri.path == '$adminPathPrefix/') {
+      return AppRoutes.adminStats.path;
+    }
 
     // Đang làm bài: mọi điều hướng ra ngoài màn làm bài đều bị đưa về lại.
     return _attemptLock.redirectFor(state.uri.path);

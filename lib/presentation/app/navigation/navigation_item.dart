@@ -1,3 +1,4 @@
+import 'package:eflutter/presentation/admin/admin_stats_screen.dart';
 import 'package:eflutter/presentation/admin/admin_users_screen.dart';
 import 'package:eflutter/presentation/app/navigation/app_routes.dart';
 import 'package:eflutter/core/di/injection.dart';
@@ -96,9 +97,22 @@ class NavigationItem {
       grammarItem,
       profileItem,
       otherItem,
+      adminStatsItem,
       adminUsersItem,
     ],
   };
+
+  static final adminStatsItem = const NavigationItem(
+    title: 'Statistics',
+    icon: SolarIconsOutline.chart,
+    selectedIcon: SolarIconsBold.chart,
+    route: AppRoutes.adminStats,
+    screen: AdminStatsScreen(),
+    parentTitle: 'Admin',
+    parentIcon: SolarIconsOutline.shieldCheck,
+    isChild: true,
+    adminOnly: true,
+  );
 
   static final adminUsersItem = const NavigationItem(
     title: 'Users',

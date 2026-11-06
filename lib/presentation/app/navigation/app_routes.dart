@@ -32,6 +32,7 @@ enum AppRoutes {
   dictionaryWord(path: ':id'),
   grammar(path: '/grammar'),
   grammarUnit(path: 'units/:id'),
+  adminStats(path: '/admin/stats'),
   adminUsers(path: '/admin/users'),
 
   other(path: '/other'),
