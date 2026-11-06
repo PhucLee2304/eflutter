@@ -2,7 +2,7 @@ import 'package:eflutter/core/utils/extensions/toast_bar_extension.dart';
 import 'package:eflutter/core/loading/loading_widget.dart';
 import 'dart:async';
 
-import 'package:eflutter/core/base/local_data_base.dart';
+import 'package:eflutter/core/auth/auth_interceptor.dart';
 import 'package:eflutter/core/base/result.dart';
 import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/data/data_sources/room_socket_client.dart';
@@ -38,7 +38,7 @@ class ClassroomCalendarView extends StatefulWidget {
 }
 
 class _ClassroomCalendarViewState extends State<ClassroomCalendarView> {
-  late final RoomSocketClient roomSocket = RoomSocketClient(getIt<LocalDataBase>());
+  late final RoomSocketClient roomSocket = RoomSocketClient(getIt<AuthInterceptor>());
   StreamSubscription<ClassroomRoom>? roomSubscription;
   Timer? clockTimer;
   DateTime month = DateTime(DateTime.now().year, DateTime.now().month);

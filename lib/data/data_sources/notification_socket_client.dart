@@ -2,16 +2,16 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:eflutter/app/config/app_config.dart';
-import 'package:eflutter/core/base/local_data_base.dart';
+import 'package:eflutter/core/auth/auth_interceptor.dart';
 import 'package:eflutter/data/data_sources/attempt_socket_connector.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 /// Kết nối /ws/notifications: server chỉ gửi NOTIFICATION_CREATED khi có thông
 /// báo mới, nên client không phải polling.
 class NotificationSocketClient {
-  NotificationSocketClient(this._localData, {required this.onConnected, required this.onCreated});
+  NotificationSocketClient(this._auth, {required this.onConnected, required this.onCreated});
 
-  final LocalDataBase _localData;
+  final AuthInterceptor _auth;
 
   /// Gọi mỗi lần kết nối (lại) thành công, để đồng bộ số bị lỡ khi mất kết nối.
   final void Function() onConnected;
@@ -26,7 +26,7 @@ class NotificationSocketClient {
   Future<void> connect() async {
     _active = true;
     if (_channel != null) return;
-    final token = await _localData.getAccessToken();
+    final token = await _auth.freshAccessToken();
     if (!_active || token == null || token.isEmpty) return;
 
     final base = Uri.parse(AppConfig.baseUrl);

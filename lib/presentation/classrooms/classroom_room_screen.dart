@@ -8,7 +8,7 @@ import 'package:eflutter/core/base/result.dart';
 import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/data/models/classroom.dart';
 import 'package:eflutter/data/data_sources/room_socket_client.dart';
-import 'package:eflutter/core/base/local_data_base.dart';
+import 'package:eflutter/core/auth/auth_interceptor.dart';
 import 'package:eflutter/data/repositories/classroom_repository.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart' hide ConnectionState;
@@ -70,7 +70,7 @@ class _ClassroomRoomScreenState extends State<ClassroomRoomScreen> {
   static const _sidePanelWidth = 320.0;
 
   late final ClassroomRepository repository = ClassroomRepository(getIt<Dio>());
-  late final RoomSocketClient roomSocket = RoomSocketClient(getIt<LocalDataBase>());
+  late final RoomSocketClient roomSocket = RoomSocketClient(getIt<AuthInterceptor>());
   late final RoomDevicePreferences devicePreferences = RoomDevicePreferences(
     getIt<SharedPreferencesAsync>(),
   );

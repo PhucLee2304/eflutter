@@ -9,7 +9,6 @@
 // coverage:ignore-file
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-
 import 'package:dio/dio.dart' as _i361;
 import 'package:eflutter/core/attempt_lock/attempt_integrity_reporter.dart'
     as _i649;
@@ -120,7 +119,7 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i361.Dio>(),
         gh<_i834.NotificationController>(),
         gh<_i460.SharedPreferencesAsync>(),
-        gh<_i942.LocalDataBase>(),
+        gh<_i393.AuthInterceptor>(),
       ),
     );
     gh.lazySingleton<_i695.AuthRepository>(

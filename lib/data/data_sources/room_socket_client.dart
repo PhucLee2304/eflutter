@@ -2,14 +2,14 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:eflutter/app/config/app_config.dart';
-import 'package:eflutter/core/base/local_data_base.dart';
+import 'package:eflutter/core/auth/auth_interceptor.dart';
 import 'package:eflutter/data/data_sources/attempt_socket_connector.dart';
 import 'package:eflutter/data/models/classroom.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 class RoomSocketClient {
-  RoomSocketClient(this._localData);
-  final LocalDataBase _localData;
+  RoomSocketClient(this._auth);
+  final AuthInterceptor _auth;
   final _events = StreamController<ClassroomRoom>.broadcast();
   final _activityEvents = StreamController<RoomActivitySocketEvent>.broadcast();
   final _reconnected = StreamController<void>.broadcast();
@@ -29,7 +29,7 @@ class RoomSocketClient {
 
   Future<void> connect() async {
     if (_channel != null || _closed) return;
-    final token = await _localData.getAccessToken();
+    final token = await _auth.freshAccessToken();
     if (token == null || token.isEmpty) return;
     final base = Uri.parse(AppConfig.baseUrl);
     final uri = base.replace(

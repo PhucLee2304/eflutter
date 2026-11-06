@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:eflutter/app/config/app_config.dart';
-import 'package:eflutter/core/base/local_data_base.dart';
+import 'package:eflutter/core/auth/auth_interceptor.dart';
 import 'package:eflutter/data/data_sources/attempt_socket_connector.dart';
 import 'package:eflutter/data/models/attempt_integrity.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -31,9 +31,9 @@ abstract interface class GradebookSocketGateway {
 }
 
 class GradebookSocketClient implements GradebookSocketGateway {
-  GradebookSocketClient(this._localData);
+  GradebookSocketClient(this._auth);
 
-  final LocalDataBase _localData;
+  final AuthInterceptor _auth;
   final _events = StreamController<GradebookSocketEvent>.broadcast();
   final _statuses = StreamController<GradebookSocketStatus>.broadcast();
   WebSocketChannel? _channel;
@@ -51,7 +51,7 @@ class GradebookSocketClient implements GradebookSocketGateway {
   Future<void> connect() async {
     if (_channel != null || _closed) return;
     _statuses.add(GradebookSocketStatus.connecting);
-    final token = await _localData.getAccessToken();
+    final token = await _auth.freshAccessToken();
     if (token == null || token.isEmpty) {
       _statuses.add(GradebookSocketStatus.disconnected);
       throw StateError('Authentication token is missing.');
