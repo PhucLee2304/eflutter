@@ -81,6 +81,9 @@ extension ApiSafeResult<T> on Future<T> {
       'Teacher cannot join own classroom as student':
           'Teachers cannot join their own classroom as students.',
       'Active attempt already exists': 'You already have an active attempt.',
+      'Account blocked':
+          'Your account has been blocked. Contact the center administrator for help.',
+      'Only client accounts can be blocked': 'Admin accounts cannot be blocked.',
     };
     if (normalized != null && translations.containsKey(normalized)) {
       return translations[normalized]!;

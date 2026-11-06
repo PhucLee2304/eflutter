@@ -5,6 +5,8 @@ import 'package:eflutter/app/config/app_config.dart';
 import 'package:eflutter/core/base/local_data_base.dart';
 import 'package:eflutter/core/base/remote_data_base.dart';
 import 'package:eflutter/core/di/injection.dart';
+import 'package:eflutter/core/utils/extensions/toast_bar_extension.dart';
+import 'package:eflutter/presentation/app/navigation/app_router.dart';
 import 'package:eflutter/presentation/auth/cubit/auth_cubit.dart';
 import 'package:injectable/injectable.dart';
 
@@ -15,6 +17,7 @@ class AuthInterceptor extends Interceptor {
 
   static const String isRefreshTokenRequestKey = 'isRefreshTokenRequest';
   static const tokenExpired = 401;
+  static const accountBlocked = 403;
 
   @override
   void onRequest(
@@ -83,6 +86,15 @@ class AuthInterceptor extends Interceptor {
     } on DioException catch (e) {
       if (e.response?.statusCode == tokenExpired) {
         authCubit.logout();
+      }
+      // Admin vừa khoá tài khoản: đăng xuất và báo lý do ở màn login.
+      if (e.response?.statusCode == accountBlocked) {
+        authCubit.logout();
+        AppRouter.router.routerDelegate.navigatorKey.currentContext?.showToast(
+          'Your account has been blocked. Contact the center administrator for help.',
+          type: ToastType.error,
+          duration: const Duration(seconds: 5),
+        );
       }
       return null;
     } finally {

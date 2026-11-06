@@ -1,3 +1,4 @@
+import 'package:eflutter/presentation/admin/admin_users_screen.dart';
 import 'package:eflutter/presentation/app/navigation/app_routes.dart';
 import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/core/base/remote_data_base.dart';
@@ -49,6 +50,9 @@ class NavigationItem {
   final IconData? parentIcon;
   final bool isChild;
 
+  /// Chỉ hiện trên sidebar web với tài khoản role ADMIN.
+  final bool adminOnly;
+
   /// Route cùng cấp nằm chung nhánh shell, vd Self-study gồm cả /exams/thpt và /histories.
   final List<RouteBase> siblingRoutes;
 
@@ -63,6 +67,7 @@ class NavigationItem {
     this.parentTitle,
     this.parentIcon,
     this.isChild = false,
+    this.adminOnly = false,
     this.siblingRoutes = const [],
   });
 
@@ -77,7 +82,7 @@ class NavigationItem {
   static final webShellBranches = [...allItems, notificationItem];
   static final mobileShellBranches = [homeItem, topicItem, classroomsItem, profileItem, otherItem];
   static final mobileOtherItems = [
-    ...allItems.where((e) => !mobileShellBranches.contains(e)),
+    ...allItems.where((e) => !mobileShellBranches.contains(e) && !e.adminOnly),
     notificationItem,
   ];
 
@@ -91,8 +96,21 @@ class NavigationItem {
       grammarItem,
       profileItem,
       otherItem,
+      adminUsersItem,
     ],
   };
+
+  static final adminUsersItem = const NavigationItem(
+    title: 'Users',
+    icon: SolarIconsOutline.usersGroupRounded,
+    selectedIcon: SolarIconsBold.usersGroupRounded,
+    route: AppRoutes.adminUsers,
+    screen: AdminUsersScreen(),
+    parentTitle: 'Admin',
+    parentIcon: SolarIconsOutline.shieldCheck,
+    isChild: true,
+    adminOnly: true,
+  );
 
   static final homeItem = NavigationItem(
     title: 'Home',

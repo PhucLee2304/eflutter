@@ -22,31 +22,7 @@ class CommunityPostsScreen extends StatelessWidget {
   const CommunityPostsScreen({super.key});
   @override
   Widget build(BuildContext context) {
-    final admin = context.watch<AppCubit>().state.user?.role.toLowerCase() == 'admin';
-    return Scaffold(
-      body: SafeArea(
-        child: admin
-            ? const DefaultTabController(
-                length: 2,
-                child: Column(
-                  children: [
-                    TabBar(
-                      tabs: [
-                        Tab(text: 'Community'),
-                        Tab(text: 'Moderation'),
-                      ],
-                    ),
-                    Expanded(
-                      child: TabBarView(
-                        children: [PostList(), PostList(admin: true, canCreate: false)],
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            : const PostList(),
-      ),
-    );
+    return const Scaffold(body: SafeArea(child: PostList()));
   }
 }
 
@@ -86,8 +62,10 @@ class _ClassroomPostsViewState extends State<ClassroomPostsView> {
   double _listOffset = 0;
   final _detailKey = GlobalKey();
 
-  void _setUrl(String path) =>
-      SystemNavigator.routeInformationUpdated(uri: Uri.parse(path), replace: true);
+  void _setUrl(String path) => SystemNavigator.routeInformationUpdated(
+    uri: Uri.parse(path),
+    replace: true,
+  );
 
   Future<void> _openPost(PostItem post) {
     _listOffset = Scrollable.maybeOf(context)?.position.pixels ?? 0;
@@ -134,7 +112,13 @@ class _ClassroomPostsViewState extends State<ClassroomPostsView> {
           color: selected ? Colors.white : null,
           borderRadius: BorderRadius.circular(7),
           boxShadow: selected
-              ? const [BoxShadow(color: Color(0x14000000), blurRadius: 2, offset: Offset(0, 1))]
+              ? const [
+                  BoxShadow(
+                    color: Color(0x14000000),
+                    blurRadius: 2,
+                    offset: Offset(0, 1),
+                  ),
+                ]
               : null,
         ),
         child: Row(
@@ -236,7 +220,6 @@ class PostList extends StatefulWidget {
     this.pinned = false,
     this.canCreate = true,
     this.readOnly = false,
-    this.admin = false,
     this.mine = false,
     this.aside,
     this.embedded = false,
@@ -244,7 +227,7 @@ class PostList extends StatefulWidget {
     this.onOpen,
   });
   final int? classroomId;
-  final bool pinned, canCreate, readOnly, admin, mine;
+  final bool pinned, canCreate, readOnly, mine;
 
   /// Không tự cuộn: nằm trong cuộn của màn cha và tải thêm theo cuộn đó (stream lớp học).
   final bool embedded;
@@ -301,8 +284,10 @@ class _PostListState extends State<PostList> {
 
   void _parentScroll() {
     // Đang ẩn sau trang chi tiết bài viết thì không tải thêm.
-    if (context.findAncestorWidgetOfExactType<Offstage>()?.offstage ?? false) return;
-    if ((_parentPosition?.extentAfter ?? double.infinity) < 300) unawaited(loadMore());
+    if (context.findAncestorWidgetOfExactType<Offstage>()?.offstage ?? false)
+      return;
+    if ((_parentPosition?.extentAfter ?? double.infinity) < 300)
+      unawaited(loadMore());
   }
 
   Future<void> load() async {
@@ -315,7 +300,6 @@ class _PostListState extends State<PostList> {
         page: 1,
         classroomId: widget.classroomId,
         pinned: widget.pinned,
-        admin: widget.admin,
         mine: widget.mine,
       );
       if (mounted) {
@@ -344,7 +328,6 @@ class _PostListState extends State<PostList> {
         page: page + 1,
         classroomId: widget.classroomId,
         pinned: widget.pinned,
-        admin: widget.admin,
         mine: widget.mine,
       );
       if (mounted) {
@@ -405,14 +388,18 @@ class _PostListState extends State<PostList> {
       await onOpen(p);
     } else {
       await context.push(
-        classroomId == null ? postDetailPath(p.id) : classroomPostPath(classroomId, p.id),
+        classroomId == null
+            ? postDetailPath(p.id)
+            : classroomPostPath(classroomId, p.id),
       );
     }
     if (!mounted) return;
     try {
       final fresh = await repo.getPost(p.id);
       if (mounted) {
-        setState(() => items = [for (final i in items) i.id == p.id ? fresh : i]);
+        setState(
+          () => items = [for (final i in items) i.id == p.id ? fresh : i],
+        );
       }
     } on DioException catch (e) {
       if (mounted && e.response?.statusCode == 404) {
@@ -468,41 +455,6 @@ class _PostListState extends State<PostList> {
     }
   }
 
-  Future<void> moderate(PostItem post, String action) async {
-    final input = TextEditingController();
-    final reason = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('${action[0]}${action.substring(1).toLowerCase()} post'),
-        content: TextField(
-          controller: input,
-          autofocus: true,
-          decoration: const InputDecoration(labelText: 'Reason'),
-        ),
-        actions: [
-          FilledButton(
-            onPressed: () => Navigator.pop(context),
-            style: AppButtonStyles.secondary,
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, input.text.trim()),
-            style: AppButtonStyles.primary,
-            child: const Text('Confirm'),
-          ),
-        ],
-      ),
-    );
-    input.dispose();
-    if (reason == null || reason.isEmpty) return;
-    try {
-      await repo.moderate(post.id, action, reason);
-      await load();
-    } catch (_) {
-      _message('Could not moderate post');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     if (loading) {
@@ -548,7 +500,11 @@ class _PostListState extends State<PostList> {
                     constraints: const BoxConstraints(maxWidth: 680),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [aside, const SizedBox(height: 16), _feed(context)],
+                      children: [
+                        aside,
+                        const SizedBox(height: 16),
+                        _feed(context),
+                      ],
                     ),
                   ),
                 )
@@ -592,7 +548,9 @@ class _PostListState extends State<PostList> {
         if (items.isEmpty)
           Padding(
             padding: const EdgeInsets.all(36),
-            child: Center(child: Text(widget.pinned ? 'No pinned posts' : 'No posts yet')),
+            child: Center(
+              child: Text(widget.pinned ? 'No pinned posts' : 'No posts yet'),
+            ),
           ),
         ...items.map(
           (p) => PostCard(
@@ -603,12 +561,11 @@ class _PostListState extends State<PostList> {
             onPin: () => pin(p),
             onEdit: () => compose(p),
             onDelete: () => remove(p),
-            admin: widget.admin,
-            onModerate: (action) => moderate(p, action),
             onOpen: () => open(p),
           ),
         ),
-        if (more) const Padding(padding: EdgeInsets.all(16), child: AppLoader()),
+        if (more)
+          const Padding(padding: EdgeInsets.all(16), child: AppLoader()),
       ],
     ),
   );
@@ -643,7 +600,10 @@ class _ComposerPrompt extends StatelessWidget {
                   customBorder: const StadiumBorder(),
                   onTap: onTap,
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 11,
+                    ),
                     child: Text(
                       "What's on your mind${me == null ? '' : ', ${me.name.split(' ').last}'}?",
                       style: TextStyle(color: theme.hintColor, fontSize: 15),

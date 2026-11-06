@@ -14,13 +14,10 @@ class PostRepository {
     required int page,
     int? classroomId,
     bool pinned = false,
-    bool admin = false,
     bool mine = false,
   }) async {
     final path = mine
         ? '$_base/posts/me'
-        : admin
-        ? '$_base/admin/posts'
         : classroomId == null
         ? '$_base/posts'
         : '$_base/classrooms/$classroomId/posts${pinned ? '/pinned' : ''}';
@@ -159,17 +156,4 @@ class PostRepository {
   Future<void> setCommentLike(int id, bool value) => value
       ? _dio.post('$_base/comments/$id/like')
       : _dio.delete('$_base/comments/$id/like');
-
-  Future<void> moderate(int id, String action, String reason) {
-    if (action == 'HIDE') {
-      return _dio.post('$_base/admin/posts/$id/hide', data: {'reason': reason});
-    }
-    if (action == 'UNHIDE') {
-      return _dio.delete(
-        '$_base/admin/posts/$id/hide',
-        data: {'reason': reason},
-      );
-    }
-    return _dio.delete('$_base/admin/posts/$id', data: {'reason': reason});
-  }
 }

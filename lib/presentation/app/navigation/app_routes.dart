@@ -32,6 +32,7 @@ enum AppRoutes {
   dictionaryWord(path: ':id'),
   grammar(path: '/grammar'),
   grammarUnit(path: 'units/:id'),
+  adminUsers(path: '/admin/users'),
 
   other(path: '/other'),
   subOther(path: 'other-sub-route');
@@ -41,6 +42,9 @@ enum AppRoutes {
 }
 
 final publicPaths = [AppRoutes.login.path];
+
+/// Khu vực admin: chỉ tài khoản role ADMIN thấy nav và vào được.
+const adminPathPrefix = '/admin';
 
 String get notificationsPath => AppRoutes.notifications.path;
 
