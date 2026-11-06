@@ -1,18 +1,23 @@
 import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:eflutter/core/utils/extensions/toast_bar_extension.dart';
 import 'package:eflutter/data/models/topic_lesson.dart';
-import 'package:eflutter/data/models/topic_section.dart';
 import 'package:eflutter/data/models/topic_summary.dart';
 import 'package:eflutter/generated/colors.gen.dart';
 import 'package:eflutter/presentation/app/navigation/app_routes.dart';
 import 'package:eflutter/presentation/topics/cubit/topic_cubit.dart';
+import 'package:eflutter/presentation/topics/widgets/topic_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:solar_icons/solar_icons.dart';
 
+/// Một màn cho cả ba cấp: [topicId] null → danh sách topic; có [topicId] →
+/// section của topic; có thêm [sectionId] → lesson của section.
 class TopicScreen extends StatefulWidget {
-  const TopicScreen({super.key});
+  const TopicScreen({this.topicId, this.sectionId, super.key});
+
+  final int? topicId;
+  final int? sectionId;
 
   @override
   State<TopicScreen> createState() => _TopicScreenState();
@@ -22,7 +27,25 @@ class _TopicScreenState extends State<TopicScreen> {
   @override
   void initState() {
     super.initState();
-    context.read<TopicCubit>().load();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(TopicScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.topicId != widget.topicId ||
+        oldWidget.sectionId != widget.sectionId) {
+      _load();
+    }
+  }
+
+  void _load() {
+    final cubit = context.read<TopicCubit>();
+    final topicId = widget.topicId;
+    final sectionId = widget.sectionId;
+    cubit.loadTopics(refresh: topicId == null);
+    if (topicId != null) cubit.loadSections(topicId);
+    if (sectionId != null) cubit.loadLessons(sectionId);
   }
 
   @override
@@ -34,6 +57,8 @@ class _TopicScreenState extends State<TopicScreen> {
         }
       },
       builder: (context, state) {
+        final topicId = widget.topicId;
+        final sectionId = widget.sectionId;
         return Scaffold(
           body: SafeArea(
             child: SingleChildScrollView(
@@ -43,18 +68,15 @@ class _TopicScreenState extends State<TopicScreen> {
                   constraints: const BoxConstraints(maxWidth: 1224),
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
-                    child: switch ((
-                      state.selectedTopic,
-                      state.selectedSection,
-                    )) {
-                      (null, _) => _TopicListView(state: state),
-                      (final topic?, null) => _SectionListView(
-                        topic: topic,
+                    child: switch ((topicId, sectionId)) {
+                      (null, _) => _TopicListView(topics: state.topics),
+                      (final topicId?, null) => _SectionListView(
+                        topicId: topicId,
                         state: state,
                       ),
-                      (final topic?, final section?) => _LessonListView(
-                        topic: topic,
-                        section: section,
+                      (final topicId?, final sectionId?) => _LessonListView(
+                        topicId: topicId,
+                        sectionId: sectionId,
                         state: state,
                       ),
                     },
@@ -69,141 +91,29 @@ class _TopicScreenState extends State<TopicScreen> {
   }
 }
 
-class _Breadcrumb extends StatelessWidget {
-  const _Breadcrumb({required this.items});
-
-  /// Mục cuối là trang hiện tại nên không có onTap.
-  final List<(String, VoidCallback?)> items;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Wrap(
-        spacing: 8,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          for (final (index, (label, onTap)) in items.indexed) ...[
-            if (index > 0)
-              const Icon(
-                SolarIconsOutline.altArrowRight,
-                size: 14,
-                color: ColorName.gray1,
-              ),
-            if (onTap == null)
-              Text(
-                label,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: ColorName.labelPrimary,
-                ),
-              )
-            else
-              InkWell(
-                onTap: onTap,
-                child: Text(
-                  label,
-                  style: const TextStyle(color: ColorName.primary),
-                ),
-              ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _TopicHeader extends StatelessWidget {
-  const _TopicHeader({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    this.onBack,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback? onBack;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        border: Border.all(color: ColorName.gray5),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        spacing: 12,
-        children: [
-          if (onBack != null)
-            IconButton(
-              onPressed: onBack,
-              tooltip: 'Back',
-              style: IconButton.styleFrom(
-                side: const BorderSide(color: ColorName.gray5),
-              ),
-              icon: const Icon(SolarIconsOutline.arrowLeft, size: 18),
-            ),
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: ColorName.primary.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, color: ColorName.primary),
-          ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    color: ColorName.labelPrimary,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: const TextStyle(color: ColorName.labelSecondary),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _TopicListView extends StatelessWidget {
-  const _TopicListView({required this.state});
+  const _TopicListView({required this.topics});
 
-  final TopicState state;
+  /// null: đang tải.
+  final List<TopicSummary>? topics;
 
   @override
   Widget build(BuildContext context) {
-    final videoTopics = state.topics.where((topic) => !topic.isAudio).toList();
-    final audioTopics = state.topics.where((topic) => topic.isAudio).toList();
+    final topics = this.topics ?? const <TopicSummary>[];
+    final videoTopics = topics.where((topic) => !topic.isAudio).toList();
+    final audioTopics = topics.where((topic) => topic.isAudio).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const _TopicHeader(
+        const TopicHeader(
           icon: SolarIconsBold.notebook,
           title: 'Topics',
           subtitle: 'Choose a topic to start learning',
         ),
         const SizedBox(height: 24),
-        if (state.isLoadingTopics)
+        if (this.topics == null)
           const SizedBox(height: 200, child: AppLoader())
-        else if (state.topics.isEmpty)
+        else if (topics.isEmpty)
           const _EmptyLabel('No topics found')
         else
           for (final (label, topics) in [
@@ -249,7 +159,7 @@ class _TopicListView extends StatelessWidget {
                             title: topic.name,
                             subtitle: topic.isAudio ? 'Audio' : 'Video',
                             onTap: () =>
-                                context.read<TopicCubit>().selectTopic(topic),
+                                context.go(topicSectionsPath(topic.id)),
                           ),
                       ],
                     ),
@@ -262,42 +172,46 @@ class _TopicListView extends StatelessWidget {
 }
 
 class _SectionListView extends StatelessWidget {
-  const _SectionListView({required this.topic, required this.state});
+  const _SectionListView({required this.topicId, required this.state});
 
-  final TopicSummary topic;
+  final int topicId;
   final TopicState state;
 
   @override
   Widget build(BuildContext context) {
-    final cubit = context.read<TopicCubit>();
-    final kind = topic.isAudio ? 'Audio topic' : 'Video topic';
+    final topic = state.topic(topicId);
+    final sections = state.sections[topicId];
+    final isAudio = topic?.isAudio ?? false;
+    final kind = isAudio ? 'Audio topic' : 'Video topic';
+    void goBack() => context.go(AppRoutes.topic.path);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _Breadcrumb(items: [('Topics', cubit.clearTopic), (topic.name, null)]),
-        _TopicHeader(
-          icon: topic.isAudio
+        TopicBreadcrumb(items: [('Topics', goBack), (topic?.name ?? '', null)]),
+        TopicHeader(
+          icon: isAudio
               ? SolarIconsOutline.microphone
               : SolarIconsOutline.videoFramePlayHorizontal,
-          title: topic.name,
-          subtitle: state.isLoadingSections
+          title: topic?.name ?? '',
+          subtitle: sections == null
               ? kind
-              : '$kind · ${state.sections.length} sections',
-          onBack: cubit.clearTopic,
+              : '$kind · ${sections.length} sections',
+          onBack: goBack,
         ),
         const SizedBox(height: 24),
-        if (state.isLoadingSections)
+        if (sections == null)
           const SizedBox(height: 200, child: AppLoader())
-        else if (state.sections.isEmpty)
+        else if (sections.isEmpty)
           const _EmptyLabel('No sections found')
         else
           _CardGrid(
             children: [
-              for (final section in state.sections)
+              for (final section in sections)
                 _NavCard(
                   icon: SolarIconsOutline.layers,
                   title: section.name,
-                  onTap: () => cubit.selectSection(section),
+                  onTap: () =>
+                      context.go(topicLessonsPath(topicId, section.id)),
                 ),
             ],
           ),
@@ -308,40 +222,43 @@ class _SectionListView extends StatelessWidget {
 
 class _LessonListView extends StatelessWidget {
   const _LessonListView({
-    required this.topic,
-    required this.section,
+    required this.topicId,
+    required this.sectionId,
     required this.state,
   });
 
-  final TopicSummary topic;
-  final TopicSection section;
+  final int topicId;
+  final int sectionId;
   final TopicState state;
 
   @override
   Widget build(BuildContext context) {
-    final cubit = context.read<TopicCubit>();
+    final topicName = state.topic(topicId)?.name ?? '';
+    final sectionName = state.section(topicId, sectionId)?.name ?? '';
+    final lessons = state.lessons[sectionId];
+    void goBack() => context.go(topicSectionsPath(topicId));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _Breadcrumb(
+        TopicBreadcrumb(
           items: [
-            ('Topics', cubit.clearTopic),
-            (topic.name, cubit.clearSection),
-            (section.name, null),
+            ('Topics', () => context.go(AppRoutes.topic.path)),
+            (topicName, goBack),
+            (sectionName, null),
           ],
         ),
-        _TopicHeader(
+        TopicHeader(
           icon: SolarIconsOutline.layers,
-          title: section.name,
-          subtitle: state.isLoadingLessons
-              ? topic.name
-              : '${topic.name} · ${state.lessons.length} lessons',
-          onBack: cubit.clearSection,
+          title: sectionName,
+          subtitle: lessons == null
+              ? topicName
+              : '$topicName · ${lessons.length} lessons',
+          onBack: goBack,
         ),
         const SizedBox(height: 24),
-        if (state.isLoadingLessons)
+        if (lessons == null)
           const SizedBox(height: 200, child: AppLoader())
-        else if (state.lessons.isEmpty)
+        else if (lessons.isEmpty)
           const _EmptyLabel('No lessons found')
         else
           Material(
@@ -353,10 +270,14 @@ class _LessonListView extends StatelessWidget {
             ),
             child: Column(
               children: [
-                for (final (index, lesson) in state.lessons.indexed) ...[
+                for (final (index, lesson) in lessons.indexed) ...[
                   if (index > 0)
                     const Divider(height: 1, color: ColorName.gray6),
-                  _LessonRow(index: index, lesson: lesson),
+                  _LessonRow(
+                    index: index,
+                    lesson: lesson,
+                    path: topicLessonPath(topicId, sectionId, lesson.id),
+                  ),
                 ],
               ],
             ),
@@ -367,10 +288,15 @@ class _LessonListView extends StatelessWidget {
 }
 
 class _LessonRow extends StatelessWidget {
-  const _LessonRow({required this.index, required this.lesson});
+  const _LessonRow({
+    required this.index,
+    required this.lesson,
+    required this.path,
+  });
 
   final int index;
   final TopicLesson lesson;
+  final String path;
 
   @override
   Widget build(BuildContext context) {
@@ -379,7 +305,7 @@ class _LessonRow extends StatelessWidget {
         ? lesson.description
         : lesson.subtitle;
     return InkWell(
-      onTap: () => context.push(topicLessonPath(lesson.id)),
+      onTap: () => context.go(path),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         child: Row(

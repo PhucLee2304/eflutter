@@ -1,4 +1,6 @@
 import 'package:eflutter/core/loading/loading_widget.dart';
+import 'package:eflutter/data/models/topic_transcript.dart';
+import 'package:eflutter/presentation/topics/widgets/custom_video_controls.dart';
 import 'package:chewie/chewie.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
@@ -21,7 +23,7 @@ class LessonVideoController extends ChangeNotifier {
     await controller.play();
   }
 
-  Future<void> prepare(String url) async {
+  Future<void> prepare(String url, List<TopicTranscript> transcripts) async {
     if (_preparedUrl == url) return;
     _preparedUrl = url;
 
@@ -46,6 +48,20 @@ class LessonVideoController extends ChangeNotifier {
         aspectRatio: vpController.value.aspectRatio,
         allowFullScreen: true,
         showOptions: false,
+        customControls: const CustomVideoControls(),
+        // Phụ đề lấy từ transcript; CustomVideoControls tự vẽ và bật/tắt bằng nút CC.
+        showSubtitles: true,
+        subtitle: Subtitles([
+          for (final transcript in transcripts)
+            Subtitle(
+              index: transcript.order,
+              start: Duration(
+                milliseconds: (transcript.timeStart * 1000).round(),
+              ),
+              end: Duration(milliseconds: (transcript.timeEnd * 1000).round()),
+              text: transcript.content,
+            ),
+        ]),
       );
 
       notifyListeners();
@@ -81,11 +97,13 @@ class LessonVideoController extends ChangeNotifier {
 class LessonVideoPlayer extends StatefulWidget {
   const LessonVideoPlayer({
     required this.url,
+    required this.transcripts,
     required this.controller,
     super.key,
   });
 
   final String url;
+  final List<TopicTranscript> transcripts;
   final LessonVideoController controller;
 
   @override
@@ -96,14 +114,14 @@ class _LessonVideoPlayerState extends State<LessonVideoPlayer> {
   @override
   void initState() {
     super.initState();
-    widget.controller.prepare(widget.url);
+    widget.controller.prepare(widget.url, widget.transcripts);
   }
 
   @override
   void didUpdateWidget(covariant LessonVideoPlayer oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.url != widget.url) {
-      widget.controller.prepare(widget.url);
+      widget.controller.prepare(widget.url, widget.transcripts);
     }
   }
 

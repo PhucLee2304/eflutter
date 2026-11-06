@@ -9,6 +9,9 @@ class TopicLessonDetail {
   final int sectionId;
   final List<TopicTranscript> transcripts;
 
+  /// Topic audio lưu mp3; topic video lưu mp4.
+  bool get isAudio => url.toLowerCase().endsWith('.mp3');
+
   const TopicLessonDetail({
     required this.id,
     required this.title,

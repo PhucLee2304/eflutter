@@ -1,21 +1,32 @@
 import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:eflutter/core/utils/extensions/toast_bar_extension.dart';
+import 'package:eflutter/data/models/topic_lesson.dart';
 import 'package:eflutter/data/models/topic_lesson_detail.dart';
 import 'package:eflutter/data/models/topic_transcript.dart';
 import 'package:eflutter/generated/colors.gen.dart';
 import 'package:eflutter/presentation/app/navigation/app_routes.dart';
 import 'package:eflutter/presentation/topics/cubit/lesson_detail_cubit.dart';
+import 'package:eflutter/presentation/topics/cubit/topic_cubit.dart';
+import 'package:eflutter/presentation/topics/widgets/lesson_audio_player.dart';
+import 'package:eflutter/presentation/topics/widgets/lesson_icon_button.dart';
 import 'package:eflutter/presentation/topics/widgets/lesson_video_player.dart';
-import 'package:flutter/foundation.dart';
+import 'package:eflutter/presentation/topics/widgets/topic_header.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:solar_icons/solar_icons.dart';
 
 class LessonDetailScreen extends StatefulWidget {
-  const LessonDetailScreen({required this.lessonId, super.key});
+  const LessonDetailScreen({
+    required this.topicId,
+    required this.sectionId,
+    required this.lessonId,
+    super.key,
+  });
 
+  final int topicId;
+  final int sectionId;
   final int lessonId;
 
   @override
@@ -24,9 +35,15 @@ class LessonDetailScreen extends StatefulWidget {
 
 class _LessonDetailScreenState extends State<LessonDetailScreen> {
   late final LessonVideoController _videoController;
+  final LessonAudioController _audioController = LessonAudioController();
   late final ValueNotifier<int?> _selectedTranscriptIdNotifier;
   late final ScrollController _transcriptScrollController;
   final Map<int, GlobalKey> _transcriptKeys = {};
+  bool _autoScroll = true;
+
+  /// Câu đang được lặp lại; null khi tắt "Repeat sentence".
+  int? _repeatTranscriptId;
+  bool _isSeeking = false;
 
   @override
   void initState() {
@@ -34,8 +51,15 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
     _videoController = LessonVideoController();
     _selectedTranscriptIdNotifier = ValueNotifier<int?>(null);
     _transcriptScrollController = ScrollController();
-    _videoController.setPositionListener(_handleVideoPositionChanged);
+    _videoController.setPositionListener(_handlePositionChanged);
+    _audioController.setPositionListener(_handlePositionChanged);
     context.read<LessonDetailCubit>().load(widget.lessonId);
+    // Tên topic/section cho breadcrumb và các lesson cùng section cho nút
+    // lesson trước/sau; đã có (đi từ danh sách vào) thì không tải lại.
+    final topicCubit = context.read<TopicCubit>();
+    topicCubit.loadTopics();
+    topicCubit.loadSections(widget.topicId);
+    topicCubit.loadLessons(widget.sectionId);
   }
 
   @override
@@ -44,12 +68,21 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
     _selectedTranscriptIdNotifier.dispose();
     _transcriptScrollController.dispose();
     _videoController.dispose();
+    _audioController.dispose();
     super.dispose();
   }
 
-  void _handleVideoPositionChanged(double seconds) {
+  void _handlePositionChanged(double seconds) {
     final lesson = context.read<LessonDetailCubit>().state.lesson;
-    if (lesson == null || lesson.transcripts.isEmpty) {
+    if (lesson == null || lesson.transcripts.isEmpty || _isSeeking) {
+      return;
+    }
+
+    final repeated = lesson.transcripts
+        .where((t) => t.id == _repeatTranscriptId)
+        .firstOrNull;
+    if (repeated != null && seconds >= repeated.timeEnd) {
+      _seekTo(repeated);
       return;
     }
 
@@ -61,7 +94,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
       }
     }
 
-    if (activeTranscript == null && lesson.transcripts.isNotEmpty) {
+    if (activeTranscript == null) {
       final lastTranscript = lesson.transcripts.last;
       if (seconds >= lastTranscript.timeStart) {
         activeTranscript = lastTranscript;
@@ -69,21 +102,21 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
     }
 
     final nextTranscriptId = activeTranscript?.id;
-    if (!mounted || nextTranscriptId == _selectedTranscriptIdNotifier.value) {
+    if (!mounted || nextTranscriptId == null) {
+      return;
+    }
+    if (nextTranscriptId == _selectedTranscriptIdNotifier.value) {
       return;
     }
 
     _selectedTranscriptIdNotifier.value = nextTranscriptId;
-
-    if (nextTranscriptId != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _ensureTranscriptVisible(nextTranscriptId);
-      });
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _ensureTranscriptVisible(nextTranscriptId);
+    });
   }
 
   void _ensureTranscriptVisible(int transcriptId) {
-    if (!mounted) return;
+    if (!mounted || !_autoScroll) return;
     if (!_transcriptScrollController.hasClients) return;
 
     final itemContext = _transcriptKeys[transcriptId]?.currentContext;
@@ -114,9 +147,27 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
     );
   }
 
-  GlobalKey _keyForTranscript(int transcriptId) {
-    return _transcriptKeys.putIfAbsent(transcriptId, GlobalKey.new);
+  Future<void> _seekTo(TopicTranscript transcript) async {
+    _selectedTranscriptIdNotifier.value = transcript.id;
+    if (_repeatTranscriptId != null && _repeatTranscriptId != transcript.id) {
+      setState(() => _repeatTranscriptId = transcript.id);
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _ensureTranscriptVisible(transcript.id);
+    });
+    _isSeeking = true;
+    final isAudio =
+        context.read<LessonDetailCubit>().state.lesson?.isAudio ?? false;
+    if (isAudio) {
+      await _audioController.seekToAndPlay(transcript.timeStart);
+    } else {
+      await _videoController.seekToAndPlay(transcript.timeStart);
+    }
+    _isSeeking = false;
   }
+
+  void _goBack() =>
+      context.go(topicLessonsPath(widget.topicId, widget.sectionId));
 
   @override
   Widget build(BuildContext context) {
@@ -125,320 +176,220 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
         if (state.failure != null) {
           context.handleFailure(state.failure);
         }
+        if (state.lesson case final lesson? when lesson.isAudio) {
+          _audioController.prepare(lesson.url);
+        }
       },
       builder: (context, state) {
         final lesson = state.lesson;
+        if (lesson == null) {
+          return Scaffold(
+            body: state.isLoading
+                ? const AppLoader()
+                : const _EmptyLessonState(),
+          );
+        }
         return Scaffold(
           body: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 8, 16),
-              child: state.isLoading && lesson == null
-                  ? const AppLoader()
-                  : lesson == null
-                  ? const _EmptyLessonState()
-                  : _LessonDetailContent(
-                      lesson: lesson,
-                      isLoading: state.isLoading,
-                      videoController: _videoController,
-                      selectedTranscriptIdListenable:
-                          _selectedTranscriptIdNotifier,
-                      transcriptScrollController: _transcriptScrollController,
-                      transcriptKeyBuilder: _keyForTranscript,
-                      onTranscriptTap: (transcript) async {
-                        _selectedTranscriptIdNotifier.value = transcript.id;
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          _ensureTranscriptVisible(transcript.id);
-                        });
-                        await _videoController.seekToAndPlay(
-                          transcript.timeStart,
-                        );
-                      },
-                    ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _LessonDetailContent extends StatelessWidget {
-  const _LessonDetailContent({
-    required this.lesson,
-    required this.isLoading,
-    required this.videoController,
-    required this.selectedTranscriptIdListenable,
-    required this.transcriptScrollController,
-    required this.transcriptKeyBuilder,
-    required this.onTranscriptTap,
-  });
-
-  final TopicLessonDetail lesson;
-  final bool isLoading;
-  final LessonVideoController videoController;
-  final ValueListenable<int?> selectedTranscriptIdListenable;
-  final ScrollController transcriptScrollController;
-  final GlobalKey Function(int transcriptId) transcriptKeyBuilder;
-  final ValueChanged<TopicTranscript> onTranscriptTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isCompact = constraints.maxWidth < 960;
-        return ListView(
-          padding: EdgeInsets.only(right: isCompact ? 18 : 24, bottom: 16),
-          children: [
-            _LessonTopBar(
-              title: lesson.title.isEmpty ? 'Lesson detail' : lesson.title,
-            ),
-            const SizedBox(height: 16),
-            _LessonSummaryCard(lesson: lesson),
-            const SizedBox(height: 16),
-            if (isCompact) ...[
-              _VideoPanel(lessonUrl: lesson.url, controller: videoController),
-              const SizedBox(height: 16),
-              SizedBox(
-                height: 420,
-                child: ValueListenableBuilder<int?>(
-                  valueListenable: selectedTranscriptIdListenable,
-                  builder: (context, selectedTranscriptId, child) {
-                    return _TranscriptPanel(
-                      transcripts: lesson.transcripts,
-                      isRefreshing: isLoading,
-                      scrollController: transcriptScrollController,
-                      selectedTranscriptId: selectedTranscriptId,
-                      transcriptKeyBuilder: transcriptKeyBuilder,
-                      onTranscriptTap: onTranscriptTap,
-                    );
-                  },
-                ),
-              ),
-            ] else
-              SizedBox(
-                height: 680,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      flex: 7,
-                      child: _VideoPanel(
-                        lessonUrl: lesson.url,
-                        controller: videoController,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      flex: 5,
-                      child: Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: ValueListenableBuilder<int?>(
-                          valueListenable: selectedTranscriptIdListenable,
-                          builder: (context, selectedTranscriptId, child) {
-                            return _TranscriptPanel(
-                              transcripts: lesson.transcripts,
-                              isRefreshing: isLoading,
-                              scrollController: transcriptScrollController,
-                              selectedTranscriptId: selectedTranscriptId,
-                              transcriptKeyBuilder: transcriptKeyBuilder,
-                              onTranscriptTap: onTranscriptTap,
-                            );
-                          },
+            child: SingleChildScrollView(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1224),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _LessonHeader(
+                          topicId: widget.topicId,
+                          sectionId: widget.sectionId,
+                          lesson: lesson,
+                          onBack: _goBack,
                         ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _VideoPanel extends StatelessWidget {
-  const _VideoPanel({required this.lessonUrl, required this.controller});
-
-  final String lessonUrl;
-  final LessonVideoController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    final hasUrl = lessonUrl.trim().isNotEmpty;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        border: Border.all(color: ColorName.gray5),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Video',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: ColorName.labelPrimary,
-            ),
-          ),
-          const SizedBox(height: 12),
-          AspectRatio(
-            aspectRatio: 16 / 9,
-            child: hasUrl
-                ? LessonVideoPlayer(url: lessonUrl, controller: controller)
-                : const Center(
-                    child: Text(
-                      'Video unavailable',
-                      style: TextStyle(color: ColorName.labelSecondary),
+                        const SizedBox(height: 24),
+                        LayoutBuilder(
+                          builder: (context, constraints) =>
+                              _buildMain(lesson, constraints.maxWidth),
+                        ),
+                        const SizedBox(height: 24),
+                        _LessonNavigation(
+                          topicId: widget.topicId,
+                          sectionId: widget.sectionId,
+                          lessonId: lesson.id,
+                        ),
+                      ],
                     ),
                   ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LessonTopBar extends StatelessWidget {
-  const _LessonTopBar({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        IconButton.outlined(
-          onPressed: () {
-            if (context.canPop()) {
-              context.pop();
-              return;
-            }
-            context.go(AppRoutes.topic.path);
-          },
-          icon: const Icon(SolarIconsOutline.arrowLeft),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w700,
-              color: ColorName.labelPrimary,
+                ),
+              ),
             ),
           ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMain(TopicLessonDetail lesson, double width) {
+    const gap = 16.0;
+    Widget listen(Widget Function(int? selectedId) builder) =>
+        ValueListenableBuilder<int?>(
+          valueListenable: _selectedTranscriptIdNotifier,
+          builder: (context, selectedId, _) => builder(selectedId),
+        );
+    VoidCallback? toggleRepeat(int? selectedId) =>
+        selectedId == null && _repeatTranscriptId == null
+        ? null
+        : () => setState(() {
+            _repeatTranscriptId = _repeatTranscriptId == null
+                ? selectedId
+                : null;
+          });
+    GlobalKey transcriptKey(int id) =>
+        _transcriptKeys.putIfAbsent(id, GlobalKey.new);
+
+    if (lesson.isAudio) {
+      final transcripts = lesson.transcripts;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: gap,
+        children: [
+          listen((selectedId) {
+            final index = transcripts.indexWhere((t) => t.id == selectedId);
+            return LessonAudioBar(
+              controller: _audioController,
+              onPrevious: index > 0
+                  ? () => _seekTo(transcripts[index - 1])
+                  : null,
+              onNext: index + 1 < transcripts.length
+                  ? () => _seekTo(transcripts[index + 1])
+                  : null,
+              isRepeating: _repeatTranscriptId != null,
+              onToggleRepeat: toggleRepeat(selectedId),
+              autoScroll: _autoScroll,
+              onToggleAutoScroll: () =>
+                  setState(() => _autoScroll = !_autoScroll),
+            );
+          }),
+          SizedBox(
+            height: 624,
+            child: listen(
+              (selectedId) => _AudioTranscriptList(
+                transcripts: transcripts,
+                selectedTranscriptId: selectedId,
+                scrollController: _transcriptScrollController,
+                transcriptKeyBuilder: transcriptKey,
+                onTranscriptTap: _seekTo,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    final video = ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: ColoredBox(
+        color: ColorName.black,
+        child: AspectRatio(
+          aspectRatio: 16 / 9,
+          child: lesson.url.trim().isEmpty
+              ? const Center(
+                  child: Text(
+                    'Video unavailable',
+                    style: TextStyle(color: ColorName.gray2),
+                  ),
+                )
+              : LessonVideoPlayer(
+                  url: lesson.url,
+                  transcripts: lesson.transcripts,
+                  controller: _videoController,
+                ),
         ),
+      ),
+    );
+
+    Widget panel(double height) => SizedBox(
+      height: height,
+      child: listen(
+        (selectedId) => _TranscriptPanel(
+          transcripts: lesson.transcripts,
+          scrollController: _transcriptScrollController,
+          selectedTranscriptId: selectedId,
+          transcriptKeyBuilder: transcriptKey,
+          autoScroll: _autoScroll,
+          onToggleAutoScroll: () => setState(() => _autoScroll = !_autoScroll),
+          isRepeating: _repeatTranscriptId != null,
+          onToggleRepeat: toggleRepeat(selectedId),
+          onTranscriptTap: _seekTo,
+        ),
+      ),
+    );
+
+    if (width < 880) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: gap,
+        children: [video, panel(420)],
+      );
+    }
+    final leftWidth = (width - gap) * 0.64;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: gap,
+      children: [
+        SizedBox(width: leftWidth, child: video),
+        Expanded(child: panel(leftWidth * 9 / 16)),
       ],
     );
   }
 }
 
-class _LessonSummaryCard extends StatelessWidget {
-  const _LessonSummaryCard({required this.lesson});
+class _LessonHeader extends StatelessWidget {
+  const _LessonHeader({
+    required this.topicId,
+    required this.sectionId,
+    required this.lesson,
+    required this.onBack,
+  });
 
+  final int topicId;
+  final int sectionId;
   final TopicLessonDetail lesson;
+  final VoidCallback onBack;
 
   @override
   Widget build(BuildContext context) {
-    final subtitle = lesson.subtitle.trim();
-    final description = lesson.description.trim();
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        border: Border.all(color: ColorName.gray5),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: ColorName.secondary.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  SolarIconsBold.playCircle,
-                  color: ColorName.primary,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      lesson.title.isEmpty ? 'Untitled lesson' : lesson.title,
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                        color: ColorName.labelPrimary,
-                      ),
-                    ),
-                    if (subtitle.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        subtitle,
-                        style: const TextStyle(
-                          color: ColorName.labelSecondary,
-                          fontSize: 15,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          if (description.isNotEmpty) ...[
-            const Text(
-              'Description',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                color: ColorName.labelPrimary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              description,
-              style: const TextStyle(
-                color: ColorName.labelSecondary,
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 20),
+    final topicState = context.watch<TopicCubit>().state;
+    final topicName = topicState.topic(topicId)?.name ?? '';
+    final sectionName = topicState.section(topicId, sectionId)?.name ?? '';
+    final title = lesson.title.isEmpty ? 'Untitled lesson' : lesson.title;
+    // description có dạng "29 parts · Vocab level: B1".
+    final chips =
+        (lesson.description.isNotEmpty ? lesson.description : lesson.subtitle)
+            .split(' · ')
+            .where((chip) => chip.trim().isNotEmpty)
+            .toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TopicBreadcrumb(
+          items: [
+            ('Topics', () => context.go(AppRoutes.topic.path)),
+            (topicName, () => context.go(topicSectionsPath(topicId))),
+            (sectionName, onBack),
+            (title, null),
           ],
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _InfoChip(
-                icon: SolarIconsOutline.documentText,
-                label: 'Lesson #${lesson.id}',
-              ),
-              _InfoChip(
-                icon: SolarIconsOutline.layers,
-                label: 'Section #${lesson.sectionId}',
-              ),
-              _InfoChip(
-                icon: SolarIconsOutline.chatRoundDots,
-                label: '${lesson.transcripts.length} transcripts',
-              ),
-            ],
-          ),
-        ],
-      ),
+        ),
+        TopicHeader(
+          icon: lesson.isAudio
+              ? SolarIconsOutline.microphone
+              : SolarIconsOutline.videoFramePlayHorizontal,
+          title: title,
+          subtitle: '$topicName · $sectionName',
+          chips: chips,
+          onBack: onBack,
+        ),
+      ],
     );
   }
 }
@@ -446,77 +397,165 @@ class _LessonSummaryCard extends StatelessWidget {
 class _TranscriptPanel extends StatelessWidget {
   const _TranscriptPanel({
     required this.transcripts,
-    required this.isRefreshing,
     required this.scrollController,
     required this.selectedTranscriptId,
     required this.onTranscriptTap,
     required this.transcriptKeyBuilder,
+    required this.autoScroll,
+    required this.onToggleAutoScroll,
+    required this.isRepeating,
+    required this.onToggleRepeat,
   });
 
   final List<TopicTranscript> transcripts;
-  final bool isRefreshing;
   final ScrollController scrollController;
   final int? selectedTranscriptId;
   final ValueChanged<TopicTranscript> onTranscriptTap;
   final GlobalKey Function(int transcriptId) transcriptKeyBuilder;
+  final bool autoScroll;
+  final VoidCallback onToggleAutoScroll;
+  final bool isRepeating;
+  final VoidCallback? onToggleRepeat;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: ColorName.gray5),
+    final activeIndex = transcripts.indexWhere(
+      (t) => t.id == selectedTranscriptId,
+    );
+    return Material(
+      color: ColorName.white,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        side: const BorderSide(color: ColorName.gray5),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            padding: const EdgeInsets.all(10),
             child: Row(
+              spacing: 8,
               children: [
-                const Expanded(
-                  child: Text(
-                    'Transcripts',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
+                LessonIconButton(
+                  icon: SolarIconsBold.skipPrevious,
+                  tooltip: 'Previous sentence',
+                  onPressed: activeIndex > 0
+                      ? () => onTranscriptTap(transcripts[activeIndex - 1])
+                      : null,
+                ),
+                // Thứ tự câu đang phát; tổng số đã có ở chip "N parts" trên header.
+                if (activeIndex >= 0)
+                  Text(
+                    '${activeIndex + 1}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
                       color: ColorName.labelPrimary,
                     ),
                   ),
+                LessonIconButton(
+                  icon: SolarIconsBold.skipNext,
+                  tooltip: 'Next sentence',
+                  onPressed: activeIndex + 1 < transcripts.length
+                      ? () => onTranscriptTap(transcripts[activeIndex + 1])
+                      : null,
                 ),
-                if (isRefreshing)
-                  const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: AppLoader(),
-                  ),
+                const Spacer(),
+                LessonIconButton(
+                  icon: SolarIconsOutline.repeat,
+                  tooltip: 'Repeat sentence',
+                  selected: isRepeating,
+                  onPressed: onToggleRepeat,
+                ),
+                LessonIconButton(
+                  icon: SolarIconsOutline.sortFromTopToBottom,
+                  tooltip: 'Auto-scroll',
+                  selected: autoScroll,
+                  onPressed: onToggleAutoScroll,
+                ),
               ],
             ),
           ),
-          const Divider(height: 1, color: ColorName.gray5),
+          const Divider(height: 1, color: ColorName.gray6),
           Expanded(
             child: transcripts.isEmpty
                 ? const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(24),
-                      child: Text(
-                        'No transcripts found',
-                        style: TextStyle(color: ColorName.labelSecondary),
-                      ),
+                    child: Text(
+                      'No transcripts found',
+                      style: TextStyle(color: ColorName.labelSecondary),
                     ),
                   )
                 : ListView.separated(
                     controller: scrollController,
-                    padding: const EdgeInsets.all(12),
                     itemCount: transcripts.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 8),
+                    separatorBuilder: (_, _) =>
+                        const Divider(height: 1, color: ColorName.gray6),
                     itemBuilder: (context, index) {
                       final transcript = transcripts[index];
-                      return _TranscriptTile(
+                      final isActive = index == activeIndex;
+                      return InkWell(
                         key: transcriptKeyBuilder(transcript.id),
-                        transcript: transcript,
-                        isSelected: transcript.id == selectedTranscriptId,
                         onTap: () => onTranscriptTap(transcript),
+                        child: Container(
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                          decoration: BoxDecoration(
+                            color: isActive
+                                ? ColorName.primary.withValues(alpha: 0.08)
+                                : null,
+                            border: Border(
+                              left: BorderSide(
+                                width: 3,
+                                color: isActive
+                                    ? ColorName.primary
+                                    : Colors.transparent,
+                              ),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            spacing: 8,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isActive
+                                      ? ColorName.primary
+                                      : ColorName.gray6,
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: Text(
+                                  _formatSeconds(transcript.timeStart),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: isActive
+                                        ? ColorName.white
+                                        : ColorName.labelSecondary,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                transcript.content.isEmpty
+                                    ? 'No transcript content'
+                                    : transcript.content,
+                                style: TextStyle(
+                                  height: 1.4,
+                                  fontWeight: isActive
+                                      ? FontWeight.w600
+                                      : FontWeight.w400,
+                                  color: isActive
+                                      ? ColorName.primary
+                                      : index < activeIndex
+                                      ? ColorName.gray1
+                                      : ColorName.labelPrimary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       );
                     },
                   ),
@@ -527,128 +566,177 @@ class _TranscriptPanel extends StatelessWidget {
   }
 }
 
-class _TranscriptTile extends StatelessWidget {
-  const _TranscriptTile({
-    required super.key,
-    required this.transcript,
-    required this.isSelected,
-    required this.onTap,
+class _AudioTranscriptList extends StatelessWidget {
+  const _AudioTranscriptList({
+    required this.transcripts,
+    required this.selectedTranscriptId,
+    required this.scrollController,
+    required this.transcriptKeyBuilder,
+    required this.onTranscriptTap,
   });
 
-  final TopicTranscript transcript;
-  final bool isSelected;
-  final VoidCallback onTap;
+  final List<TopicTranscript> transcripts;
+  final int? selectedTranscriptId;
+  final ScrollController scrollController;
+  final GlobalKey Function(int transcriptId) transcriptKeyBuilder;
+  final ValueChanged<TopicTranscript> onTranscriptTap;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: isSelected ? ColorName.primary.withValues(alpha: 0.08) : null,
-          border: Border.all(
-            color: isSelected ? ColorName.primary : ColorName.gray5,
-          ),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                _TimeBadge(
-                  label:
-                      '${_formatSeconds(transcript.timeStart)} - ${_formatSeconds(transcript.timeEnd)}',
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '#${transcript.order}',
-                  style: const TextStyle(
-                    color: ColorName.labelSecondary,
-                    fontWeight: FontWeight.w600,
+    final activeIndex = transcripts.indexWhere(
+      (t) => t.id == selectedTranscriptId,
+    );
+    return Material(
+      color: ColorName.white,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        side: const BorderSide(color: ColorName.gray5),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: transcripts.isEmpty
+          ? const Center(
+              child: Text(
+                'No transcripts found',
+                style: TextStyle(color: ColorName.labelSecondary),
+              ),
+            )
+          : ListView.separated(
+              controller: scrollController,
+              itemCount: transcripts.length,
+              separatorBuilder: (_, _) =>
+                  const Divider(height: 1, color: ColorName.gray6),
+              itemBuilder: (context, index) {
+                final transcript = transcripts[index];
+                final isActive = index == activeIndex;
+                final textColor = isActive
+                    ? ColorName.primary
+                    : index < activeIndex
+                    ? ColorName.gray1
+                    : ColorName.labelPrimary;
+                return InkWell(
+                  key: transcriptKeyBuilder(transcript.id),
+                  onTap: () => onTranscriptTap(transcript),
+                  child: Container(
+                    constraints: const BoxConstraints(minHeight: 52),
+                    padding: const EdgeInsets.fromLTRB(20, 8, 16, 8),
+                    decoration: BoxDecoration(
+                      color: isActive
+                          ? ColorName.primary.withValues(alpha: 0.08)
+                          : null,
+                      border: Border(
+                        left: BorderSide(
+                          width: 3,
+                          color: isActive
+                              ? ColorName.primary
+                              : Colors.transparent,
+                        ),
+                      ),
+                    ),
+                    child: Row(
+                      spacing: 16,
+                      children: [
+                        SizedBox(
+                          width: 24,
+                          child: Text(
+                            '${index + 1}'.padLeft(2, '0'),
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: isActive
+                                  ? ColorName.primary
+                                  : ColorName.gray1,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            transcript.content,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: isActive
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
+                              color: textColor,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          _formatSeconds(transcript.timeStart),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: ColorName.labelSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const Spacer(),
-                Icon(
-                  SolarIconsOutline.play,
-                  size: 18,
-                  color: isSelected
-                      ? ColorName.primary
-                      : ColorName.labelSecondary,
-                ),
+                );
+              },
+            ),
+    );
+  }
+}
+
+class _LessonNavigation extends StatelessWidget {
+  const _LessonNavigation({
+    required this.topicId,
+    required this.sectionId,
+    required this.lessonId,
+  });
+
+  final int topicId;
+  final int sectionId;
+  final int lessonId;
+
+  @override
+  Widget build(BuildContext context) {
+    final lessons =
+        context.watch<TopicCubit>().state.lessons[sectionId] ??
+        const <TopicLesson>[];
+    void open(TopicLesson lesson) =>
+        context.go(topicLessonPath(topicId, sectionId, lesson.id));
+    final index = lessons.indexWhere((lesson) => lesson.id == lessonId);
+    if (index < 0) {
+      return const SizedBox.shrink();
+    }
+    final previous = index > 0 ? lessons[index - 1] : null;
+    final next = index + 1 < lessons.length ? lessons[index + 1] : null;
+    return Row(
+      children: [
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: ColorName.labelPrimary,
+            side: const BorderSide(color: ColorName.gray5),
+            shape: const StadiumBorder(),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          ),
+          onPressed: previous == null ? null : () => open(previous),
+          icon: const Icon(SolarIconsOutline.altArrowLeft, size: 18),
+          label: Text(
+            previous == null
+                ? 'Previous lesson'
+                : 'Previous lesson: ${previous.title}',
+          ),
+        ),
+        const Spacer(),
+        if (next != null)
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: ColorName.primary,
+              shape: const StadiumBorder(),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            ),
+            onPressed: () => open(next),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              spacing: 8,
+              children: [
+                Text('Next lesson: ${next.title}'),
+                const Icon(SolarIconsOutline.altArrowRight, size: 18),
               ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              transcript.content.isEmpty
-                  ? 'No transcript content'
-                  : transcript.content,
-              style: const TextStyle(
-                color: ColorName.labelPrimary,
-                height: 1.5,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _TimeBadge extends StatelessWidget {
-  const _TimeBadge({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: ColorName.primary.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: ColorName.primary,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-}
-
-class _InfoChip extends StatelessWidget {
-  const _InfoChip({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: ColorName.secondary.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: ColorName.primary),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: const TextStyle(
-              color: ColorName.primary,
-              fontWeight: FontWeight.w600,
-            ),
           ),
-        ],
-      ),
+      ],
     );
   }
 }
@@ -668,7 +756,7 @@ class _EmptyLessonState extends StatelessWidget {
 }
 
 String _formatSeconds(double value) {
-  final totalSeconds = value.round();
+  final totalSeconds = value.floor();
   final minutes = totalSeconds ~/ 60;
   final seconds = totalSeconds % 60;
   return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';

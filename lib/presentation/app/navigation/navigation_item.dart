@@ -211,23 +211,52 @@ class NavigationItem {
     icon: SolarIconsOutline.notebook,
     selectedIcon: SolarIconsBold.notebook,
     route: AppRoutes.topic,
-    screen: TopicScreen(),
+    screen: const TopicScreen(),
     subRoutes: [
       GoRoute(
-        path: AppRoutes.topicLesson.path,
+        path: AppRoutes.topicSections.path,
         builder: (context, state) {
-          final id = int.tryParse(state.pathParameters['id'] ?? '');
-          if (id == null) {
-            return const Scaffold(body: Center(child: Text('Invalid lesson ID')));
-          }
-          return BlocProvider(
-            create: (_) => LessonDetailCubit(TopicRepository(getIt<RemoteDataBase>())),
-            child: LessonDetailScreen(lessonId: id),
-          );
+          final topicId = int.tryParse(state.pathParameters['topicId'] ?? '');
+          return topicId == null ? _invalidTopicUrl : TopicScreen(topicId: topicId);
         },
+        routes: [
+          GoRoute(
+            path: AppRoutes.topicLessons.path,
+            builder: (context, state) {
+              final topicId = int.tryParse(state.pathParameters['topicId'] ?? '');
+              final sectionId = int.tryParse(state.pathParameters['sectionId'] ?? '');
+              return topicId == null || sectionId == null
+                  ? _invalidTopicUrl
+                  : TopicScreen(topicId: topicId, sectionId: sectionId);
+            },
+            routes: [
+              GoRoute(
+                path: AppRoutes.topicLesson.path,
+                builder: (context, state) {
+                  final topicId = int.tryParse(state.pathParameters['topicId'] ?? '');
+                  final sectionId = int.tryParse(state.pathParameters['sectionId'] ?? '');
+                  final lessonId = int.tryParse(state.pathParameters['lessonId'] ?? '');
+                  if (topicId == null || sectionId == null || lessonId == null) {
+                    return _invalidTopicUrl;
+                  }
+                  return BlocProvider(
+                    create: (_) => LessonDetailCubit(TopicRepository(getIt<RemoteDataBase>())),
+                    child: LessonDetailScreen(
+                      topicId: topicId,
+                      sectionId: sectionId,
+                      lessonId: lessonId,
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ],
       ),
     ],
   );
+
+  static const _invalidTopicUrl = Scaffold(body: Center(child: Text('Invalid topic URL')));
 
   /// Một mục "Self-study" cho cả TOEIC, THPT và lịch sử tự luyện; URL cũ giữ nguyên,
   /// màn nào cũng có header chuyển qua lại giữa ba route này.
