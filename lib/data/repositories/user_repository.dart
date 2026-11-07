@@ -17,7 +17,7 @@ class UserRepository {
   Future<Result<User>> updateMe({String? name, String? avatar}) =>
       _remoteData.updateMe(name: name, avatar: avatar).safeResult();
 
-  Future<Result<String>> getPresignedUploadUrl({
+  Future<Result<({String url, String fileName})>> getPresignedUploadUrl({
     required String fileName,
     required String contentType,
     required String folder,

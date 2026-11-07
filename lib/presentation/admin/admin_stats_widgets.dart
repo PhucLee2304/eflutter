@@ -368,8 +368,9 @@ FlTitlesData _titles({
             return const SizedBox.shrink();
           }
           // Nhãn sát nhãn cuối thì bỏ để không chồng chữ.
-          if (i != count - 1 && count - 1 - i < every / 2)
+          if (i != count - 1 && count - 1 - i < every / 2) {
             return const SizedBox.shrink();
+          }
           return SideTitleWidget(
             meta: meta,
             child: Text(label(i), style: _axisStyle),

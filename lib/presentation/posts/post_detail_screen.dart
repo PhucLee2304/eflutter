@@ -142,6 +142,7 @@ class _PostDetailViewState extends State<PostDetailView> {
         author: p.author,
         editing: true,
         classroomName: widget.classroomName,
+        classroomId: p.classroomId,
       ),
     );
     if (value == null) return;

@@ -44,14 +44,21 @@ class PostRepository {
     return PostUploadLimits.fromJson(r.data as Map<String, dynamic>);
   }
 
+  /// [classroomId] có khi đính kèm cho bài viết trong lớp, để server lưu vào posts/classrooms.
   Future<int> uploadAttachment(
     LocalPickedFile file, {
+    int? classroomId,
     required CancelToken cancelToken,
     required void Function(double) onProgress,
   }) async {
     final intent = await _dio.post(
       '$_base/post-uploads',
-      data: {'originalName': file.name, 'contentType': file.contentType, 'size': file.bytes.length},
+      data: {
+        'originalName': file.name,
+        'contentType': file.contentType,
+        'size': file.bytes.length,
+        'classroomId': ?classroomId,
+      },
     );
     final data = intent.data as Map<String, dynamic>;
     final id = (data['id'] as num).toInt();

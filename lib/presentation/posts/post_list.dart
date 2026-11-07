@@ -284,10 +284,12 @@ class _PostListState extends State<PostList> {
 
   void _parentScroll() {
     // Đang ẩn sau trang chi tiết bài viết thì không tải thêm.
-    if (context.findAncestorWidgetOfExactType<Offstage>()?.offstage ?? false)
+    if (context.findAncestorWidgetOfExactType<Offstage>()?.offstage ?? false) {
       return;
-    if ((_parentPosition?.extentAfter ?? double.infinity) < 300)
+    }
+    if ((_parentPosition?.extentAfter ?? double.infinity) < 300) {
       unawaited(loadMore());
+    }
   }
 
   Future<void> load() async {
@@ -355,6 +357,7 @@ class _PostListState extends State<PostList> {
         author: post?.author,
         editing: post != null,
         classroomName: widget.classroomName,
+        classroomId: widget.classroomId,
       ),
     );
     if (value == null) return;

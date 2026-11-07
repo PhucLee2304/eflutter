@@ -27,6 +27,7 @@ class PostComposerDialog extends StatefulWidget {
     this.author,
     this.editing = false,
     this.classroomName,
+    this.classroomId,
   });
   final PostRepository repository;
   final String content;
@@ -37,6 +38,9 @@ class PostComposerDialog extends StatefulWidget {
 
   /// Có giá trị khi đăng trong lớp: đổi popup thành thông báo gửi tới lớp đó.
   final String? classroomName;
+
+  /// Lớp của bài viết; có giá trị thì file đính kèm được lưu theo lớp.
+  final int? classroomId;
 
   @override
   State<PostComposerDialog> createState() => _PostComposerDialogState();
@@ -153,12 +157,14 @@ class _PostComposerDialogState extends State<PostComposerDialog> {
     final token = CancelToken();
     tokens[file] = token;
     setState(() {
-      failed.remove(file);
+      // Thử lại: thông báo lỗi upload chỉ còn đúng khi vẫn còn file khác đang lỗi.
+      if (failed.remove(file) && failed.isEmpty) error = null;
       progress[file] = 0;
     });
     try {
       final id = await widget.repository.uploadAttachment(
         file,
+        classroomId: widget.classroomId,
         cancelToken: token,
         onProgress: (value) {
           if (mounted) setState(() => progress[file] = value);
@@ -182,7 +188,7 @@ class _PostComposerDialogState extends State<PostComposerDialog> {
       files.remove(file);
       progress.remove(file);
       uploadedIds.remove(file);
-      failed.remove(file);
+      if (failed.remove(file) && failed.isEmpty) error = null;
     });
   }
 
