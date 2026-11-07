@@ -25,9 +25,7 @@ extension ApiSafeResult<T> on Future<T> {
         onError?.call(e);
       }
       logger.error('[UnexpectedException]:', e, st);
-      return Result.failure(
-        message: 'An unexpected error occurred. Please try again.',
-      );
+      return Result.failure(message: 'An unexpected error occurred. Please try again.');
     }
   }
 
@@ -69,10 +67,7 @@ extension ApiSafeResult<T> on Future<T> {
     }
 
     final normalized = detail
-        ?.replaceFirst(
-          RegExp(r'^\[(ERROR|FORBIDDEN|CONFLICT|UNAUTHORIZED)\]\s*'),
-          '',
-        )
+        ?.replaceFirst(RegExp(r'^\[(ERROR|FORBIDDEN|CONFLICT|UNAUTHORIZED)\]\s*'), '')
         .trim();
     const translations = {
       'Classroom is not active': 'This classroom is no longer active.',

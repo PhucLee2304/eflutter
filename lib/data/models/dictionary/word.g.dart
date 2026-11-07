@@ -21,21 +21,16 @@ Map<String, dynamic> _$PhoneticToJson(_Phonetic instance) => <String, dynamic>{
 _Definition _$DefinitionFromJson(Map<String, dynamic> json) => _Definition(
   definition: json['definition'] as String,
   example: json['example'] as String?,
-  synonyms:
-      (json['synonyms'] as List<dynamic>?)?.map((e) => e as String).toList() ??
-      const [],
-  antonyms:
-      (json['antonyms'] as List<dynamic>?)?.map((e) => e as String).toList() ??
-      const [],
+  synonyms: (json['synonyms'] as List<dynamic>?)?.map((e) => e as String).toList() ?? const [],
+  antonyms: (json['antonyms'] as List<dynamic>?)?.map((e) => e as String).toList() ?? const [],
 );
 
-Map<String, dynamic> _$DefinitionToJson(_Definition instance) =>
-    <String, dynamic>{
-      'definition': instance.definition,
-      'example': instance.example,
-      'synonyms': instance.synonyms,
-      'antonyms': instance.antonyms,
-    };
+Map<String, dynamic> _$DefinitionToJson(_Definition instance) => <String, dynamic>{
+  'definition': instance.definition,
+  'example': instance.example,
+  'synonyms': instance.synonyms,
+  'antonyms': instance.antonyms,
+};
 
 _Meaning _$MeaningFromJson(Map<String, dynamic> json) => _Meaning(
   partOfSpeech: json['partOfSpeech'] as String,
@@ -44,12 +39,8 @@ _Meaning _$MeaningFromJson(Map<String, dynamic> json) => _Meaning(
           ?.map((e) => Definition.fromJson(e as Map<String, dynamic>))
           .toList() ??
       const [],
-  synonyms:
-      (json['synonyms'] as List<dynamic>?)?.map((e) => e as String).toList() ??
-      const [],
-  antonyms:
-      (json['antonyms'] as List<dynamic>?)?.map((e) => e as String).toList() ??
-      const [],
+  synonyms: (json['synonyms'] as List<dynamic>?)?.map((e) => e as String).toList() ?? const [],
+  antonyms: (json['antonyms'] as List<dynamic>?)?.map((e) => e as String).toList() ?? const [],
 );
 
 Map<String, dynamic> _$MeaningToJson(_Meaning instance) => <String, dynamic>{
@@ -75,24 +66,19 @@ _WordDetail _$WordDetailFromJson(Map<String, dynamic> json) => _WordDetail(
       const [],
   licenseName: json['licenseName'] as String?,
   licenseUrl: json['licenseUrl'] as String?,
-  sourceUrls:
-      (json['sourceUrls'] as List<dynamic>?)
-          ?.map((e) => e as String)
-          .toList() ??
-      const [],
+  sourceUrls: (json['sourceUrls'] as List<dynamic>?)?.map((e) => e as String).toList() ?? const [],
 );
 
-Map<String, dynamic> _$WordDetailToJson(_WordDetail instance) =>
-    <String, dynamic>{
-      'id': instance.id,
-      'word': instance.word,
-      'phonetic': instance.phonetic,
-      'phonetics': instance.phonetics,
-      'meanings': instance.meanings,
-      'licenseName': instance.licenseName,
-      'licenseUrl': instance.licenseUrl,
-      'sourceUrls': instance.sourceUrls,
-    };
+Map<String, dynamic> _$WordDetailToJson(_WordDetail instance) => <String, dynamic>{
+  'id': instance.id,
+  'word': instance.word,
+  'phonetic': instance.phonetic,
+  'phonetics': instance.phonetics,
+  'meanings': instance.meanings,
+  'licenseName': instance.licenseName,
+  'licenseUrl': instance.licenseUrl,
+  'sourceUrls': instance.sourceUrls,
+};
 
 _WordSummary _$WordSummaryFromJson(Map<String, dynamic> json) => _WordSummary(
   id: (json['id'] as num).toInt(),
@@ -100,9 +86,8 @@ _WordSummary _$WordSummaryFromJson(Map<String, dynamic> json) => _WordSummary(
   phonetic: json['phonetic'] as String?,
 );
 
-Map<String, dynamic> _$WordSummaryToJson(_WordSummary instance) =>
-    <String, dynamic>{
-      'id': instance.id,
-      'word': instance.word,
-      'phonetic': instance.phonetic,
-    };
+Map<String, dynamic> _$WordSummaryToJson(_WordSummary instance) => <String, dynamic>{
+  'id': instance.id,
+  'word': instance.word,
+  'phonetic': instance.phonetic,
+};

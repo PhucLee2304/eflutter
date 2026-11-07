@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:dio/dio.dart';
 import 'package:eflutter/core/base/result.dart';
@@ -6,8 +7,11 @@ import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/core/loading/loading_service.dart';
 import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:eflutter/core/utils/extensions/toast_bar_extension.dart';
+import 'package:eflutter/data/models/admin_stats.dart';
 import 'package:eflutter/data/models/user.dart';
+import 'package:eflutter/data/repositories/admin_stats_repository.dart';
 import 'package:eflutter/data/repositories/admin_user_repository.dart';
+import 'package:eflutter/presentation/admin/admin_stats_widgets.dart';
 import 'package:eflutter/presentation/app/cubit/app_cubit.dart';
 import 'package:eflutter/presentation/posts/post_media.dart';
 import 'package:flutter/material.dart';
@@ -21,7 +25,7 @@ const _border = Color(0xFFE3E3E3);
 const _red = Color(0xFFD93025);
 const _primary = Color(0xFF1A73C9);
 
-/// `/admin/users`: danh sách người dùng, tìm/lọc, khoá và mở khoá tài khoản CLIENT.
+/// `/admin/users`: thống kê người dùng theo kỳ (Figma P6·4) và danh sách người dùng, tìm/lọc, khoá và mở khoá tài khoản CLIENT.
 class AdminUsersScreen extends StatefulWidget {
   const AdminUsersScreen({super.key});
 
@@ -31,10 +35,16 @@ class AdminUsersScreen extends StatefulWidget {
 
 class _AdminUsersScreenState extends State<AdminUsersScreen> {
   late final repository = AdminUserRepository(getIt<Dio>());
+  late final statsRepository = AdminStatsRepository(getIt<Dio>());
   final search = TextEditingController();
   Timer? searchDebounce;
   List<User> users = [];
-  UsersSummary summary = const UsersSummary();
+  UserStats? stats;
+  bool statsLoading = false;
+  String? statsError;
+
+  /// Số ngày của kỳ thống kê; null là toàn thời gian.
+  int? rangeDays = 30;
   int page = 1;
   static const pageSize = 20;
   int pageCounts = 1;
@@ -48,7 +58,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   void initState() {
     super.initState();
     load();
-    loadSummary();
+    loadStats();
   }
 
   @override
@@ -87,10 +97,30 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     });
   }
 
-  Future<void> loadSummary() async {
-    final result = await repository.getSummary();
+  static final _day = DateFormat('yyyy-MM-dd');
+  DateTime get _today => DateUtils.dateOnly(DateTime.now());
+
+  Future<void> loadStats() async {
+    setState(() {
+      statsLoading = true;
+      statsError = null;
+    });
+    final result = await statsRepository.getUsers(
+      from: rangeDays == null ? null : _day.format(_today.subtract(Duration(days: rangeDays! - 1))),
+      to: rangeDays == null ? null : _day.format(_today),
+    );
     if (!mounted) return;
-    if (result case Success(data: final data)) setState(() => summary = data);
+    setState(() {
+      statsLoading = false;
+      switch (result) {
+        case Success(data: final data):
+          stats = data;
+        case Failure(message: final message):
+          statsError = message ?? 'The service did not respond.';
+        case Cancelled():
+          break;
+      }
+    });
   }
 
   Future<void> toggleBlocked(User user) async {
@@ -110,7 +140,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         } else {
           load(toPage: page);
         }
-        loadSummary();
+        loadStats();
         context.showToast(
           '${user.name} has been ${block ? 'blocked' : 'unblocked'}.',
           type: ToastType.success,
@@ -148,7 +178,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 spacing: 20,
-                children: [_titleCard(), _toolbar(), _table()],
+                children: [_titleCard(), _statsBlock(), _toolbar(), _table()],
               ),
             ),
           ),
@@ -182,9 +212,11 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           children: [
             const Text('Users', style: TextStyle(fontSize: 22, color: _text)),
             Text(
-              '${summary.total} ${summary.total == 1 ? 'user' : 'users'} · '
-              '${summary.admins} ${summary.admins == 1 ? 'admin' : 'admins'} · '
-              '${summary.blocked} blocked',
+              stats == null
+                  ? ' '
+                  : '${stats!.total} ${stats!.total == 1 ? 'user' : 'users'} · '
+                        '${stats!.admins} ${stats!.admins == 1 ? 'admin' : 'admins'} · '
+                        '${stats!.blocked} blocked',
               style: const TextStyle(fontSize: 15, color: _muted),
             ),
           ],
@@ -192,6 +224,144 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
       ],
     ),
   );
+
+  // ------------------------------------------------------------------ Statistics
+
+  Widget _statsBlock() => Stack(
+    children: [
+      StatsBlock(
+        title: 'Statistics',
+        subtitle: 'Sign-ups and locked accounts',
+        loading: statsLoading && stats == null,
+        error: stats == null ? statsError : null,
+        onRetry: loadStats,
+        minHeight: 420,
+        builder: (context) => _statsBody(stats!),
+      ),
+      Positioned(top: 20, right: 24, child: _rangeToggle()),
+    ],
+  );
+
+  Widget _rangeToggle() => Container(
+    padding: const EdgeInsets.all(4),
+    decoration: BoxDecoration(
+      color: const Color(0xFFEEF1F4),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Row(
+      children: [
+        for (final (value, label) in const [
+          (7, '7 days'),
+          (30, '30 days'),
+          (90, '90 days'),
+          (null, 'All time'),
+        ])
+          InkWell(
+            borderRadius: BorderRadius.circular(6),
+            onTap: () {
+              if (rangeDays == value) return;
+              setState(() => rangeDays = value);
+              loadStats();
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: rangeDays == value ? Colors.white : null,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: rangeDays == value ? FontWeight.w500 : FontWeight.w400,
+                  color: rangeDays == value ? _primary : const Color(0xFF4A4A4A),
+                ),
+              ),
+            ),
+          ),
+      ],
+    ),
+  );
+
+  Widget _statsBody(UserStats s) {
+    // Trục ngày liền mạch theo kỳ; toàn thời gian thì từ ngày đăng ký sớm nhất.
+    final sorted = s.daily.keys.toList()..sort();
+    final start = rangeDays != null
+        ? _today.subtract(Duration(days: rangeDays! - 1))
+        : sorted.isEmpty
+        ? _today.subtract(const Duration(days: 29))
+        : DateTime.parse(sorted.first);
+    final days = [
+      for (var d = start; !d.isAfter(_today); d = DateUtils.addDaysToDate(d, 1)) _day.format(d),
+    ];
+    var running = s.usersBefore;
+    final cumulative = [for (final d in days) running += s.daily[d] ?? 0];
+    final period = rangeDays == null ? 'all time' : 'in this period';
+    String? delta;
+    if (rangeDays != null && s.signups.previous > 0) {
+      final diff = s.signups.current - s.signups.previous;
+      delta =
+          '${diff >= 0 ? '▲ +' : '▼ −'}${(diff.abs() / s.signups.previous * 100).round()}% '
+          'vs prev. $rangeDays days';
+    }
+    final signups = ChartPanel(
+      title: 'New sign-ups per day',
+      subtitle: '${formatCount(s.signups.current)} $period${delta == null ? '' : ' · $delta'}',
+      child: s.signups.current == 0
+          ? const EmptyChart(height: 220, message: 'No sign-ups in this period')
+          : StackedDailyColumns(
+              height: 220,
+              days: days,
+              values: [
+                for (final d in days) [s.daily[d] ?? 0],
+              ],
+              series: const [('Sign-ups', statsSeries1)],
+            ),
+    );
+    final growth = ChartPanel(
+      title: 'Total users over time',
+      subtitle: '${formatCount(s.usersBefore)} → ${formatCount(running)} $period',
+      child: DailyLines(
+        height: 220,
+        days: days,
+        series: [('Total users', statsSeries1, cumulative)],
+      ),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: 16,
+      children: [
+        SummaryStrip(
+          items: [
+            ('Total users', formatCount(s.total), 'all accounts'),
+            ('Admins', formatCount(s.admins), 'full access'),
+            ('Clients', formatCount(s.clients), 'learners'),
+            ('New sign-ups', formatCount(s.signups.current), period),
+            ('Locked now', formatCount(s.blocked), 'cannot sign in'),
+            ('Locked in period', formatCount(s.blockedInPeriod), period),
+          ],
+        ),
+        LayoutBuilder(
+          builder: (context, box) => box.maxWidth >= 900
+              ? Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: 16,
+                  children: [
+                    Expanded(flex: 3, child: signups),
+                    Expanded(flex: 2, child: growth),
+                  ],
+                )
+              : Column(spacing: 16, children: [signups, growth]),
+        ),
+        ChartPanel(
+          title: 'When people sign up',
+          subtitle: 'Sign-ups by weekday and hour (Asia/Ho_Chi_Minh) · darker = more',
+          trailing: const _HeatmapLegend(),
+          child: _SignupHeatmap(cells: s.heatmap),
+        ),
+      ],
+    );
+  }
 
   Widget _toolbar() {
     const outline = OutlineInputBorder(
@@ -641,4 +811,100 @@ class _BlockDialog extends StatelessWidget {
       ),
     );
   }
+}
+
+const _heatRamp = [
+  Color(0xFFF2F2F2),
+  Color(0xFFD6E6FB),
+  Color(0xFF9EC5F4),
+  Color(0xFF5E9CE6),
+  Color(0xFF2A78D6),
+];
+
+/// Lưới 7 thứ × 24 giờ; màu theo 5 mức so với ô nhiều nhất, tooltip hiện số đăng ký.
+class _SignupHeatmap extends StatelessWidget {
+  const _SignupHeatmap({required this.cells});
+  final Map<({int weekday, int hour}), int> cells;
+
+  static const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  static const _axis = TextStyle(fontSize: 11, color: _muted);
+
+  @override
+  Widget build(BuildContext context) {
+    final max = cells.values.fold<int>(0, math.max);
+    return Column(
+      spacing: 2,
+      children: [
+        for (var w = 1; w <= 7; w++)
+          Row(
+            children: [
+              SizedBox(width: 40, child: Text(_weekdays[w - 1], style: _axis)),
+              for (var h = 0; h < 24; h++)
+                Expanded(
+                  child: Builder(
+                    builder: (context) {
+                      final count = cells[(weekday: w, hour: h)] ?? 0;
+                      final level = count == 0 || max == 0
+                          ? 0
+                          : (count / max * 4).ceil().clamp(1, 4);
+                      return Tooltip(
+                        message:
+                            '${_weekdays[w - 1]} ${h.toString().padLeft(2, '0')}:00–'
+                            '${h.toString().padLeft(2, '0')}:59 · '
+                            '$count ${count == 1 ? 'sign-up' : 'sign-ups'}',
+                        child: Container(
+                          height: 14,
+                          margin: const EdgeInsets.symmetric(horizontal: 1),
+                          decoration: BoxDecoration(
+                            color: _heatRamp[level],
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Row(
+            children: [
+              const SizedBox(width: 40),
+              for (var h = 0; h < 24; h++)
+                Expanded(
+                  child: Text(h % 3 == 0 ? '${h.toString().padLeft(2, '0')}h' : '', style: _axis),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _HeatmapLegend extends StatelessWidget {
+  const _HeatmapLegend();
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    spacing: 3,
+    children: [
+      const Padding(
+        padding: EdgeInsets.only(right: 4),
+        child: Text('Fewer', style: TextStyle(fontSize: 11, color: _muted)),
+      ),
+      for (final c in _heatRamp)
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(2)),
+        ),
+      const Padding(
+        padding: EdgeInsets.only(left: 4),
+        child: Text('More', style: TextStyle(fontSize: 11, color: _muted)),
+      ),
+    ],
+  );
 }

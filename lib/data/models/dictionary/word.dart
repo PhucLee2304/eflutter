@@ -5,11 +5,7 @@ part 'word.g.dart';
 
 @freezed
 abstract class Phonetic with _$Phonetic {
-  const factory Phonetic({
-    String? text,
-    String? audioUrl,
-    String? sourceUrl,
-  }) = _Phonetic;
+  const factory Phonetic({String? text, String? audioUrl, String? sourceUrl}) = _Phonetic;
 
   factory Phonetic.fromJson(Map<String, dynamic> json) => _$PhoneticFromJson(json);
 }
@@ -56,11 +52,8 @@ abstract class WordDetail with _$WordDetail {
 
 @freezed
 abstract class WordSummary with _$WordSummary {
-  const factory WordSummary({
-    required int id,
-    required String word,
-    String? phonetic,
-  }) = _WordSummary;
+  const factory WordSummary({required int id, required String word, String? phonetic}) =
+      _WordSummary;
 
   factory WordSummary.fromJson(Map<String, dynamic> json) => _$WordSummaryFromJson(json);
 }

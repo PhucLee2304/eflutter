@@ -17,9 +17,8 @@ class GrammarRepository with RepositorySafeCall {
   Future<Result<UnitDetail>> getUnitDetail(int id) async {
     return safeCall(() => _remoteData.getUnitDetail(id));
   }
+
   Future<Result<void>> submitProgress(int unitId) async {
-    return safeCall(() => _remoteData.submitProgress(unitId, {
-      'completed': true,
-    }));
+    return safeCall(() => _remoteData.submitProgress(unitId, {'completed': true}));
   }
 }

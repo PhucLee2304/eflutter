@@ -29,11 +29,6 @@ class AdminUserRepository {
       .then((r) => UserPage.fromJson(r.data as Map<String, dynamic>))
       .safeResult();
 
-  Future<Result<UsersSummary>> getSummary() => _dio
-      .get('$_base/summary')
-      .then((r) => UsersSummary.fromJson(r.data as Map<String, dynamic>))
-      .safeResult();
-
   Future<Result<User>> setBlocked(int id, {required bool blocked}) =>
       (blocked ? _dio.post('$_base/$id/block') : _dio.delete('$_base/$id/block'))
           .then((r) => User.fromJson(r.data as Map<String, dynamic>))

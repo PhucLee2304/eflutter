@@ -31,9 +31,7 @@ class AuthRepository {
 
       if (kIsWeb) {
         final authProvider = GoogleAuthProvider();
-        final userCredential = await FirebaseAuth.instance.signInWithPopup(
-          authProvider,
-        );
+        final userCredential = await FirebaseAuth.instance.signInWithPopup(authProvider);
         idToken = await userCredential.user?.getIdToken();
       } else {
         if (!_isGoogleSignInInitialized) {
@@ -55,8 +53,7 @@ class AuthRepository {
       }
       return result;
     } on FirebaseAuthException catch (e) {
-      if (e.code == 'popup-closed-by-user' ||
-          e.code == 'cancelled-popup-request') {
+      if (e.code == 'popup-closed-by-user' || e.code == 'cancelled-popup-request') {
         return const Result.cancelled();
       }
       _logger.error('[GoogleSignInError]:', e, e.stackTrace);

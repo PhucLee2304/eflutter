@@ -12,12 +12,8 @@ _User _$UserFromJson(Map<String, dynamic> json) => _User(
   name: json['name'] as String,
   avatar: json['avatar'] as String?,
   role: json['role'] as String? ?? '',
-  blockedAt: json['blockedAt'] == null
-      ? null
-      : DateTime.parse(json['blockedAt'] as String),
-  createdAt: json['createdAt'] == null
-      ? null
-      : DateTime.parse(json['createdAt'] as String),
+  blockedAt: json['blockedAt'] == null ? null : DateTime.parse(json['blockedAt'] as String),
+  createdAt: json['createdAt'] == null ? null : DateTime.parse(json['createdAt'] as String),
 );
 
 Map<String, dynamic> _$UserToJson(_User instance) => <String, dynamic>{

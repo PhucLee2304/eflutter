@@ -22,18 +22,13 @@ class UserRepository {
     required String contentType,
     required String folder,
   }) => _remoteData
-      .getPresignedUploadUrl(
-        fileName: fileName,
-        contentType: contentType,
-        folder: folder,
-      )
+      .getPresignedUploadUrl(fileName: fileName, contentType: contentType, folder: folder)
       .safeResult();
 
   Future<Result<void>> uploadBinaryToUrl({
     required String url,
     required Uint8List bytes,
     required String contentType,
-  }) => _remoteData
-      .uploadBinaryToUrl(url: url, bytes: bytes, contentType: contentType)
-      .safeResult();
+  }) =>
+      _remoteData.uploadBinaryToUrl(url: url, bytes: bytes, contentType: contentType).safeResult();
 }

@@ -97,9 +97,7 @@ class GradebookSocketClient implements GradebookSocketGateway {
         GradebookSocketEvent(
           classroomId: (payload['classroomId'] as num).toInt(),
           assignmentId: (payload['assignmentId'] as num).toInt(),
-          integrity: type == 'ATTEMPT_INTEGRITY_UPDATED'
-              ? IntegrityUpdate.fromJson(payload)
-              : null,
+          integrity: type == 'ATTEMPT_INTEGRITY_UPDATED' ? IntegrityUpdate.fromJson(payload) : null,
         ),
       );
     } catch (_) {

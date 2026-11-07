@@ -32,17 +32,3 @@ class UserPage {
     total: (json['total'] as num?)?.toInt() ?? 0,
   );
 }
-
-/// Số liệu trên thẻ tiêu đề màn Users của admin, không phụ thuộc bộ lọc.
-class UsersSummary {
-  const UsersSummary({this.total = 0, this.admins = 0, this.blocked = 0});
-  final int total;
-  final int admins;
-  final int blocked;
-
-  factory UsersSummary.fromJson(Map<String, dynamic> json) => UsersSummary(
-    total: (json['total'] as num?)?.toInt() ?? 0,
-    admins: (json['admins'] as num?)?.toInt() ?? 0,
-    blocked: (json['blocked'] as num?)?.toInt() ?? 0,
-  );
-}

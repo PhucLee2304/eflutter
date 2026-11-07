@@ -68,14 +68,10 @@ class RoomSocketClient {
       }
       final type = data['type'] as String? ?? '';
       if (type == 'ROOM_STARTED' || type == 'ROOM_ENDED') {
-        _events.add(
-          ClassroomRoom.fromJson(data['payload'] as Map<String, dynamic>),
-        );
+        _events.add(ClassroomRoom.fromJson(data['payload'] as Map<String, dynamic>));
       }
       final roomId = (data['roomId'] as num?)?.toInt();
-      if (eventId != null &&
-          roomId != null &&
-          _roomActivityTypes.contains(type)) {
+      if (eventId != null && roomId != null && _roomActivityTypes.contains(type)) {
         final payload = data['payload'];
         _activityEvents.add(
           RoomActivitySocketEvent(
@@ -83,9 +79,7 @@ class RoomSocketClient {
             type: type,
             roomId: roomId,
             createdAt: DateTime.parse(data['createdAt'] as String).toLocal(),
-            userId: payload is Map<String, dynamic>
-                ? payload['userId'] as String?
-                : null,
+            userId: payload is Map<String, dynamic> ? payload['userId'] as String? : null,
           ),
         );
       }

@@ -312,3 +312,52 @@ class NotificationStats {
   final int devices;
   final int deviceUsers;
 }
+
+// ---------------------------------------------------------------- users (identity)
+
+class UserStats {
+  const UserStats({
+    this.total = 0,
+    this.admins = 0,
+    this.clients = 0,
+    this.blocked = 0,
+    this.signups = const PeriodCount(),
+    this.blockedInPeriod = 0,
+    this.usersBefore = 0,
+    this.daily = const {},
+    this.heatmap = const {},
+  });
+  factory UserStats.fromJson(Map<String, dynamic> json) => UserStats(
+    total: _int(json['total']),
+    admins: _int(json['admins']),
+    clients: _int(json['clients']),
+    blocked: _int(json['blocked']),
+    signups: PeriodCount.fromJson(json['signups']),
+    blockedInPeriod: _int(json['blockedInPeriod']),
+    usersBefore: _int(json['usersBefore']),
+    daily: {for (final d in _list(json['daily'])) d['date'] as String: _int(d['count'])},
+    heatmap: {
+      for (final c in _list(json['heatmap']))
+        (weekday: _int(c['weekday']), hour: _int(c['hour'])): _int(c['count']),
+    },
+  );
+
+  /// Số hiện tại, không phụ thuộc kỳ.
+  final int total;
+  final int admins;
+  final int clients;
+  final int blocked;
+  final PeriodCount signups;
+
+  /// Tài khoản đang khoá có thời điểm khoá trong kỳ.
+  final int blockedInPeriod;
+
+  /// Tài khoản tạo trước đầu kỳ: mốc của đường tăng trưởng tích luỹ.
+  final int usersBefore;
+
+  /// Ngày → số đăng ký.
+  final Map<String, int> daily;
+
+  /// (thứ 1 = thứ Hai … 7 = Chủ nhật, giờ 0–23) → số đăng ký trong kỳ.
+  final Map<({int weekday, int hour}), int> heatmap;
+}
