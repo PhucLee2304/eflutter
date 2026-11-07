@@ -64,7 +64,11 @@ class StatsBlock extends StatelessWidget {
       children: [
         Text(
           title,
-          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: statsText),
+          style: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+            color: statsText,
+          ),
         ),
         const SizedBox(height: 4),
         Text(subtitle, style: const TextStyle(fontSize: 13, color: statsMuted)),
@@ -96,8 +100,14 @@ class StatsBlock extends StatelessWidget {
                   Container(
                     width: 44,
                     height: 44,
-                    decoration: const BoxDecoration(color: statsBadBg, shape: BoxShape.circle),
-                    child: const Icon(SolarIconsOutline.dangerCircle, color: Color(0xFFD93025)),
+                    decoration: const BoxDecoration(
+                      color: statsBadBg,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      SolarIconsOutline.dangerCircle,
+                      color: Color(0xFFD93025),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Text(
@@ -112,7 +122,11 @@ class StatsBlock extends StatelessWidget {
                   Text(
                     '$error\nOther blocks are unaffected.',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 12, height: 1.4, color: statsMuted),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      height: 1.4,
+                      color: statsMuted,
+                    ),
                   ),
                   const SizedBox(height: 14),
                   OutlinedButton(
@@ -120,7 +134,9 @@ class StatsBlock extends StatelessWidget {
                     style: OutlinedButton.styleFrom(
                       foregroundColor: statsPrimary,
                       side: const BorderSide(color: statsPrimary),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                     child: const Text('Retry'),
                   ),
@@ -143,12 +159,16 @@ class SummaryStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(vertical: 12),
-    decoration: BoxDecoration(color: statsStrip, borderRadius: BorderRadius.circular(8)),
+    decoration: BoxDecoration(
+      color: statsStrip,
+      borderRadius: BorderRadius.circular(8),
+    ),
     child: IntrinsicHeight(
       child: Row(
         children: [
           for (final (i, (label, value, note)) in items.indexed) ...[
-            if (i > 0) const VerticalDivider(width: 1, thickness: 1, color: statsBorder),
+            if (i > 0)
+              const VerticalDivider(width: 1, thickness: 1, color: statsBorder),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 18),
@@ -156,7 +176,10 @@ class SummaryStrip extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   spacing: 4,
                   children: [
-                    Text(label, style: const TextStyle(fontSize: 12, color: statsMuted)),
+                    Text(
+                      label,
+                      style: const TextStyle(fontSize: 12, color: statsMuted),
+                    ),
                     Text.rich(
                       TextSpan(
                         text: value,
@@ -234,7 +257,10 @@ class ChartPanel extends StatelessWidget {
                     ),
                   ),
                   if (subtitle != null)
-                    Text(subtitle!, style: const TextStyle(fontSize: 12, color: statsMuted)),
+                    Text(
+                      subtitle!,
+                      style: const TextStyle(fontSize: 12, color: statsMuted),
+                    ),
                 ],
               ),
             ),
@@ -255,7 +281,13 @@ class ChartPanel extends StatelessWidget {
                             borderRadius: BorderRadius.circular(2),
                           ),
                         ),
-                        Text(name, style: const TextStyle(fontSize: 12, color: statsLabel)),
+                        Text(
+                          name,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: statsLabel,
+                          ),
+                        ),
                       ],
                     ),
                 ],
@@ -280,7 +312,10 @@ class EmptyChart extends StatelessWidget {
   Widget build(BuildContext context) => SizedBox(
     height: height,
     child: Center(
-      child: Text(message, style: const TextStyle(fontSize: 12, color: statsMuted)),
+      child: Text(
+        message,
+        style: const TextStyle(fontSize: 12, color: statsMuted),
+      ),
     ),
   );
 }
@@ -289,7 +324,9 @@ class EmptyChart extends StatelessWidget {
 double niceInterval(num max) {
   if (max <= 4) return 1;
   final raw = max / 4;
-  final magnitude = math.pow(10, (math.log(raw) / math.ln10).floor()).toDouble();
+  final magnitude = math
+      .pow(10, (math.log(raw) / math.ln10).floor())
+      .toDouble();
   for (final step in [1, 2, 5, 10]) {
     if (raw <= step * magnitude) return step * magnitude;
   }
@@ -331,7 +368,8 @@ FlTitlesData _titles({
             return const SizedBox.shrink();
           }
           // Nhãn sát nhãn cuối thì bỏ để không chồng chữ.
-          if (i != count - 1 && count - 1 - i < every / 2) return const SizedBox.shrink();
+          if (i != count - 1 && count - 1 - i < every / 2)
+            return const SizedBox.shrink();
           return SideTitleWidget(
             meta: meta,
             child: Text(label(i), style: _axisStyle),
@@ -345,12 +383,21 @@ FlTitlesData _titles({
 FlGridData _grid(double interval) => FlGridData(
   drawVerticalLine: false,
   horizontalInterval: interval,
-  getDrawingHorizontalLine: (v) => FlLine(color: v == 0 ? statsAxis : statsGrid, strokeWidth: 1),
+  getDrawingHorizontalLine: (v) =>
+      FlLine(color: v == 0 ? statsAxis : statsGrid, strokeWidth: 1),
 );
 
 const _tooltipBorder = BorderSide(color: statsBorder);
-const _tooltipTitle = TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: statsText);
-const _tooltipLine = TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: statsLabel);
+const _tooltipTitle = TextStyle(
+  fontSize: 12,
+  fontWeight: FontWeight.w600,
+  color: statsText,
+);
+const _tooltipLine = TextStyle(
+  fontSize: 12,
+  fontWeight: FontWeight.w400,
+  color: statsLabel,
+);
 
 /// Cột chồng theo ngày; tooltip hiện ngày, từng series và tổng.
 class StackedDailyColumns extends StatelessWidget {
@@ -405,11 +452,16 @@ class StackedDailyColumns extends StatelessWidget {
                     textAlign: TextAlign.left,
                     children: [
                       for (final (j, (name, _)) in series.indexed)
-                        TextSpan(text: '\n$name: ${values[i][j]}', style: _tooltipLine),
+                        TextSpan(
+                          text: '\n$name: ${values[i][j]}',
+                          style: _tooltipLine,
+                        ),
                       if (series.length > 1)
                         TextSpan(
                           text: '\nTotal: ${totals[i]}',
-                          style: _tooltipLine.copyWith(fontWeight: FontWeight.w600),
+                          style: _tooltipLine.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                     ],
                   ),
@@ -424,14 +476,25 @@ class StackedDailyColumns extends StatelessWidget {
                         toY: totals[i].toDouble(),
                         width: width,
                         color: Colors.transparent,
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(4),
+                        ),
                         rodStackItems: [
                           for (final (j, (_, color)) in series.indexed)
                             BarChartRodStackItem(
-                              v.take(j).fold<int>(0, (a, b) => a + b).toDouble(),
-                              v.take(j + 1).fold<int>(0, (a, b) => a + b).toDouble(),
+                              v
+                                  .take(j)
+                                  .fold<int>(0, (a, b) => a + b)
+                                  .toDouble(),
+                              v
+                                  .take(j + 1)
+                                  .fold<int>(0, (a, b) => a + b)
+                                  .toDouble(),
                               color,
-                              borderSide: const BorderSide(color: Colors.white, width: 1),
+                              borderSide: const BorderSide(
+                                color: Colors.white,
+                                width: 1,
+                              ),
                             ),
                         ],
                       ),
@@ -448,21 +511,36 @@ class StackedDailyColumns extends StatelessWidget {
 
 /// Đường theo ngày (1–2 series); tooltip crosshair hiện ngày và giá trị.
 class DailyLines extends StatelessWidget {
-  const DailyLines({super.key, required this.days, required this.series, this.height = 200});
+  const DailyLines({
+    super.key,
+    required this.days,
+    required this.series,
+    this.height = 200,
+    this.fitY = false,
+  });
   final List<String> days;
   final List<(String, Color, List<int>)> series;
   final double height;
 
+  /// true: trục Y bắt đầu gần giá trị nhỏ nhất thay vì 0 (đường tích luỹ).
+  final bool fitY;
+
   @override
   Widget build(BuildContext context) {
-    final maxValue = series.expand((s) => s.$3).fold<int>(0, math.max);
-    final interval = niceInterval(maxValue);
-    final maxY = math.max(interval, (maxValue / interval).ceil() * interval);
+    final values = series.expand((s) => s.$3);
+    final maxValue = values.fold<int>(0, math.max);
+    final minValue = fitY && values.isNotEmpty ? values.reduce(math.min) : 0;
+    final interval = niceInterval(math.max(maxValue - minValue, 1));
+    final minY = (minValue / interval).floor() * interval;
+    final maxY = math.max(
+      minY + interval,
+      (maxValue / interval).ceil() * interval,
+    );
     return SizedBox(
       height: height,
       child: LineChart(
         LineChartData(
-          minY: 0,
+          minY: minY.toDouble(),
           maxY: maxY,
           minX: 0,
           maxX: math.max(days.length - 1, 1).toDouble(),
@@ -517,7 +595,10 @@ class DailyLines extends StatelessWidget {
           lineBarsData: [
             for (final (_, color, values) in series)
               LineChartBarData(
-                spots: [for (final (i, v) in values.indexed) FlSpot(i.toDouble(), v.toDouble())],
+                spots: [
+                  for (final (i, v) in values.indexed)
+                    FlSpot(i.toDouble(), v.toDouble()),
+                ],
                 color: color,
                 barWidth: 2,
                 isCurved: false,
@@ -563,7 +644,12 @@ class ScoreHistogram extends StatelessWidget {
                 getTooltipItem: (group, i, rod, _) => BarTooltipItem(
                   'Score $i–${i + 1}\n',
                   _tooltipTitle,
-                  children: [TextSpan(text: '${buckets[i]} submissions', style: _tooltipLine)],
+                  children: [
+                    TextSpan(
+                      text: '${buckets[i]} submissions',
+                      style: _tooltipLine,
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -576,7 +662,9 @@ class ScoreHistogram extends StatelessWidget {
                       toY: v.toDouble(),
                       width: (box.maxWidth - 40) / buckets.length - 4,
                       color: statsSeries1,
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(4),
+                      ),
                     ),
                   ],
                 ),
@@ -629,7 +717,9 @@ class HorizontalBars extends StatelessWidget {
                 Expanded(
                   child: LayoutBuilder(
                     builder: (context, box) {
-                      final barWidth = scale <= 0 ? 0.0 : box.maxWidth * value / scale;
+                      final barWidth = scale <= 0
+                          ? 0.0
+                          : box.maxWidth * value / scale;
                       return Stack(
                         alignment: Alignment.centerLeft,
                         children: [
@@ -656,7 +746,9 @@ class HorizontalBars extends StatelessWidget {
                 SizedBox(
                   width: 44,
                   child: Text(
-                    decimals == 0 ? formatCount(value) : value.toStringAsFixed(decimals),
+                    decimals == 0
+                        ? formatCount(value)
+                        : value.toStringAsFixed(decimals),
                     textAlign: TextAlign.right,
                     style: const TextStyle(
                       fontSize: 12,
@@ -705,10 +797,14 @@ class Sparkline extends StatelessWidget {
           lineTouchData: const LineTouchData(enabled: false),
           lineBarsData: [
             LineChartBarData(
-              spots: [for (final (i, v) in values.indexed) FlSpot(i.toDouble(), v)],
+              spots: [
+                for (final (i, v) in values.indexed) FlSpot(i.toDouble(), v),
+              ],
               color: statsSeries1,
               barWidth: 2,
-              dotData: FlDotData(checkToShowDot: (spot, _) => spot.x == values.length - 1),
+              dotData: FlDotData(
+                checkToShowDot: (spot, _) => spot.x == values.length - 1,
+              ),
             ),
           ],
         ),
@@ -732,7 +828,11 @@ class DeltaPill extends StatelessWidget {
     ),
     child: Text(
       '${up ? '▲' : '▼'} $text',
-      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: up ? statsGood : statsBad),
+      style: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w500,
+        color: up ? statsGood : statsBad,
+      ),
     ),
   );
 }

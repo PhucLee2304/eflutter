@@ -32,5 +32,5 @@ class AdminStatsRepository {
       _get('/notifications', NotificationStats.fromJson, from: from, to: to);
 
   Future<Result<UserStats>> getUsers({String? from, String? to}) =>
-      _get('/users', UserStats.fromJson, from: from, to: to);
+      _get('/identity', UserStats.fromJson, from: from, to: to);
 }

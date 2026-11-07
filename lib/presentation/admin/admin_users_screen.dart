@@ -325,6 +325,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         height: 220,
         days: days,
         series: [('Total users', statsSeries1, cumulative)],
+        fitY: true,
       ),
     );
     return Column(
