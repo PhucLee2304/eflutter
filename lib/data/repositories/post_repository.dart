@@ -40,7 +40,7 @@ class PostRepository {
   }
 
   Future<PostUploadLimits> getUploadLimits() async {
-    final r = await _dio.get('$_base/post-uploads/config');
+    final r = await _dio.get('$_base/uploads/config');
     return PostUploadLimits.fromJson(r.data as Map<String, dynamic>);
   }
 
@@ -52,7 +52,7 @@ class PostRepository {
     required void Function(double) onProgress,
   }) async {
     final intent = await _dio.post(
-      '$_base/post-uploads',
+      '$_base/uploads',
       data: {
         'originalName': file.name,
         'contentType': file.contentType,
@@ -70,12 +70,12 @@ class PostRepository {
         cancelToken: cancelToken,
         onSendProgress: (sent, total) => onProgress(total <= 0 ? 0 : sent / total),
       );
-      final complete = await _dio.post('$_base/post-uploads/$id/complete');
+      final complete = await _dio.post('$_base/uploads/$id/complete');
       return ((complete.data as Map<String, dynamic>)['id'] as num).toInt();
     } catch (_) {
       if (!cancelToken.isCancelled) {
         try {
-          await _dio.delete('$_base/post-uploads/$id');
+          await _dio.delete('$_base/uploads/$id');
         } catch (_) {}
       }
       rethrow;
