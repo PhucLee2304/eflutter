@@ -8,6 +8,7 @@ import 'package:eflutter/data/repositories/classroom_repository.dart';
 import 'package:eflutter/presentation/app/cubit/app_cubit.dart';
 import 'package:eflutter/presentation/app/navigation/app_routes.dart';
 import 'package:eflutter/presentation/classrooms/create_classroom_dialog.dart';
+import 'package:eflutter/presentation/classrooms/gradebook_widgets.dart';
 import 'package:eflutter/presentation/classrooms/join_classroom_dialog.dart';
 import 'package:eflutter/generated/colors.gen.dart';
 import 'package:flutter/material.dart';
@@ -464,15 +465,25 @@ class _ClassroomCardState extends State<_ClassroomCard> {
                             ),
                             const SizedBox(width: 8),
                             Expanded(
-                              child: Text(
-                                teacher?.name ?? 'Teacher',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                  color: Color(0xFF3A3B3C),
-                                ),
+                              child: Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      teacher?.name ?? 'Teacher',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                        color: Color(0xFF3A3B3C),
+                                      ),
+                                    ),
+                                  ),
+                                  if (teacher?.blocked == true) ...[
+                                    const SizedBox(width: 6),
+                                    const GbPill.blocked(),
+                                  ],
+                                ],
                               ),
                             ),
                             if (item.countApprovedMembers != null) ...[

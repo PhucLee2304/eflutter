@@ -70,7 +70,14 @@ class GradebookSocketClient implements GradebookSocketGateway {
       _subscription = channel.stream.listen(
         _handleMessage,
         onError: (_) => _handleDisconnect(),
-        onDone: _handleDisconnect,
+        onDone: () {
+          // Bị khoá tài khoản: đã đăng xuất, đóng hẳn để không nối lại.
+          if (_auth.handleSocketClosed(channel)) {
+            unawaited(close());
+            return;
+          }
+          _handleDisconnect();
+        },
         cancelOnError: true,
       );
       await channel.ready;

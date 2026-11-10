@@ -65,6 +65,8 @@ class NotificationSocketClient {
 
   void _handleDisconnect(WebSocketChannel channel) {
     if (_channel != channel) return;
+    // Bị khoá tài khoản: đã đăng xuất, không nối lại.
+    if (_auth.handleSocketClosed(channel)) _active = false;
     _subscription?.cancel();
     _subscription = null;
     _channel = null;

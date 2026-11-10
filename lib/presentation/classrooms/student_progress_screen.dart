@@ -124,9 +124,17 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 spacing: 4,
                 children: [
-                  Text(
-                    data.student.name,
-                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+                  Row(
+                    spacing: 10,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          data.student.name,
+                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      if (data.student.blocked) const GbPill.blocked(),
+                    ],
                   ),
                   Text(data.student.email, style: const TextStyle(fontSize: 13, color: Gb.muted)),
                 ],

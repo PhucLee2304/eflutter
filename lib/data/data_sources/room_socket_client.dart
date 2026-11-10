@@ -44,7 +44,14 @@ class RoomSocketClient {
       _subscription = channel.stream.listen(
         _handleMessage,
         onError: (_) => _disconnected(),
-        onDone: _disconnected,
+        onDone: () {
+          // Bị khoá tài khoản: đã đăng xuất, đóng hẳn để không nối lại.
+          if (_auth.handleSocketClosed(channel)) {
+            unawaited(close());
+            return;
+          }
+          _disconnected();
+        },
         cancelOnError: true,
       );
       await channel.ready;

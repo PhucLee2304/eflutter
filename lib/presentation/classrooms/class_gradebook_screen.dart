@@ -285,7 +285,7 @@ class _ClassGradebookScreenState extends State<ClassGradebookScreen> {
                   spacing: 10,
                   children: [
                     GbAvatar(name: student.student.name, url: student.student.avatar, size: 28),
-                    Expanded(
+                    Flexible(
                       child: Text(
                         student.student.name,
                         maxLines: 1,
@@ -293,6 +293,7 @@ class _ClassGradebookScreenState extends State<ClassGradebookScreen> {
                         style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
                       ),
                     ),
+                    if (student.student.blocked) const GbPill.blocked(),
                   ],
                 ),
               ),

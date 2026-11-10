@@ -9,6 +9,7 @@ import 'package:eflutter/core/utils/extensions/toast_bar_extension.dart';
 import 'package:eflutter/presentation/app/navigation/app_router.dart';
 import 'package:eflutter/presentation/auth/cubit/auth_cubit.dart';
 import 'package:injectable/injectable.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
 
 @lazySingleton
 class AuthInterceptor extends Interceptor {
@@ -18,6 +19,14 @@ class AuthInterceptor extends Interceptor {
   static const String isRefreshTokenRequestKey = 'isRefreshTokenRequest';
   static const tokenExpired = 401;
   static const accountBlocked = 403;
+
+  /// Close code server gửi khi admin khoá tài khoản (platform/socket CloseCodeUserBlocked). Trình
+  /// duyệt không cho đọc mã 401 của bước bắt tay WebSocket, nên đây là cách duy nhất để socket phân
+  /// biệt "bị khoá" với "mất mạng".
+  static const socketClosedUserBlocked = 4003;
+
+  /// Lần gần nhất đã đăng xuất vì bị khoá, để nhiều socket cùng bị đóng chỉ hiện một toast.
+  DateTime? _blockedLogoutAt;
 
   @override
   void onRequest(
@@ -88,14 +97,7 @@ class AuthInterceptor extends Interceptor {
         authCubit.logout();
       }
       // Admin vừa khoá tài khoản: đăng xuất và báo lý do ở màn login.
-      if (e.response?.statusCode == accountBlocked) {
-        authCubit.logout();
-        AppRouter.router.routerDelegate.navigatorKey.currentContext?.showToast(
-          'Your account has been blocked. Contact the center administrator for help.',
-          type: ToastType.error,
-          duration: const Duration(seconds: 5),
-        );
-      }
+      if (e.response?.statusCode == accountBlocked) _logoutBlocked();
       return null;
     } finally {
       _refreshing = null;
@@ -114,5 +116,29 @@ class AuthInterceptor extends Interceptor {
     } on DioException catch (e) {
       handler.next(e);
     }
+  }
+
+  /// Socket bị server đóng thì gọi hàm này trước khi tự nối lại. Server đóng với close code
+  /// [socketClosedUserBlocked] là tài khoản vừa bị khoá: đăng xuất ngay và trả true để socket dừng
+  /// nối lại, thay vì hiện Offline cho tới lần gọi API kế tiếp.
+  bool handleSocketClosed(WebSocketChannel channel) {
+    if (channel.closeCode != socketClosedUserBlocked) return false;
+    _logoutBlocked();
+    return true;
+  }
+
+  /// Đăng xuất và báo lý do bị khoá ở màn login; gọi nhiều lần trong vài giây (refresh và các
+  /// socket cùng phát hiện) chỉ xử lý lần đầu.
+  void _logoutBlocked() {
+    final now = DateTime.now();
+    final last = _blockedLogoutAt;
+    if (last != null && now.difference(last) < const Duration(seconds: 10)) return;
+    _blockedLogoutAt = now;
+    getIt<AuthCubit>().logout();
+    AppRouter.router.routerDelegate.navigatorKey.currentContext?.showToast(
+      'Your account has been blocked. Contact the center administrator for help.',
+      type: ToastType.error,
+      duration: const Duration(seconds: 5),
+    );
   }
 }

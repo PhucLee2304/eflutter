@@ -136,6 +136,9 @@ class GbStats extends StatelessWidget {
 
 class GbPill extends StatelessWidget {
   const GbPill(this.label, {super.key, required this.background, required this.foreground});
+
+  /// Nhãn "Blocked" cạnh tên user đang bị admin khoá.
+  const GbPill.blocked({super.key}) : label = 'Blocked', background = Gb.redBg, foreground = Gb.red;
   GbPill.status(String status, {super.key})
     : label = Gb.statusLabel(status),
       background = Gb.status(status).$1,
