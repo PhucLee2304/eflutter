@@ -135,3 +135,16 @@ String? notificationPath(Map<String, String> data) {
 }
 String grammarUnitPath(int unitId) =>
     '${AppRoutes.grammar.path}/units/$unitId';
+
+String flashcardDeckPath(int deckId) => '${AppRoutes.flashcards.path}/deck/$deckId';
+
+String flashcardStudyPath({int? deckId, String? title}) {
+  final query = <String, String>{};
+  if (deckId != null) query['deckId'] = deckId.toString();
+  if (title != null && title.isNotEmpty) query['title'] = title;
+  final uri = Uri(
+    path: '${AppRoutes.flashcards.path}/study',
+    queryParameters: query.isEmpty ? null : query,
+  );
+  return uri.toString();
+}

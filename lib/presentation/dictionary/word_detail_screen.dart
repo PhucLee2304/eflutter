@@ -1,9 +1,9 @@
 import 'package:eflutter/app/config/app_config.dart';
 import 'package:eflutter/core/di/injection.dart';
-import 'package:eflutter/data/models/dictionary/flashcard.dart';
 import 'package:eflutter/data/models/dictionary/word.dart';
 import 'package:eflutter/presentation/dictionary/cubit/flashcard_cubit.dart';
 import 'package:eflutter/presentation/dictionary/cubit/word_detail_cubit.dart';
+import 'package:eflutter/presentation/dictionary/widgets/save_word_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -26,12 +26,22 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
   VideoPlayerController? _audioController;
   String? _playingAudioUrl;
   bool _isLoadingAudio = false;
+  bool _isWordSaved = false;
 
   @override
   void initState() {
     super.initState();
     _detailCubit.loadWord(widget.wordId);
-    _flashcardCubit.loadFlashcards();
+    _checkWordSaveStatus();
+  }
+
+  Future<void> _checkWordSaveStatus() async {
+    final status = await _flashcardCubit.getWordSaveStatus(widget.wordId);
+    if (mounted && status != null) {
+      setState(() {
+        _isWordSaved = status.isSaved;
+      });
+    }
   }
 
   @override
@@ -129,137 +139,6 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
     }
   }
 
-  Flashcard? _findSavedFlashcard(WordDetail detail, FlashcardState state) {
-    return state.maybeWhen(
-      success: (resp) {
-        for (final item in resp.data) {
-          if (item.word.id == detail.id ||
-              item.word.word.trim().toLowerCase() == detail.word.trim().toLowerCase()) {
-            return item;
-          }
-        }
-        return null;
-      },
-      orElse: () => null,
-    );
-  }
-
-  String _formatDate(String isoDate) {
-    try {
-      final dt = DateTime.parse(isoDate).toLocal();
-      return DateFormat('dd/MM/yyyy HH:mm').format(dt);
-    } catch (_) {
-      return isoDate;
-    }
-  }
-
-  Future<void> _showAddFlashcardDialog(int wordId, String wordText) async {
-    final noteController = TextEditingController();
-    final result = await showDialog<String?>(
-      context: context,
-      builder: (dialogCtx) => AlertDialog(
-        title: Text('Save "$wordText" to Flashcards'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Personal note (optional):',
-                style: TextStyle(fontSize: 13, color: Colors.grey)),
-            const SizedBox(height: 8),
-            TextField(
-              controller: noteController,
-              decoration: const InputDecoration(
-                hintText: 'e.g. Common meaning, memory tips...',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 3,
-              autofocus: true,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogCtx).pop(null),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogCtx).pop(noteController.text.trim()),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-
-    if (result != null && mounted) {
-      final success = await _flashcardCubit.createFlashcard(wordId, note: result);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(success ? 'Saved "$wordText" to Flashcards' : 'Failed to save flashcard'),
-            backgroundColor: success ? Colors.green : Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _showFlashcardDetailDialog(Flashcard card) async {
-    final action = await showDialog<String>(
-      context: context,
-      builder: (dialogCtx) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.bookmark, color: Colors.blue),
-            const SizedBox(width: 8),
-            Expanded(child: Text(card.word.word)),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (card.word.phonetic != null && card.word.phonetic!.isNotEmpty)
-              Text(card.word.phonetic!, style: const TextStyle(color: Colors.grey)),
-            const SizedBox(height: 12),
-            const Text('Your note:',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-            const SizedBox(height: 4),
-            Text(card.note ?? '(No note)',
-                style: const TextStyle(fontSize: 14)),
-            const SizedBox(height: 12),
-            Text('Saved at: ${_formatDate(card.createdAt)}',
-                style: const TextStyle(fontSize: 11, color: Colors.grey)),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogCtx).pop('close'),
-            child: const Text('Close'),
-          ),
-          FilledButton.tonal(
-            style: FilledButton.styleFrom(
-              foregroundColor: Colors.red,
-            ),
-            onPressed: () => Navigator.of(dialogCtx).pop('delete'),
-            child: const Text('Remove from Flashcards'),
-          ),
-        ],
-      ),
-    );
-
-    if (action == 'delete' && mounted) {
-      final success = await _flashcardCubit.deleteFlashcard(card.id);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(success ? 'Removed from Flashcards' : 'Failed to remove flashcard'),
-            backgroundColor: success ? null : Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return MultiBlocProvider(
@@ -279,27 +158,32 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
               builder: (context, detailState) {
                 return detailState.maybeWhen(
                   success: (detail) {
-                    return BlocBuilder<FlashcardCubit, FlashcardState>(
-                      builder: (context, flashState) {
-                        final savedCard = _findSavedFlashcard(detail, flashState);
-                        final isSaved = savedCard != null;
-
-                        return IconButton(
-                          icon: Icon(
-                            isSaved ? Icons.bookmark : Icons.bookmark_add_outlined,
-                            color: isSaved
-                                ? Theme.of(context).colorScheme.primary
-                                : null,
-                          ),
-                          tooltip: isSaved ? 'Saved in Flashcards' : 'Save Flashcard',
-                          onPressed: () {
-                            if (isSaved) {
-                              _showFlashcardDetailDialog(savedCard);
-                            } else {
-                              _showAddFlashcardDialog(detail.id, detail.word);
-                            }
-                          },
+                    return IconButton(
+                      icon: Icon(
+                        _isWordSaved ? Icons.bookmark : Icons.bookmark_add_outlined,
+                        color: _isWordSaved
+                            ? Theme.of(context).colorScheme.primary
+                            : null,
+                      ),
+                      tooltip: _isWordSaved ? 'Đã lưu trong bộ thẻ' : 'Lưu vào bộ thẻ',
+                      onPressed: () async {
+                        final saved = await SaveWordToDecksDialog.show(
+                          context,
+                          wordId: detail.id,
+                          wordText: detail.word,
+                          phonetic: detail.phonetic,
+                          cubit: _flashcardCubit,
                         );
+                        if (saved == true && mounted) {
+                          await _checkWordSaveStatus();
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Đã cập nhật bộ thẻ cho "${detail.word}"'),
+                              ),
+                            );
+                          }
+                        }
                       },
                     );
                   },

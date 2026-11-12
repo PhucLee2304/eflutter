@@ -6,6 +6,8 @@ import 'package:eflutter/presentation/app/navigation/navigation_item.dart';
 import 'package:eflutter/presentation/app/widgets/mobile_layout.dart';
 import 'package:eflutter/presentation/app/widgets/web_layout.dart';
 import 'package:eflutter/presentation/auth/cubit/login_screen.dart';
+import 'package:eflutter/presentation/dictionary/deck_detail_screen.dart';
+import 'package:eflutter/presentation/dictionary/flashcard_study_screen.dart';
 import 'package:eflutter/presentation/dictionary/flashcards_screen.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -26,6 +28,28 @@ class AppRouter {
     routes: kIsWeb ? _webRoutes : _mobileRoutes,
   );
 
+  static final _flashcardRoute = GoRoute(
+    path: AppRoutes.flashcards.path,
+    builder: (context, state) => const FlashcardsScreen(),
+    routes: [
+      GoRoute(
+        path: 'deck/:id',
+        builder: (context, state) {
+          final deckId = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+          return DeckDetailScreen(deckId: deckId);
+        },
+      ),
+      GoRoute(
+        path: 'study',
+        builder: (context, state) {
+          final deckId = int.tryParse(state.uri.queryParameters['deckId'] ?? '');
+          final title = state.uri.queryParameters['title'];
+          return FlashcardStudyScreen(deckId: deckId, deckTitle: title);
+        },
+      ),
+    ],
+  );
+
   static final _mobileRoutes = [
     GoRoute(path: AppRoutes.login.path, builder: (context, state) => const LoginScreen()),
     GoRoute(
@@ -33,10 +57,7 @@ class AppRouter {
       builder: (context, state) => TalkerScreen(talker: getIt<Talker>()),
     ),
     NavigationItem.attemptRoute,
-    GoRoute(
-      path: AppRoutes.flashcards.path,
-      builder: (context, state) => const FlashcardsScreen(),
-    ),
+    _flashcardRoute,
     StatefulShellRoute.indexedStack(
       builder: (context, state, navigationShell) => MobileLayout(navigationShell: navigationShell),
       branches: NavigationItem.mobileShellBranches.map((e) => e.shellBranch).toList(),
@@ -51,10 +72,7 @@ class AppRouter {
       builder: (context, state) => TalkerScreen(talker: getIt<Talker>()),
     ),
     NavigationItem.attemptRoute,
-    GoRoute(
-      path: AppRoutes.flashcards.path,
-      builder: (context, state) => const FlashcardsScreen(),
-    ),
+    _flashcardRoute,
     StatefulShellRoute.indexedStack(
       builder: (context, state, navigationShell) => WebLayout(navigationShell: navigationShell),
       branches: NavigationItem.webShellBranches.map((e) => e.shellBranch).toList(),
