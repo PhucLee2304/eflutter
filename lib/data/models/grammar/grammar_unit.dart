@@ -21,18 +21,15 @@ abstract class UnitSummary with _$UnitSummary {
   int get progressTotal => 1;
   double get progressPercent => completed ? 1.0 : 0.0;
 
-  factory UnitSummary.fromJson(Map<String, dynamic> json) =>
-      _$UnitSummaryFromJson(json);
+  factory UnitSummary.fromJson(Map<String, dynamic> json) => _$UnitSummaryFromJson(json);
 }
 
 @freezed
 abstract class CurriculumResponse with _$CurriculumResponse {
   const CurriculumResponse._();
 
-  const factory CurriculumResponse({
-    @Default([]) List<UnitSummary> data,
-    @Default(0) int total,
-  }) = _CurriculumResponse;
+  const factory CurriculumResponse({@Default([]) List<UnitSummary> data, @Default(0) int total}) =
+      _CurriculumResponse;
 
   List<UnitSummary> get units => data;
 
@@ -55,8 +52,7 @@ abstract class PracticeQuestion with _$PracticeQuestion {
     int? sortOrder,
   }) = _PracticeQuestion;
 
-  factory PracticeQuestion.fromJson(Map<String, dynamic> json) =>
-      _$PracticeQuestionFromJson(json);
+  factory PracticeQuestion.fromJson(Map<String, dynamic> json) => _$PracticeQuestionFromJson(json);
 }
 
 @freezed
@@ -75,6 +71,5 @@ abstract class UnitDetail with _$UnitDetail {
 
   List<PracticeQuestion> get practice => practices;
 
-  factory UnitDetail.fromJson(Map<String, dynamic> json) =>
-      _$UnitDetailFromJson(json);
+  factory UnitDetail.fromJson(Map<String, dynamic> json) => _$UnitDetailFromJson(json);
 }

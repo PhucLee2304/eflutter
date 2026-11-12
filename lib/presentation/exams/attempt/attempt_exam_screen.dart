@@ -2,7 +2,7 @@ import 'package:eflutter/core/loading/loading_widget.dart';
 import 'dart:async';
 
 import 'package:eflutter/core/attempt_lock/attempt_integrity_reporter.dart';
-import 'package:eflutter/core/base/local_data_base.dart';
+import 'package:eflutter/core/auth/auth_interceptor.dart';
 import 'package:eflutter/core/base/remote_data_base.dart';
 import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/data/data_sources/attempt_socket_client.dart';
@@ -53,7 +53,7 @@ class _AttemptExamScreenState extends State<AttemptExamScreen> {
   void initState() {
     super.initState();
     final repository = ExamRepository(getIt<RemoteDataBase>());
-    _socket = AttemptSocketClient(getIt<LocalDataBase>());
+    _socket = AttemptSocketClient(getIt<AuthInterceptor>());
     _session = AttemptSessionCubit(repository, _socket, reporter: getIt<AttemptIntegrityReporter>())
       ..load(widget.attempt.id, initialAttempt: widget.attempt);
     _navigator = AttemptNavigatorCubit(repository, _session, widget.attempt.id);

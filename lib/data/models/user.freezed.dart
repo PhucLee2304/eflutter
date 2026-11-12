@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$User {
 
- int get id; String get email; String get name; String? get avatar; String get role;
+ int get id; String get email; String get name; String? get avatar; String get role; DateTime? get blockedAt; DateTime? get createdAt;
 /// Create a copy of User
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -28,16 +28,16 @@ $UserCopyWith<User> get copyWith => _$UserCopyWithImpl<User>(this as User, _$ide
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is User&&(identical(other.id, id) || other.id == id)&&(identical(other.email, email) || other.email == email)&&(identical(other.name, name) || other.name == name)&&(identical(other.avatar, avatar) || other.avatar == avatar)&&(identical(other.role, role) || other.role == role));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is User&&(identical(other.id, id) || other.id == id)&&(identical(other.email, email) || other.email == email)&&(identical(other.name, name) || other.name == name)&&(identical(other.avatar, avatar) || other.avatar == avatar)&&(identical(other.role, role) || other.role == role)&&(identical(other.blockedAt, blockedAt) || other.blockedAt == blockedAt)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,email,name,avatar,role);
+int get hashCode => Object.hash(runtimeType,id,email,name,avatar,role,blockedAt,createdAt);
 
 @override
 String toString() {
-  return 'User(id: $id, email: $email, name: $name, avatar: $avatar, role: $role)';
+  return 'User(id: $id, email: $email, name: $name, avatar: $avatar, role: $role, blockedAt: $blockedAt, createdAt: $createdAt)';
 }
 
 
@@ -48,7 +48,7 @@ abstract mixin class $UserCopyWith<$Res>  {
   factory $UserCopyWith(User value, $Res Function(User) _then) = _$UserCopyWithImpl;
 @useResult
 $Res call({
- int id, String email, String name, String? avatar, String role
+ int id, String email, String name, String? avatar, String role, DateTime? blockedAt, DateTime? createdAt
 });
 
 
@@ -65,14 +65,16 @@ class _$UserCopyWithImpl<$Res>
 
 /// Create a copy of User
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? email = null,Object? name = null,Object? avatar = freezed,Object? role = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? email = null,Object? name = null,Object? avatar = freezed,Object? role = null,Object? blockedAt = freezed,Object? createdAt = freezed,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as int,email: null == email ? _self.email : email // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,avatar: freezed == avatar ? _self.avatar : avatar // ignore: cast_nullable_to_non_nullable
 as String?,role: null == role ? _self.role : role // ignore: cast_nullable_to_non_nullable
-as String,
+as String,blockedAt: freezed == blockedAt ? _self.blockedAt : blockedAt // ignore: cast_nullable_to_non_nullable
+as DateTime?,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
+as DateTime?,
   ));
 }
 
@@ -157,10 +159,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int id,  String email,  String name,  String? avatar,  String role)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int id,  String email,  String name,  String? avatar,  String role,  DateTime? blockedAt,  DateTime? createdAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _User() when $default != null:
-return $default(_that.id,_that.email,_that.name,_that.avatar,_that.role);case _:
+return $default(_that.id,_that.email,_that.name,_that.avatar,_that.role,_that.blockedAt,_that.createdAt);case _:
   return orElse();
 
 }
@@ -178,10 +180,10 @@ return $default(_that.id,_that.email,_that.name,_that.avatar,_that.role);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int id,  String email,  String name,  String? avatar,  String role)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int id,  String email,  String name,  String? avatar,  String role,  DateTime? blockedAt,  DateTime? createdAt)  $default,) {final _that = this;
 switch (_that) {
 case _User():
-return $default(_that.id,_that.email,_that.name,_that.avatar,_that.role);case _:
+return $default(_that.id,_that.email,_that.name,_that.avatar,_that.role,_that.blockedAt,_that.createdAt);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -198,10 +200,10 @@ return $default(_that.id,_that.email,_that.name,_that.avatar,_that.role);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int id,  String email,  String name,  String? avatar,  String role)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int id,  String email,  String name,  String? avatar,  String role,  DateTime? blockedAt,  DateTime? createdAt)?  $default,) {final _that = this;
 switch (_that) {
 case _User() when $default != null:
-return $default(_that.id,_that.email,_that.name,_that.avatar,_that.role);case _:
+return $default(_that.id,_that.email,_that.name,_that.avatar,_that.role,_that.blockedAt,_that.createdAt);case _:
   return null;
 
 }
@@ -213,7 +215,7 @@ return $default(_that.id,_that.email,_that.name,_that.avatar,_that.role);case _:
 @JsonSerializable()
 
 class _User implements User {
-  const _User({required this.id, required this.email, required this.name, this.avatar, this.role = ''});
+  const _User({required this.id, required this.email, required this.name, this.avatar, this.role = '', this.blockedAt, this.createdAt});
   factory _User.fromJson(Map<String, dynamic> json) => _$UserFromJson(json);
 
 @override final  int id;
@@ -221,6 +223,8 @@ class _User implements User {
 @override final  String name;
 @override final  String? avatar;
 @override@JsonKey() final  String role;
+@override final  DateTime? blockedAt;
+@override final  DateTime? createdAt;
 
 /// Create a copy of User
 /// with the given fields replaced by the non-null parameter values.
@@ -235,16 +239,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _User&&(identical(other.id, id) || other.id == id)&&(identical(other.email, email) || other.email == email)&&(identical(other.name, name) || other.name == name)&&(identical(other.avatar, avatar) || other.avatar == avatar)&&(identical(other.role, role) || other.role == role));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _User&&(identical(other.id, id) || other.id == id)&&(identical(other.email, email) || other.email == email)&&(identical(other.name, name) || other.name == name)&&(identical(other.avatar, avatar) || other.avatar == avatar)&&(identical(other.role, role) || other.role == role)&&(identical(other.blockedAt, blockedAt) || other.blockedAt == blockedAt)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,email,name,avatar,role);
+int get hashCode => Object.hash(runtimeType,id,email,name,avatar,role,blockedAt,createdAt);
 
 @override
 String toString() {
-  return 'User(id: $id, email: $email, name: $name, avatar: $avatar, role: $role)';
+  return 'User(id: $id, email: $email, name: $name, avatar: $avatar, role: $role, blockedAt: $blockedAt, createdAt: $createdAt)';
 }
 
 
@@ -255,7 +259,7 @@ abstract mixin class _$UserCopyWith<$Res> implements $UserCopyWith<$Res> {
   factory _$UserCopyWith(_User value, $Res Function(_User) _then) = __$UserCopyWithImpl;
 @override @useResult
 $Res call({
- int id, String email, String name, String? avatar, String role
+ int id, String email, String name, String? avatar, String role, DateTime? blockedAt, DateTime? createdAt
 });
 
 
@@ -272,14 +276,16 @@ class __$UserCopyWithImpl<$Res>
 
 /// Create a copy of User
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? email = null,Object? name = null,Object? avatar = freezed,Object? role = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? email = null,Object? name = null,Object? avatar = freezed,Object? role = null,Object? blockedAt = freezed,Object? createdAt = freezed,}) {
   return _then(_User(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as int,email: null == email ? _self.email : email // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,avatar: freezed == avatar ? _self.avatar : avatar // ignore: cast_nullable_to_non_nullable
 as String?,role: null == role ? _self.role : role // ignore: cast_nullable_to_non_nullable
-as String,
+as String,blockedAt: freezed == blockedAt ? _self.blockedAt : blockedAt // ignore: cast_nullable_to_non_nullable
+as DateTime?,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
+as DateTime?,
   ));
 }
 

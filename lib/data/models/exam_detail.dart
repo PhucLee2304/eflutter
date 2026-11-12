@@ -43,13 +43,9 @@ class ExamDetail {
       totalSections: (json['totalSections'] as num?)?.toInt() ?? 0,
       totalQuestions: (json['totalQuestions'] as num?)?.toInt() ?? 0,
       sections: sections
-          .map(
-            (item) => ExamSectionSummary.fromJson(item as Map<String, dynamic>),
-          )
+          .map((item) => ExamSectionSummary.fromJson(item as Map<String, dynamic>))
           .toList(),
-      parts: parts
-          .map((item) => ExamPartSummary.fromJson(item as Map<String, dynamic>))
-          .toList(),
+      parts: parts.map((item) => ExamPartSummary.fromJson(item as Map<String, dynamic>)).toList(),
       createdAt: DateTime.tryParse(json['createdAt'] as String? ?? ''),
       updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? ''),
     );

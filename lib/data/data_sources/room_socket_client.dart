@@ -2,14 +2,14 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:eflutter/app/config/app_config.dart';
-import 'package:eflutter/core/base/local_data_base.dart';
+import 'package:eflutter/core/auth/auth_interceptor.dart';
 import 'package:eflutter/data/data_sources/attempt_socket_connector.dart';
 import 'package:eflutter/data/models/classroom.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 class RoomSocketClient {
-  RoomSocketClient(this._localData);
-  final LocalDataBase _localData;
+  RoomSocketClient(this._auth);
+  final AuthInterceptor _auth;
   final _events = StreamController<ClassroomRoom>.broadcast();
   final _activityEvents = StreamController<RoomActivitySocketEvent>.broadcast();
   final _reconnected = StreamController<void>.broadcast();
@@ -29,7 +29,7 @@ class RoomSocketClient {
 
   Future<void> connect() async {
     if (_channel != null || _closed) return;
-    final token = await _localData.getAccessToken();
+    final token = await _auth.freshAccessToken();
     if (token == null || token.isEmpty) return;
     final base = Uri.parse(AppConfig.baseUrl);
     final uri = base.replace(
@@ -44,7 +44,14 @@ class RoomSocketClient {
       _subscription = channel.stream.listen(
         _handleMessage,
         onError: (_) => _disconnected(),
-        onDone: _disconnected,
+        onDone: () {
+          // Bị khoá tài khoản: đã đăng xuất, đóng hẳn để không nối lại.
+          if (_auth.handleSocketClosed(channel)) {
+            unawaited(close());
+            return;
+          }
+          _disconnected();
+        },
         cancelOnError: true,
       );
       await channel.ready;
@@ -68,14 +75,10 @@ class RoomSocketClient {
       }
       final type = data['type'] as String? ?? '';
       if (type == 'ROOM_STARTED' || type == 'ROOM_ENDED') {
-        _events.add(
-          ClassroomRoom.fromJson(data['payload'] as Map<String, dynamic>),
-        );
+        _events.add(ClassroomRoom.fromJson(data['payload'] as Map<String, dynamic>));
       }
       final roomId = (data['roomId'] as num?)?.toInt();
-      if (eventId != null &&
-          roomId != null &&
-          _roomActivityTypes.contains(type)) {
+      if (eventId != null && roomId != null && _roomActivityTypes.contains(type)) {
         final payload = data['payload'];
         _activityEvents.add(
           RoomActivitySocketEvent(
@@ -83,9 +86,7 @@ class RoomSocketClient {
             type: type,
             roomId: roomId,
             createdAt: DateTime.parse(data['createdAt'] as String).toLocal(),
-            userId: payload is Map<String, dynamic>
-                ? payload['userId'] as String?
-                : null,
+            userId: payload is Map<String, dynamic> ? payload['userId'] as String? : null,
           ),
         );
       }

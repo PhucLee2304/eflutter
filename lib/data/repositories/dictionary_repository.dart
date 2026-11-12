@@ -18,11 +18,7 @@ class DictionaryRepository with RepositorySafeCall {
     return safeCall(() => _remoteData.getWordById(id));
   }
 
-  Future<Result<SearchResponse>> getWords(
-    String query, {
-    int page = 1,
-    int pageSize = 20,
-  }) async {
+  Future<Result<SearchResponse>> getWords(String query, {int page = 1, int pageSize = 20}) async {
     return safeCall(() => _remoteData.getWords(query, page, pageSize));
   }
 
@@ -31,10 +27,7 @@ class DictionaryRepository with RepositorySafeCall {
   }
 
   Future<Result<Flashcard>> createFlashcard(int wordId, {String note = ""}) async {
-    return safeCall(() => _remoteData.createFlashcard({
-          'wordId': wordId,
-          'note': note,
-        }));
+    return safeCall(() => _remoteData.createFlashcard({'wordId': wordId, 'note': note}));
   }
 
   Future<Result<void>> deleteFlashcard(int id) async {

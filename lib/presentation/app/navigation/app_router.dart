@@ -1,6 +1,7 @@
 import 'package:eflutter/core/attempt_lock/attempt_lock_notifier.dart';
 import 'package:eflutter/core/auth/auth_notifier.dart';
 import 'package:eflutter/core/di/injection.dart';
+import 'package:eflutter/presentation/app/cubit/app_cubit.dart';
 import 'package:eflutter/presentation/app/navigation/app_routes.dart';
 import 'package:eflutter/presentation/app/navigation/navigation_item.dart';
 import 'package:eflutter/presentation/app/widgets/mobile_layout.dart';
@@ -89,6 +90,18 @@ class AppRouter {
 
     if (isAuthenticated && isPublicPath) {
       return AppRoutes.home.path;
+    }
+
+    // Người không phải admin gõ thẳng /admin/... thì về Home. Lúc user chưa tải xong (mở lại
+    // trang) vẫn cho vào; API admin tự chặn bằng RequireRole.
+    final user = getIt<AppCubit>().state.user;
+    if (state.uri.path.startsWith(adminPathPrefix) &&
+        user != null &&
+        user.role.toUpperCase() != 'ADMIN') {
+      return AppRoutes.home.path;
+    }
+    if (state.uri.path == adminPathPrefix || state.uri.path == '$adminPathPrefix/') {
+      return AppRoutes.adminStats.path;
     }
 
     // Đang làm bài: mọi điều hướng ra ngoài màn làm bài đều bị đưa về lại.

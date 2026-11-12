@@ -20,7 +20,7 @@ class NotificationRepository {
     return NotificationPage.fromJson(response.data as Map<String, dynamic>);
   }
 
-  Future<void> markRead(List<int> ids) => _dio.patch('$_base/read', data: {'ids': ids});
+  Future<void> markRead(List<int> ids) => _dio.put('$_base/read', data: {'ids': ids});
 
   Future<void> deleteMany(List<int> ids) => _dio.delete(_base, data: {'ids': ids});
 

@@ -1,3 +1,5 @@
+import 'package:eflutter/presentation/admin/admin_stats_screen.dart';
+import 'package:eflutter/presentation/admin/admin_users_screen.dart';
 import 'package:eflutter/presentation/app/navigation/app_routes.dart';
 import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/core/base/remote_data_base.dart';
@@ -49,6 +51,9 @@ class NavigationItem {
   final IconData? parentIcon;
   final bool isChild;
 
+  /// Chỉ hiện trên sidebar web với tài khoản role ADMIN.
+  final bool adminOnly;
+
   /// Route cùng cấp nằm chung nhánh shell, vd Self-study gồm cả /exams/thpt và /histories.
   final List<RouteBase> siblingRoutes;
 
@@ -63,6 +68,7 @@ class NavigationItem {
     this.parentTitle,
     this.parentIcon,
     this.isChild = false,
+    this.adminOnly = false,
     this.siblingRoutes = const [],
   });
 
@@ -77,7 +83,7 @@ class NavigationItem {
   static final webShellBranches = [...allItems, notificationItem];
   static final mobileShellBranches = [homeItem, topicItem, classroomsItem, profileItem, otherItem];
   static final mobileOtherItems = [
-    ...allItems.where((e) => !mobileShellBranches.contains(e)),
+    ...allItems.where((e) => !mobileShellBranches.contains(e) && !e.adminOnly),
     notificationItem,
   ];
 
@@ -91,8 +97,34 @@ class NavigationItem {
       grammarItem,
       profileItem,
       otherItem,
+      adminStatsItem,
+      adminUsersItem,
     ],
   };
+
+  static final adminStatsItem = const NavigationItem(
+    title: 'Statistics',
+    icon: SolarIconsOutline.chart,
+    selectedIcon: SolarIconsBold.chart,
+    route: AppRoutes.adminStats,
+    screen: AdminStatsScreen(),
+    parentTitle: 'Admin',
+    parentIcon: SolarIconsOutline.shieldCheck,
+    isChild: true,
+    adminOnly: true,
+  );
+
+  static final adminUsersItem = const NavigationItem(
+    title: 'Users',
+    icon: SolarIconsOutline.usersGroupRounded,
+    selectedIcon: SolarIconsBold.usersGroupRounded,
+    route: AppRoutes.adminUsers,
+    screen: AdminUsersScreen(),
+    parentTitle: 'Admin',
+    parentIcon: SolarIconsOutline.shieldCheck,
+    isChild: true,
+    adminOnly: true,
+  );
 
   static final homeItem = NavigationItem(
     title: 'Home',
@@ -211,23 +243,52 @@ class NavigationItem {
     icon: SolarIconsOutline.notebook,
     selectedIcon: SolarIconsBold.notebook,
     route: AppRoutes.topic,
-    screen: TopicScreen(),
+    screen: const TopicScreen(),
     subRoutes: [
       GoRoute(
-        path: AppRoutes.topicLesson.path,
+        path: AppRoutes.topicSections.path,
         builder: (context, state) {
-          final id = int.tryParse(state.pathParameters['id'] ?? '');
-          if (id == null) {
-            return const Scaffold(body: Center(child: Text('Invalid lesson ID')));
-          }
-          return BlocProvider(
-            create: (_) => LessonDetailCubit(TopicRepository(getIt<RemoteDataBase>())),
-            child: LessonDetailScreen(lessonId: id),
-          );
+          final topicId = int.tryParse(state.pathParameters['topicId'] ?? '');
+          return topicId == null ? _invalidTopicUrl : TopicScreen(topicId: topicId);
         },
+        routes: [
+          GoRoute(
+            path: AppRoutes.topicLessons.path,
+            builder: (context, state) {
+              final topicId = int.tryParse(state.pathParameters['topicId'] ?? '');
+              final sectionId = int.tryParse(state.pathParameters['sectionId'] ?? '');
+              return topicId == null || sectionId == null
+                  ? _invalidTopicUrl
+                  : TopicScreen(topicId: topicId, sectionId: sectionId);
+            },
+            routes: [
+              GoRoute(
+                path: AppRoutes.topicLesson.path,
+                builder: (context, state) {
+                  final topicId = int.tryParse(state.pathParameters['topicId'] ?? '');
+                  final sectionId = int.tryParse(state.pathParameters['sectionId'] ?? '');
+                  final lessonId = int.tryParse(state.pathParameters['lessonId'] ?? '');
+                  if (topicId == null || sectionId == null || lessonId == null) {
+                    return _invalidTopicUrl;
+                  }
+                  return BlocProvider(
+                    create: (_) => LessonDetailCubit(TopicRepository(getIt<RemoteDataBase>())),
+                    child: LessonDetailScreen(
+                      topicId: topicId,
+                      sectionId: sectionId,
+                      lessonId: lessonId,
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ],
       ),
     ],
   );
+
+  static const _invalidTopicUrl = Scaffold(body: Center(child: Text('Invalid topic URL')));
 
   /// Một mục "Self-study" cho cả TOEIC, THPT và lịch sử tự luyện; URL cũ giữ nguyên,
   /// màn nào cũng có header chuyển qua lại giữa ba route này.

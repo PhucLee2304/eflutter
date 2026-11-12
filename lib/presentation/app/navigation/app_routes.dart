@@ -5,7 +5,9 @@ enum AppRoutes {
   postDetail(path: 'posts/:id'),
   notifications(path: '/notifications'),
   topic(path: '/topic'),
-  topicLesson(path: 'lessons/:id'),
+  topicSections(path: ':topicId'),
+  topicLessons(path: 'sections/:sectionId'),
+  topicLesson(path: 'lessons/:lessonId'),
   examThpt(path: '/exams/thpt'),
   examToeic(path: '/exams/toeic'),
   examDetail(path: 'details/:id'),
@@ -30,6 +32,8 @@ enum AppRoutes {
   dictionaryWord(path: ':id'),
   grammar(path: '/grammar'),
   grammarUnit(path: 'units/:id'),
+  adminStats(path: '/admin/stats'),
+  adminUsers(path: '/admin/users'),
 
   other(path: '/other'),
   subOther(path: 'other-sub-route');
@@ -40,9 +44,19 @@ enum AppRoutes {
 
 final publicPaths = [AppRoutes.login.path];
 
+/// Khu vực admin: chỉ tài khoản role ADMIN thấy nav và vào được.
+const adminPathPrefix = '/admin';
+
 String get notificationsPath => AppRoutes.notifications.path;
 
-String topicLessonPath(int lessonId) => '${AppRoutes.topic.path}/lessons/$lessonId';
+/// /topic → /topic/:topicId (sections) → .../sections/:sectionId (lessons) → .../lessons/:lessonId
+String topicSectionsPath(int topicId) => '${AppRoutes.topic.path}/$topicId';
+
+String topicLessonsPath(int topicId, int sectionId) =>
+    '${topicSectionsPath(topicId)}/sections/$sectionId';
+
+String topicLessonPath(int topicId, int sectionId, int lessonId) =>
+    '${topicLessonsPath(topicId, sectionId)}/lessons/$lessonId';
 
 String examDetailPath(String examType, int examId) {
   final basePath = examType.toUpperCase() == 'TOEIC'

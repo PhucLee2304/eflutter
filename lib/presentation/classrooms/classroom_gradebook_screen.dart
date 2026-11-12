@@ -3,7 +3,7 @@ import 'package:eflutter/core/loading/loading_widget.dart';
 import 'dart:async';
 
 import 'package:dio/dio.dart';
-import 'package:eflutter/core/base/local_data_base.dart';
+import 'package:eflutter/core/auth/auth_interceptor.dart';
 import 'package:eflutter/core/base/result.dart';
 import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/data/data_sources/gradebook_socket_client.dart';
@@ -64,7 +64,7 @@ class _ClassroomGradebookScreenState extends State<ClassroomGradebookScreen>
   void initState() {
     super.initState();
     repository = widget.repository ?? ClassroomRepository(getIt<Dio>());
-    socket = widget.socket ?? GradebookSocketClient(getIt<LocalDataBase>());
+    socket = widget.socket ?? GradebookSocketClient(getIt<AuthInterceptor>());
     eventSubscription = socket.events.listen(handleSocketEvent);
     statusSubscription = socket.statuses.listen((status) {
       if (mounted) setState(() => socketStatus = status);

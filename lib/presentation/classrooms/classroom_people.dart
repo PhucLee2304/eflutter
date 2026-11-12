@@ -162,14 +162,22 @@ class _ClassroomPeopleViewState extends State<ClassroomPeopleView> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              member.user?.name ?? 'User no longer available',
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: Gb.text,
-                              ),
+                            Row(
+                              spacing: 8,
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    member.user?.name ?? 'User no longer available',
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                      color: Gb.text,
+                                    ),
+                                  ),
+                                ),
+                                if (member.user?.blocked ?? false) const GbPill.blocked(),
+                              ],
                             ),
                             if (compact)
                               Text(
@@ -285,14 +293,22 @@ class _ClassroomPeopleViewState extends State<ClassroomPeopleView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      member.user?.name ?? 'Student',
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: Gb.text,
-                      ),
+                    Row(
+                      spacing: 8,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            member.user?.name ?? 'Student',
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: Gb.text,
+                            ),
+                          ),
+                        ),
+                        if (member.user?.blocked ?? false) const GbPill.blocked(),
+                      ],
                     ),
                     Text(
                       member.user?.email ?? '',

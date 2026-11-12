@@ -17,7 +17,7 @@ Future<Classroom?> showCreateClassroomDialog(BuildContext context) => showDialog
   builder: (_) => const _CreateClassroomDialog(),
 );
 
-/// Popup sửa lớp (Figma 30:469): cùng kiểu với popup tạo, chỉ sửa tên và mô tả; trả về lớp đã lưu.
+/// Popup sửa lớp (Figma 30:469): cùng kiểu với popup tạo, sửa ảnh, tên và mô tả; trả về lớp đã lưu.
 Future<Classroom?> showEditClassroomDialog(BuildContext context, Classroom classroom) =>
     showDialog<Classroom>(
       context: context,
@@ -28,7 +28,7 @@ Future<Classroom?> showEditClassroomDialog(BuildContext context, Classroom class
 class _CreateClassroomDialog extends StatefulWidget {
   const _CreateClassroomDialog({this.editing});
 
-  /// Có giá trị thì popup ở chế độ sửa: không có ảnh, điền sẵn tên và mô tả.
+  /// Có giá trị thì popup ở chế độ sửa: hiện ảnh hiện tại, điền sẵn tên và mô tả.
   final Classroom? editing;
 
   @override
@@ -65,31 +65,20 @@ class _CreateClassroomDialogState extends State<_CreateClassroomDialog> {
     if (file != null && mounted) setState(() => photo = file);
   }
 
-  // Tên file an toàn và không trùng trong thư mục avatars, giống luồng avatar ở profile.
-  String _uploadName(String original) {
-    final dot = original.lastIndexOf('.');
-    final ext = dot > -1 ? original.substring(dot) : '';
-    final base = (dot > -1 ? original.substring(0, dot) : original)
-        .replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '-')
-        .replaceAll(RegExp(r'^-+|-+$'), '');
-    return '${DateTime.now().millisecondsSinceEpoch}-${base.isEmpty ? 'classroom' : base}$ext';
-  }
-
   Future<String?> _uploadPhoto(LocalPickedFile file) async {
     final users = getIt<UserRepository>();
-    final fileName = _uploadName(file.name);
     final presign = await users.getPresignedUploadUrl(
-      fileName: fileName,
+      fileName: file.name,
       contentType: file.contentType,
-      folder: 'avatars',
+      folder: 'avatars/classrooms',
     );
-    if (presign case Success(data: final url)) {
+    if (presign case Success(data: final presigned)) {
       final upload = await users.uploadBinaryToUrl(
-        url: url,
+        url: presigned.url,
         bytes: file.bytes,
         contentType: file.contentType,
       );
-      if (upload is Success) return fileName;
+      if (upload is Success) return presigned.fileName;
     }
     return null;
   }
@@ -121,7 +110,7 @@ class _CreateClassroomDialogState extends State<_CreateClassroomDialog> {
             description: text.isEmpty ? null : text,
             avatar: avatar,
           )
-        : await repository.update(editing.id, name: name.text, description: text);
+        : await repository.update(editing.id, name: name.text, description: text, avatar: avatar);
     if (!mounted) return;
     switch (result) {
       case Success(data: final classroom):
@@ -176,18 +165,25 @@ class _CreateClassroomDialogState extends State<_CreateClassroomDialog> {
 
   Widget _photoRow() {
     final file = photo;
+    // Chế độ sửa, chưa chọn ảnh mới: hiện ảnh hiện tại của lớp.
+    final current = widget.editing?.avatar;
+    final ImageProvider? image = file != null
+        ? MemoryImage(file.bytes)
+        : current != null
+        ? NetworkImage(current)
+        : null;
     return Row(
       children: [
         InkWell(
           onTap: saving ? null : pickPhoto,
           customBorder: const CircleBorder(),
           child: CustomPaint(
-            painter: file == null ? _DashedCirclePainter() : null,
+            painter: image == null ? _DashedCirclePainter() : null,
             child: CircleAvatar(
               radius: 36,
               backgroundColor: _fill,
-              backgroundImage: file == null ? null : MemoryImage(file.bytes),
-              child: file == null
+              backgroundImage: image,
+              child: image == null
                   ? const Icon(Icons.add_photo_alternate_outlined, size: 28, color: _muted)
                   : null,
             ),
@@ -210,7 +206,7 @@ class _CreateClassroomDialogState extends State<_CreateClassroomDialog> {
             Row(
               spacing: 8,
               children: [
-                _smallButton(file == null ? 'Upload' : 'Change', saving ? null : pickPhoto),
+                _smallButton(image == null ? 'Upload' : 'Change', saving ? null : pickPhoto),
                 if (file != null)
                   _smallButton('Remove', saving ? null : () => setState(() => photo = null)),
               ],
@@ -283,7 +279,8 @@ class _CreateClassroomDialogState extends State<_CreateClassroomDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    if (widget.editing == null) ...[_photoRow(), const SizedBox(height: 18)],
+                    _photoRow(),
+                    const SizedBox(height: 18),
                     _label('Classroom name', required: true),
                     TextField(
                       controller: name,

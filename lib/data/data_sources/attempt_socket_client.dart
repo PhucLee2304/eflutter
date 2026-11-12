@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:eflutter/app/config/app_config.dart';
-import 'package:eflutter/core/base/local_data_base.dart';
+import 'package:eflutter/core/auth/auth_interceptor.dart';
 import 'package:eflutter/data/data_sources/attempt_socket_connector.dart';
 import 'package:uuid/uuid.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -65,31 +65,16 @@ abstract final class AttemptSocketPush {
   static const sessionRevoked = 'ATTEMPT_SESSION_REVOKED';
   static const reset = 'ATTEMPT_RESET';
 
-  static const all = {
-    submitting,
-    submitted,
-    violation,
-    terminated,
-    sessionRevoked,
-    reset,
-  };
+  static const all = {submitting, submitted, violation, terminated, sessionRevoked, reset};
 }
 
 abstract interface class AttemptSocketGateway {
   Stream<AttemptSocketEvent> get events;
   Stream<AttemptSocketStatus> get statuses;
   Future<void> connect();
-  String sendAnswer({
-    required int attemptId,
-    required int questionId,
-    required int? optionId,
-  });
+  String sendAnswer({required int attemptId, required int questionId, required int? optionId});
   String sendListeningAdvance({required int attemptId, required int page});
-  String sendSessionClaim({
-    required int attemptId,
-    String? sessionToken,
-    bool takeover = false,
-  });
+  String sendSessionClaim({required int attemptId, String? sessionToken, bool takeover = false});
   String sendIntegrityEvent({
     required int attemptId,
     required int sessionEpoch,
@@ -105,9 +90,9 @@ abstract interface class AttemptSocketGateway {
 }
 
 class AttemptSocketClient implements AttemptSocketGateway {
-  AttemptSocketClient(this._localData);
+  AttemptSocketClient(this._auth);
 
-  final LocalDataBase _localData;
+  final AuthInterceptor _auth;
   final _events = StreamController<AttemptSocketEvent>.broadcast();
   final _statuses = StreamController<AttemptSocketStatus>.broadcast();
   final _uuid = const Uuid();
@@ -124,7 +109,7 @@ class AttemptSocketClient implements AttemptSocketGateway {
   Future<void> connect() async {
     if (_channel != null || _closed) return;
     _statuses.add(AttemptSocketStatus.connecting);
-    final token = await _localData.getAccessToken();
+    final token = await _auth.freshAccessToken();
     if (token == null || token.isEmpty) {
       _statuses.add(AttemptSocketStatus.disconnected);
       throw StateError('Authentication token is missing.');
@@ -137,7 +122,14 @@ class AttemptSocketClient implements AttemptSocketGateway {
       _subscription = channel.stream.listen(
         _handleMessage,
         onError: (_) => _handleDisconnect(),
-        onDone: _handleDisconnect,
+        onDone: () {
+          // Bị khoá tài khoản: đã đăng xuất, đóng hẳn để AttemptSessionCubit không nối lại.
+          if (_auth.handleSocketClosed(channel)) {
+            unawaited(close());
+            return;
+          }
+          _handleDisconnect();
+        },
         cancelOnError: true,
       );
       await channel.ready;
@@ -152,11 +144,7 @@ class AttemptSocketClient implements AttemptSocketGateway {
   }
 
   @override
-  String sendAnswer({
-    required int attemptId,
-    required int questionId,
-    required int? optionId,
-  }) {
+  String sendAnswer({required int attemptId, required int questionId, required int? optionId}) {
     return _send('ATTEMPT_ANSWER_UPDATED', {
       'attemptId': attemptId,
       'questionId': questionId,
@@ -166,21 +154,15 @@ class AttemptSocketClient implements AttemptSocketGateway {
 
   @override
   String sendListeningAdvance({required int attemptId, required int page}) =>
-      _send('ATTEMPT_LISTENING_ADVANCE', {
-        'attemptId': attemptId,
-        'page': page,
-      });
+      _send('ATTEMPT_LISTENING_ADVANCE', {'attemptId': attemptId, 'page': page});
 
   @override
-  String sendSessionClaim({
-    required int attemptId,
-    String? sessionToken,
-    bool takeover = false,
-  }) => _send('ATTEMPT_SESSION_CLAIM', {
-    'attemptId': attemptId,
-    'sessionToken': ?sessionToken,
-    if (takeover) 'takeover': true,
-  });
+  String sendSessionClaim({required int attemptId, String? sessionToken, bool takeover = false}) =>
+      _send('ATTEMPT_SESSION_CLAIM', {
+        'attemptId': attemptId,
+        'sessionToken': ?sessionToken,
+        if (takeover) 'takeover': true,
+      });
 
   @override
   String sendIntegrityEvent({
@@ -209,9 +191,7 @@ class AttemptSocketClient implements AttemptSocketGateway {
     final channel = _channel;
     if (channel == null) throw StateError('Socket is not connected.');
     final requestId = _uuid.v4();
-    channel.sink.add(
-      jsonEncode({'type': type, 'requestId': requestId, 'payload': payload}),
-    );
+    channel.sink.add(jsonEncode({'type': type, 'requestId': requestId, 'payload': payload}));
     return requestId;
   }
 

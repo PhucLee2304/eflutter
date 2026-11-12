@@ -1,6 +1,6 @@
 import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:eflutter/core/attempt_lock/attempt_integrity_reporter.dart';
-import 'package:eflutter/core/base/local_data_base.dart';
+import 'package:eflutter/core/auth/auth_interceptor.dart';
 import 'package:eflutter/core/base/remote_data_base.dart';
 import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/data/data_sources/attempt_socket_client.dart';
@@ -41,7 +41,7 @@ class _AttemptPracticeScreenState extends State<AttemptPracticeScreen> {
     super.initState();
     _cubit = AttemptSessionCubit(
       ExamRepository(getIt<RemoteDataBase>()),
-      AttemptSocketClient(getIt<LocalDataBase>()),
+      AttemptSocketClient(getIt<AuthInterceptor>()),
       reporter: getIt<AttemptIntegrityReporter>(),
     )..load(widget.attemptId, initialAttempt: widget.initialAttempt);
   }

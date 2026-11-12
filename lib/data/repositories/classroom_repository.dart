@@ -32,7 +32,8 @@ class ClassroomRepository {
       .then((r) => Classroom.fromJson(r.data as Map<String, dynamic>))
       .safeResult();
 
-  /// [avatar] là tên file đã upload vào thư mục `avatars`; backend đổi thành URL công khai.
+  /// [avatar] là `fileName` storage trả về khi upload vào `avatars/classrooms`; backend đổi thành
+  /// URL công khai.
   Future<Result<Classroom>> create(String name, {String? description, String? avatar}) => _dio
       .post(
         _base,
@@ -45,10 +46,20 @@ class ClassroomRepository {
       .then((r) => Classroom.fromJson(r.data as Map<String, dynamic>))
       .safeResult();
 
-  Future<Result<Classroom>> update(int id, {required String name, String? description}) => _dio
+  /// [avatar] giống [create]; bỏ trống thì giữ ảnh cũ.
+  Future<Result<Classroom>> update(
+    int id, {
+    required String name,
+    String? description,
+    String? avatar,
+  }) => _dio
       .patch(
         '$_base/$id',
-        data: {'name': name.trim(), if (description != null) 'description': description.trim()},
+        data: {
+          'name': name.trim(),
+          if (description != null) 'description': description.trim(),
+          'avatar': ?avatar,
+        },
       )
       .then((r) => Classroom.fromJson(r.data as Map<String, dynamic>))
       .safeResult();

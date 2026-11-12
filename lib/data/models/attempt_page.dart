@@ -29,17 +29,12 @@ class AttemptNavigator {
       stage: json['stage'] as String?,
       currentPage: (json['currentPage'] as num?)?.toInt(),
       pageStartedAt: DateTime.tryParse(json['pageStartedAt'] as String? ?? ''),
-      serverTime:
-          DateTime.tryParse(json['serverTime'] as String? ?? '') ??
-          DateTime.now(),
+      serverTime: DateTime.tryParse(json['serverTime'] as String? ?? '') ?? DateTime.now(),
       expiresAt: DateTime.tryParse(json['expiresAt'] as String? ?? ''),
       totalQuestions: (json['totalQuestions'] as num?)?.toInt() ?? 0,
       answeredCount: (json['answeredCount'] as num?)?.toInt() ?? 0,
       pages: pages
-          .map(
-            (item) =>
-                AttemptNavigatorPage.fromJson(item as Map<String, dynamic>),
-          )
+          .map((item) => AttemptNavigatorPage.fromJson(item as Map<String, dynamic>))
           .toList(),
     );
   }
@@ -75,10 +70,7 @@ class AttemptNavigatorPage {
       section: json['section'] as String? ?? '',
       part: json['part'] as String?,
       questions: questions
-          .map(
-            (item) =>
-                AttemptNavigatorQuestion.fromJson(item as Map<String, dynamic>),
-          )
+          .map((item) => AttemptNavigatorQuestion.fromJson(item as Map<String, dynamic>))
           .toList(),
     );
   }
@@ -139,15 +131,10 @@ class AttemptPage {
           ? AttemptPageGroup.fromJson(json['group'] as Map<String, dynamic>)
           : null,
       questions: questions
-          .map(
-            (item) =>
-                AttemptPageQuestion.fromJson(item as Map<String, dynamic>),
-          )
+          .map((item) => AttemptPageQuestion.fromJson(item as Map<String, dynamic>))
           .toList(),
       listening: json['listening'] is Map<String, dynamic>
-          ? AttemptPageListening.fromJson(
-              json['listening'] as Map<String, dynamic>,
-            )
+          ? AttemptPageListening.fromJson(json['listening'] as Map<String, dynamic>)
           : null,
       nextAudioUrl: json['nextAudioUrl'] as String?,
     );
@@ -209,9 +196,7 @@ class AttemptPageQuestion {
       content: json['content'] as String? ?? '',
       excludedFromScore: json['excludedFromScore'] as bool? ?? false,
       options: options
-          .map(
-            (item) => AttemptPageOption.fromJson(item as Map<String, dynamic>),
-          )
+          .map((item) => AttemptPageOption.fromJson(item as Map<String, dynamic>))
           .toList(),
       selectedOptionId: (json['selectedOptionId'] as num?)?.toInt(),
     );
@@ -223,11 +208,7 @@ class AttemptPageOption {
   final String key;
   final String? content;
 
-  const AttemptPageOption({
-    required this.id,
-    required this.key,
-    required this.content,
-  });
+  const AttemptPageOption({required this.id, required this.key, required this.content});
 
   factory AttemptPageOption.fromJson(Map<String, dynamic> json) {
     return AttemptPageOption(

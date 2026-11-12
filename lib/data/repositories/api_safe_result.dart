@@ -25,9 +25,7 @@ extension ApiSafeResult<T> on Future<T> {
         onError?.call(e);
       }
       logger.error('[UnexpectedException]:', e, st);
-      return Result.failure(
-        message: 'An unexpected error occurred. Please try again.',
-      );
+      return Result.failure(message: 'An unexpected error occurred. Please try again.');
     }
   }
 
@@ -69,10 +67,7 @@ extension ApiSafeResult<T> on Future<T> {
     }
 
     final normalized = detail
-        ?.replaceFirst(
-          RegExp(r'^\[(ERROR|FORBIDDEN|CONFLICT|UNAUTHORIZED)\]\s*'),
-          '',
-        )
+        ?.replaceFirst(RegExp(r'^\[(ERROR|FORBIDDEN|CONFLICT|UNAUTHORIZED)\]\s*'), '')
         .trim();
     const translations = {
       'Classroom is not active': 'This classroom is no longer active.',
@@ -81,6 +76,9 @@ extension ApiSafeResult<T> on Future<T> {
       'Teacher cannot join own classroom as student':
           'Teachers cannot join their own classroom as students.',
       'Active attempt already exists': 'You already have an active attempt.',
+      'Account blocked':
+          'Your account has been blocked. Contact the center administrator for help.',
+      'Only client accounts can be blocked': 'Admin accounts cannot be blocked.',
     };
     if (normalized != null && translations.containsKey(normalized)) {
       return translations[normalized]!;
