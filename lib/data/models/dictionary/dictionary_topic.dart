@@ -15,8 +15,7 @@ abstract class DictionaryTopic with _$DictionaryTopic {
     String? level,
   }) = _DictionaryTopic;
 
-  factory DictionaryTopic.fromJson(Map<String, dynamic> json) =>
-      _$DictionaryTopicFromJson(json);
+  factory DictionaryTopic.fromJson(Map<String, dynamic> json) => _$DictionaryTopicFromJson(json);
 }
 
 @freezed

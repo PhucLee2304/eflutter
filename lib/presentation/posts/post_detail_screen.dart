@@ -142,6 +142,7 @@ class _PostDetailViewState extends State<PostDetailView> {
         author: p.author,
         editing: true,
         classroomName: widget.classroomName,
+        classroomId: p.classroomId,
       ),
     );
     if (value == null) return;
@@ -187,12 +188,10 @@ class _PostDetailViewState extends State<PostDetailView> {
             post: p,
             full: true,
             readOnly: false,
-            admin: false,
             onLike: _like,
             onPin: _pin,
             onEdit: _edit,
             onDelete: _delete,
-            onModerate: (_) {},
             onComment: commentFocus.requestFocus,
             footer: PostComments(
               key: ValueKey(p.id),

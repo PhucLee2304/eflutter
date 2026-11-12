@@ -26,5 +26,6 @@ abstract class GetFlashcardsResponse with _$GetFlashcardsResponse {
     @Default(0) int total,
   }) = _GetFlashcardsResponse;
 
-  factory GetFlashcardsResponse.fromJson(Map<String, dynamic> json) => _$GetFlashcardsResponseFromJson(json);
+  factory GetFlashcardsResponse.fromJson(Map<String, dynamic> json) =>
+      _$GetFlashcardsResponseFromJson(json);
 }

@@ -48,17 +48,27 @@ class CreateAssignmentQuestion {
 }
 
 class ClassroomUser {
-  const ClassroomUser({required this.id, required this.name, required this.email, this.avatar});
+  const ClassroomUser({
+    required this.id,
+    required this.name,
+    required this.email,
+    this.avatar,
+    this.blocked = false,
+  });
   final String id;
   final String name;
   final String email;
   final String? avatar;
+
+  /// Tài khoản đang bị admin khoá; server chỉ gửi field này khi true.
+  final bool blocked;
 
   factory ClassroomUser.fromJson(Map<String, dynamic> json) => ClassroomUser(
     id: json['id'].toString(),
     name: json['name'] as String? ?? '',
     email: json['email'] as String? ?? '',
     avatar: json['avatar'] as String?,
+    blocked: json['blocked'] as bool? ?? false,
   );
 }
 

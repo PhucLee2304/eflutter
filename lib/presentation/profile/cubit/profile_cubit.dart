@@ -84,12 +84,11 @@ class ProfileCubit extends Cubit<ProfileState> {
 
     String? avatarFileName;
     if (avatarFile != null) {
-      avatarFileName = _normalizeUploadFileName(avatarFile.name);
       final presignResult = await _userRepository
           .getPresignedUploadUrl(
-            fileName: avatarFileName,
+            fileName: avatarFile.name,
             contentType: avatarFile.contentType,
-            folder: 'avatars',
+            folder: 'avatars/users',
           )
           .withLoading();
 
@@ -101,10 +100,11 @@ class ProfileCubit extends Cubit<ProfileState> {
         case Cancelled():
           emit(state.copyWith(isSaving: false));
           return;
-        case Success(data: final presignedUrl):
+        case Success(data: final presigned):
+          avatarFileName = presigned.fileName;
           final uploadResult = await _userRepository
               .uploadBinaryToUrl(
-                url: presignedUrl,
+                url: presigned.url,
                 bytes: avatarFile.bytes,
                 contentType: avatarFile.contentType,
               )
@@ -142,18 +142,5 @@ class ProfileCubit extends Cubit<ProfileState> {
       case Cancelled():
         emit(state.copyWith(isSaving: false));
     }
-  }
-
-  String _normalizeUploadFileName(String originalName) {
-    final trimmed = originalName.trim();
-    final dotIndex = trimmed.lastIndexOf('.');
-    final extension = dotIndex > -1 ? trimmed.substring(dotIndex) : '';
-    final sanitizedBase =
-        (dotIndex > -1 ? trimmed.substring(0, dotIndex) : trimmed)
-            .replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '-')
-            .replaceAll(RegExp(r'-{2,}'), '-')
-            .replaceAll(RegExp(r'^-|-$'), '');
-    final safeBase = sanitizedBase.isEmpty ? 'avatar' : sanitizedBase;
-    return '${DateTime.now().millisecondsSinceEpoch}-$safeBase$extension';
   }
 }

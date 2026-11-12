@@ -18,8 +18,5 @@ abstract class GrammarRemoteData {
   Future<UnitDetail> getUnitDetail(@Path('id') int id);
 
   @PUT('/grammar/api/v1/units/{id}/progress')
-  Future<void> submitProgress(
-    @Path('id') int id,
-    @Body() Map<String, dynamic> body,
-  );
+  Future<void> submitProgress(@Path('id') int id, @Body() Map<String, dynamic> body);
 }

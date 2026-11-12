@@ -4,6 +4,7 @@ import 'package:eflutter/data/models/classroom.dart';
 import 'package:eflutter/generated/colors.gen.dart';
 import 'package:eflutter/presentation/app/theme/app_button_styles.dart';
 import 'package:eflutter/presentation/classrooms/confirm_action_dialog.dart';
+import 'package:eflutter/presentation/classrooms/gradebook_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -222,12 +223,31 @@ class _ClassroomBannerState extends State<ClassroomBanner> {
                             ),
                           ),
                           const SizedBox(height: 6),
-                          Text(
-                            '${item.teacher?.name ?? 'Teacher unavailable'}  ·  $students students',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: Color(0xFFDCE6EF),
-                            ),
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  item.teacher?.name ?? 'Teacher unavailable',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Color(0xFFDCE6EF),
+                                  ),
+                                ),
+                              ),
+                              if (item.teacher?.blocked == true) ...[
+                                const SizedBox(width: 6),
+                                const GbPill.blocked(),
+                              ],
+                              Text(
+                                '  ·  $students students',
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: Color(0xFFDCE6EF),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),

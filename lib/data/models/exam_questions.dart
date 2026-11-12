@@ -27,9 +27,7 @@ class ExamQuestionsSection {
       order: (json['order'] as num?)?.toInt() ?? 0,
       duration: (json['duration'] as num?)?.toInt(),
       groups: groups
-          .map(
-            (item) => ExamQuestionGroup.fromJson(item as Map<String, dynamic>),
-          )
+          .map((item) => ExamQuestionGroup.fromJson(item as Map<String, dynamic>))
           .toList(),
       questions: questions
           .map((item) => ExamQuestion.fromJson(item as Map<String, dynamic>))
@@ -124,9 +122,7 @@ class ExamQuestion {
       correctOptionId: (json['correctOptionId'] as num?)?.toInt(),
       isCorrect: json['isCorrect'] as bool?,
       options: options
-          .map(
-            (item) => ExamQuestionOption.fromJson(item as Map<String, dynamic>),
-          )
+          .map((item) => ExamQuestionOption.fromJson(item as Map<String, dynamic>))
           .toList(),
     );
   }

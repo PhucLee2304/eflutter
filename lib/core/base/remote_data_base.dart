@@ -20,7 +20,10 @@ abstract interface class RemoteDataBase {
 
   Future<User> updateMe({String? name, String? avatar});
 
-  Future<String> getPresignedUploadUrl({
+  /// Xin URL PUT để upload ảnh đại diện. [fileName] là tên gốc; server tự đặt tên lưu và trả về
+  /// trong `fileName`, client gửi lại giá trị đó khi gắn avatar. [folder] là `avatars/users`
+  /// hoặc `avatars/classrooms`.
+  Future<({String url, String fileName})> getPresignedUploadUrl({
     required String fileName,
     required String contentType,
     required String folder,

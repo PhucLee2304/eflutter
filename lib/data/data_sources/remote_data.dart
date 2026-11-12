@@ -23,7 +23,7 @@ class RemoteData implements RemoteDataBase {
 
   @override
   Future<(String, String)> login(String idToken) async {
-    final response = await _dio.post('/auth/api/v1/login', data: {'idToken': idToken});
+    final response = await _dio.post('/identity/api/v1/auth/login', data: {'idToken': idToken});
     final data = response.data;
     return (data['accessToken'] as String, data['refreshToken'] as String);
   }
@@ -31,7 +31,7 @@ class RemoteData implements RemoteDataBase {
   @override
   Future<(String, String)> refreshToken(String token) async {
     final response = await _dio.post(
-      '/auth/api/v1/refresh',
+      '/identity/api/v1/auth/refresh',
       data: {'refreshToken': token},
       options: Options(extra: {AuthInterceptor.isRefreshTokenRequestKey: true}),
     );
@@ -41,7 +41,7 @@ class RemoteData implements RemoteDataBase {
 
   @override
   Future<User> getMe() async {
-    final response = await _dio.get('/users/api/v1/me');
+    final response = await _dio.get('/identity/api/v1/users/me');
     return User.fromJson(response.data as Map<String, dynamic>);
   }
 
@@ -51,12 +51,12 @@ class RemoteData implements RemoteDataBase {
     if (name != null) data['name'] = name;
     if (avatar != null) data['avatar'] = avatar;
 
-    final response = await _dio.patch('/users/api/v1/me', data: data);
+    final response = await _dio.patch('/identity/api/v1/users/me', data: data);
     return User.fromJson(response.data as Map<String, dynamic>);
   }
 
   @override
-  Future<String> getPresignedUploadUrl({
+  Future<({String url, String fileName})> getPresignedUploadUrl({
     required String fileName,
     required String contentType,
     required String folder,
@@ -66,7 +66,7 @@ class RemoteData implements RemoteDataBase {
       data: {'fileName': fileName, 'contentType': contentType, 'folder': folder},
     );
     final data = response.data as Map<String, dynamic>;
-    return data['url'] as String;
+    return (url: data['url'] as String, fileName: data['fileName'] as String);
   }
 
   @override

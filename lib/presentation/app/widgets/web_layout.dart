@@ -1,8 +1,10 @@
 import 'package:eflutter/generated/colors.gen.dart';
+import 'package:eflutter/presentation/app/cubit/app_cubit.dart';
 import 'package:eflutter/presentation/app/navigation/app_routes.dart';
 import 'package:eflutter/presentation/app/navigation/navigation_item.dart';
 import 'package:eflutter/presentation/app/widgets/main_app_bar.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:solar_icons/solar_icons.dart';
 
@@ -32,13 +34,22 @@ class WebLayout extends StatelessWidget {
         final selectedItem = navigationShell.currentIndex < allItems.length
             ? allItems[navigationShell.currentIndex]
             : null;
+        final isAdmin = context.select<AppCubit, bool>(
+          (cubit) => cubit.state.user?.role.toUpperCase() == 'ADMIN',
+        );
+        final visibleGroups = {
+          for (final entry in itemGroups.entries)
+            entry.key: entry.value
+                .where((item) => isAdmin || !item.adminOnly)
+                .toList(),
+        };
         return Scaffold(
           appBar: MainAppBar(
             onNotificationPressed: () => context.go(notificationsPath),
           ),
           drawer: isMobile
               ? _MobileDrawer(
-                  itemGroups: itemGroups,
+                  itemGroups: visibleGroups,
                   selectedItem: selectedItem,
                   onTabTapped: _onTabTapped,
                 )
@@ -50,7 +61,7 @@ class WebLayout extends StatelessWidget {
                 if (!isMobile) ...[
                   _NavigationSideBar(
                     isDesktop: isDesktop,
-                    itemGroups: itemGroups,
+                    itemGroups: visibleGroups,
                     selectedItem: selectedItem,
                     onTabTapped: _onTabTapped,
                   ),

@@ -17,23 +17,18 @@ class UserRepository {
   Future<Result<User>> updateMe({String? name, String? avatar}) =>
       _remoteData.updateMe(name: name, avatar: avatar).safeResult();
 
-  Future<Result<String>> getPresignedUploadUrl({
+  Future<Result<({String url, String fileName})>> getPresignedUploadUrl({
     required String fileName,
     required String contentType,
     required String folder,
   }) => _remoteData
-      .getPresignedUploadUrl(
-        fileName: fileName,
-        contentType: contentType,
-        folder: folder,
-      )
+      .getPresignedUploadUrl(fileName: fileName, contentType: contentType, folder: folder)
       .safeResult();
 
   Future<Result<void>> uploadBinaryToUrl({
     required String url,
     required Uint8List bytes,
     required String contentType,
-  }) => _remoteData
-      .uploadBinaryToUrl(url: url, bytes: bytes, contentType: contentType)
-      .safeResult();
+  }) =>
+      _remoteData.uploadBinaryToUrl(url: url, bytes: bytes, contentType: contentType).safeResult();
 }

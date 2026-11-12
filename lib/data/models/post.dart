@@ -1,10 +1,5 @@
 class PostUser {
-  const PostUser({
-    required this.id,
-    required this.name,
-    required this.email,
-    this.avatar,
-  });
+  const PostUser({required this.id, required this.name, required this.email, this.avatar});
   final String id;
   final String name;
   final String email;
@@ -147,11 +142,7 @@ class PostUploadLimits {
     required this.fileTypes,
     required this.videoTypes,
   });
-  final int imageMaxBytes,
-      fileMaxBytes,
-      videoMaxBytes,
-      postMaxBytes,
-      maxAttachments;
+  final int imageMaxBytes, fileMaxBytes, videoMaxBytes, postMaxBytes, maxAttachments;
   final List<String> imageTypes, fileTypes, videoTypes;
   factory PostUploadLimits.fromJson(Map<String, dynamic> j) => PostUploadLimits(
     imageMaxBytes: (j['imageMaxBytes'] as num).toInt(),
@@ -223,9 +214,7 @@ class PostCommentItem {
     canEdit: j['canEdit'] as bool? ?? false,
     canDelete: j['canDelete'] as bool? ?? false,
     createdAt: DateTime.parse(j['createdAt'] as String),
-    user: j['user'] is Map<String, dynamic>
-        ? PostUser.fromJson(j['user'])
-        : null,
+    user: j['user'] is Map<String, dynamic> ? PostUser.fromJson(j['user']) : null,
     replyToUser: j['replyToUser'] is Map<String, dynamic>
         ? PostUser.fromJson(j['replyToUser'])
         : null,

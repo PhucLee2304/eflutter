@@ -3,7 +3,7 @@ import 'dart:js_interop';
 import 'dart:math';
 
 import 'package:dio/dio.dart';
-import 'package:eflutter/core/base/local_data_base.dart';
+import 'package:eflutter/core/auth/auth_interceptor.dart';
 import 'package:eflutter/data/data_sources/notification_socket_client.dart';
 import 'package:eflutter/data/models/app_notification.dart';
 import 'package:eflutter/data/repositories/notification_repository.dart';
@@ -18,10 +18,10 @@ import 'package:web/web.dart' as web;
 
 @lazySingleton
 class NotificationPushService {
-  NotificationPushService(Dio dio, this._controller, this._preferences, LocalDataBase localData)
+  NotificationPushService(Dio dio, this._controller, this._preferences, AuthInterceptor auth)
     : _repository = NotificationRepository(dio) {
     _socket = NotificationSocketClient(
-      localData,
+      auth,
       // Mỗi lần (kết nối lại) tải một lần để bù thông báo lỡ khi mất mạng.
       onConnected: () => unawaited(_controller.refresh()),
       onCreated: () => unawaited(_controller.refresh()),

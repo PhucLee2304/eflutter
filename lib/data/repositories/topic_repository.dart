@@ -13,8 +13,7 @@ class TopicRepository {
 
   TopicRepository(this._remoteData);
 
-  Future<Result<List<TopicSummary>>> getTopics() =>
-      _remoteData.getTopics().safeResult();
+  Future<Result<List<TopicSummary>>> getTopics() => _remoteData.getTopics().safeResult();
 
   Future<Result<List<TopicSection>>> getSectionsByTopic(int topicId) =>
       _remoteData.getSectionsByTopic(topicId).safeResult();

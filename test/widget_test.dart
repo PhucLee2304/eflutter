@@ -61,6 +61,6 @@ void main() {
     expect(lesson.id, 9);
     expect(lesson.transcripts, hasLength(1));
     expect(lesson.transcripts.first.content, 'Hello world');
-    expect(topicLessonPath(9), '/topic/lessons/9');
+    expect(topicLessonPath(1, 2, 9), '/topic/1/sections/2/lessons/9');
   });
 }

@@ -92,17 +92,14 @@ class PostCard extends StatelessWidget {
     required this.onPin,
     required this.onEdit,
     required this.onDelete,
-    required this.admin,
-    required this.onModerate,
     this.onOpen,
     this.onComment,
     this.full = false,
     this.footer,
   });
   final PostItem post;
-  final bool readOnly, admin, full;
+  final bool readOnly, full;
   final VoidCallback onLike, onPin, onEdit, onDelete;
-  final ValueChanged<String> onModerate;
 
   /// Mở trang chi tiết; null khi đang ở trang chi tiết.
   final VoidCallback? onOpen;
@@ -279,18 +276,6 @@ class PostCard extends StatelessWidget {
         const Padding(
           padding: EdgeInsets.only(left: 8),
           child: Chip(label: Text('Hidden by moderation')),
-        ),
-      if (admin)
-        PopupMenuButton<String>(
-          tooltip: 'Moderate',
-          icon: const Icon(Icons.shield_outlined),
-          onSelected: onModerate,
-          itemBuilder: (_) => [
-            if (post.status == 'PUBLISHED') const PopupMenuItem(value: 'HIDE', child: Text('Hide')),
-            if (post.status == 'HIDDEN')
-              const PopupMenuItem(value: 'UNHIDE', child: Text('Unhide')),
-            const PopupMenuItem(value: 'DELETE', child: Text('Delete')),
-          ],
         ),
       if (post.canEdit || post.canDelete || post.canPin)
         PopupMenuButton<String>(
