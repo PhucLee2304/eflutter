@@ -1,13 +1,11 @@
 import 'package:eflutter/app/config/app_config.dart';
 import 'package:eflutter/core/di/injection.dart';
-import 'package:eflutter/data/models/dictionary/word.dart';
 import 'package:eflutter/presentation/dictionary/cubit/flashcard_cubit.dart';
 import 'package:eflutter/presentation/dictionary/cubit/word_detail_cubit.dart';
 import 'package:eflutter/presentation/dictionary/widgets/save_word_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
 
@@ -67,9 +65,9 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
     final id = await _detailCubit.findWordId(word);
     if (!mounted) return;
     if (id == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('"$word" is not in the dictionary')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('"$word" is not in the dictionary')));
       return;
     }
     context.push('/dictionary/$id');
@@ -130,10 +128,7 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
           _playingAudioUrl = null;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to play audio: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Failed to play audio: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -149,9 +144,8 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
       child: Scaffold(
         appBar: AppBar(
           title: BlocBuilder<WordDetailCubit, WordDetailState>(
-            builder: (context, state) => Text(
-              state.maybeWhen(success: (detail) => detail.word, orElse: () => ''),
-            ),
+            builder: (context, state) =>
+                Text(state.maybeWhen(success: (detail) => detail.word, orElse: () => '')),
           ),
           actions: [
             BlocBuilder<WordDetailCubit, WordDetailState>(
@@ -161,11 +155,9 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
                     return IconButton(
                       icon: Icon(
                         _isWordSaved ? Icons.bookmark : Icons.bookmark_add_outlined,
-                        color: _isWordSaved
-                            ? Theme.of(context).colorScheme.primary
-                            : null,
+                        color: _isWordSaved ? Theme.of(context).colorScheme.primary : null,
                       ),
-                      tooltip: _isWordSaved ? 'Đã lưu trong bộ thẻ' : 'Lưu vào bộ thẻ',
+                      tooltip: _isWordSaved ? 'Saved in a deck' : 'Save to deck',
                       onPressed: () async {
                         final saved = await SaveWordToDecksDialog.show(
                           context,
@@ -174,13 +166,11 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
                           phonetic: detail.phonetic,
                           cubit: _flashcardCubit,
                         );
-                        if (saved == true && mounted) {
+                        if (saved == true && context.mounted) {
                           await _checkWordSaveStatus();
-                          if (mounted) {
+                          if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Đã cập nhật bộ thẻ cho "${detail.word}"'),
-                              ),
+                              SnackBar(content: Text('Updated decks for "${detail.word}"')),
                             );
                           }
                         }
@@ -239,9 +229,9 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
                               children: [
                                 Text(
                                   detail.word,
-                                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
                                 ),
                                 if (detail.phonetic != null && detail.phonetic!.isNotEmpty)
                                   Padding(
@@ -287,15 +277,17 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
                           spacing: 8,
                           runSpacing: 6,
                           children: detail.phonetics
-                              .where((p) =>
-                                  (p.text?.isNotEmpty ?? false) || (p.audioUrl != null && p.audioUrl!.isNotEmpty))
-                              .map(
-                                (p) {
-                                  final hasAudio = p.audioUrl != null && p.audioUrl!.isNotEmpty;
-                                  final isThisPlaying = _playingAudioUrl == p.audioUrl;
-                                  return ActionChip(
-                                    avatar: hasAudio
-                                        ? (_isLoadingAudio && isThisPlaying)
+                              .where(
+                                (p) =>
+                                    (p.text?.isNotEmpty ?? false) ||
+                                    (p.audioUrl != null && p.audioUrl!.isNotEmpty),
+                              )
+                              .map((p) {
+                                final hasAudio = p.audioUrl != null && p.audioUrl!.isNotEmpty;
+                                final isThisPlaying = _playingAudioUrl == p.audioUrl;
+                                return ActionChip(
+                                  avatar: hasAudio
+                                      ? (_isLoadingAudio && isThisPlaying)
                                             ? const SizedBox(
                                                 width: 14,
                                                 height: 14,
@@ -310,15 +302,16 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
                                                     ? Theme.of(context).colorScheme.primary
                                                     : null,
                                               )
-                                        : null,
-                                    label: Text((p.text?.isNotEmpty ?? false) ? p.text! : 'Pronounce'),
-                                    backgroundColor: isThisPlaying
-                                        ? Theme.of(context).colorScheme.primaryContainer
-                                        : Theme.of(context).colorScheme.surfaceContainerHighest,
-                                    onPressed: hasAudio ? () => _playAudio(p.audioUrl!) : null,
-                                  );
-                                },
-                              )
+                                      : null,
+                                  label: Text(
+                                    (p.text?.isNotEmpty ?? false) ? p.text! : 'Pronounce',
+                                  ),
+                                  backgroundColor: isThisPlaying
+                                      ? Theme.of(context).colorScheme.primaryContainer
+                                      : Theme.of(context).colorScheme.surfaceContainerHighest,
+                                  onPressed: hasAudio ? () => _playAudio(p.audioUrl!) : null,
+                                );
+                              })
                               .toList(),
                         ),
                       ],
@@ -326,121 +319,126 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
                       const Divider(height: 32),
 
                       // Meanings grouped by Part of Speech
-                      ...detail.meanings.map((meaning) => Padding(
-                            padding: const EdgeInsets.only(bottom: 24.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Part of speech badge
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 5),
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(context).colorScheme.primaryContainer,
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  child: Text(
-                                    meaning.partOfSpeech.toUpperCase(),
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
-                                      letterSpacing: 0.5,
-                                      color: Theme.of(context).colorScheme.onPrimaryContainer,
-                                    ),
+                      ...detail.meanings.map(
+                        (meaning) => Padding(
+                          padding: const EdgeInsets.only(bottom: 24.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Part of speech badge
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).colorScheme.primaryContainer,
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Text(
+                                  meaning.partOfSpeech.toUpperCase(),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                    letterSpacing: 0.5,
+                                    color: Theme.of(context).colorScheme.onPrimaryContainer,
                                   ),
                                 ),
-                                const SizedBox(height: 12),
+                              ),
+                              const SizedBox(height: 12),
 
-                                // Definitions
-                                ...meaning.definitions.asMap().entries.map((entry) {
-                                  final i = entry.key;
-                                  final def = entry.value;
-                                  return Padding(
-                                    padding: const EdgeInsets.only(bottom: 12.0),
-                                    child: Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Container(
-                                          width: 22,
-                                          height: 22,
-                                          margin: const EdgeInsets.only(top: 2, right: 8),
-                                          alignment: Alignment.center,
-                                          decoration: BoxDecoration(
-                                            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: Text(
-                                            '${i + 1}',
-                                            style: const TextStyle(
-                                                fontSize: 12, fontWeight: FontWeight.bold),
+                              // Definitions
+                              ...meaning.definitions.asMap().entries.map((entry) {
+                                final i = entry.key;
+                                final def = entry.value;
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 12.0),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Container(
+                                        width: 22,
+                                        height: 22,
+                                        margin: const EdgeInsets.only(top: 2, right: 8),
+                                        alignment: Alignment.center,
+                                        decoration: BoxDecoration(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.surfaceContainerHighest,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Text(
+                                          '${i + 1}',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
                                           ),
                                         ),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                def.definition,
-                                                style: const TextStyle(fontSize: 15, height: 1.35),
-                                              ),
-                                              if (def.example != null && def.example!.isNotEmpty)
-                                                Padding(
-                                                  padding: const EdgeInsets.only(top: 4.0),
-                                                  child: Text(
-                                                    'Example: "${def.example}"',
-                                                    style: TextStyle(
-                                                      color: Colors.grey.shade600,
-                                                      fontStyle: FontStyle.italic,
-                                                      fontSize: 13,
-                                                    ),
+                                      ),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              def.definition,
+                                              style: const TextStyle(fontSize: 15, height: 1.35),
+                                            ),
+                                            if (def.example != null && def.example!.isNotEmpty)
+                                              Padding(
+                                                padding: const EdgeInsets.only(top: 4.0),
+                                                child: Text(
+                                                  'Example: "${def.example}"',
+                                                  style: TextStyle(
+                                                    color: Colors.grey.shade600,
+                                                    fontStyle: FontStyle.italic,
+                                                    fontSize: 13,
                                                   ),
                                                 ),
-                                              if (def.synonyms.isNotEmpty)
-                                                _WordChipRow(
-                                                  label: 'Synonyms',
-                                                  words: def.synonyms,
-                                                  color: Colors.green.shade50,
-                                                  textColor: Colors.green.shade800,
-                                                  onWordTap: _openWord,
-                                                ),
-                                              if (def.antonyms.isNotEmpty)
-                                                _WordChipRow(
-                                                  label: 'Antonyms',
-                                                  words: def.antonyms,
-                                                  color: Colors.red.shade50,
-                                                  textColor: Colors.red.shade800,
-                                                  onWordTap: _openWord,
-                                                ),
-                                            ],
-                                          ),
+                                              ),
+                                            if (def.synonyms.isNotEmpty)
+                                              _WordChipRow(
+                                                label: 'Synonyms',
+                                                words: def.synonyms,
+                                                color: Colors.green.shade50,
+                                                textColor: Colors.green.shade800,
+                                                onWordTap: _openWord,
+                                              ),
+                                            if (def.antonyms.isNotEmpty)
+                                              _WordChipRow(
+                                                label: 'Antonyms',
+                                                words: def.antonyms,
+                                                color: Colors.red.shade50,
+                                                textColor: Colors.red.shade800,
+                                                onWordTap: _openWord,
+                                              ),
+                                          ],
                                         ),
-                                      ],
-                                    ),
-                                  );
-                                }),
-
-                                // Meaning-level synonyms
-                                if (meaning.synonyms.isNotEmpty)
-                                  _WordChipRow(
-                                    label: 'Synonyms (${meaning.partOfSpeech})',
-                                    words: meaning.synonyms,
-                                    color: Colors.green.shade50,
-                                    textColor: Colors.green.shade800,
-                                    onWordTap: _openWord,
+                                      ),
+                                    ],
                                   ),
+                                );
+                              }),
 
-                                // Meaning-level antonyms
-                                if (meaning.antonyms.isNotEmpty)
-                                  _WordChipRow(
-                                    label: 'Antonyms (${meaning.partOfSpeech})',
-                                    words: meaning.antonyms,
-                                    color: Colors.red.shade50,
-                                    textColor: Colors.red.shade800,
-                                    onWordTap: _openWord,
-                                  ),
-                              ],
-                            ),
-                          )),
+                              // Meaning-level synonyms
+                              if (meaning.synonyms.isNotEmpty)
+                                _WordChipRow(
+                                  label: 'Synonyms (${meaning.partOfSpeech})',
+                                  words: meaning.synonyms,
+                                  color: Colors.green.shade50,
+                                  textColor: Colors.green.shade800,
+                                  onWordTap: _openWord,
+                                ),
+
+                              // Meaning-level antonyms
+                              if (meaning.antonyms.isNotEmpty)
+                                _WordChipRow(
+                                  label: 'Antonyms (${meaning.partOfSpeech})',
+                                  words: meaning.antonyms,
+                                  color: Colors.red.shade50,
+                                  textColor: Colors.red.shade800,
+                                  onWordTap: _openWord,
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
 
                       // Source URLs & License
                       if (detail.sourceUrls.isNotEmpty || detail.licenseName != null) ...[
@@ -454,28 +452,36 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
                             ),
                           ),
                         if (detail.sourceUrls.isNotEmpty) ...[
-                          const Text('Sources:',
-                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+                          const Text(
+                            'Sources:',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey,
+                            ),
+                          ),
                           const SizedBox(height: 4),
-                          ...detail.sourceUrls.map((url) => Padding(
-                                padding: const EdgeInsets.only(bottom: 2.0),
-                                child: InkWell(
-                                  onTap: () async {
-                                    final uri = Uri.parse(url);
-                                    if (await canLaunchUrl(uri)) {
-                                      await launchUrl(uri);
-                                    }
-                                  },
-                                  child: Text(
-                                    url,
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.blue,
-                                      decoration: TextDecoration.underline,
-                                    ),
+                          ...detail.sourceUrls.map(
+                            (url) => Padding(
+                              padding: const EdgeInsets.only(bottom: 2.0),
+                              child: InkWell(
+                                onTap: () async {
+                                  final uri = Uri.parse(url);
+                                  if (await canLaunchUrl(uri)) {
+                                    await launchUrl(uri);
+                                  }
+                                },
+                                child: Text(
+                                  url,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.blue,
+                                    decoration: TextDecoration.underline,
                                   ),
                                 ),
-                              )),
+                              ),
+                            ),
+                          ),
                         ],
                       ],
 
@@ -514,36 +520,37 @@ class _WordChipRow extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('$label:',
-              style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: textColor)),
+          Text(
+            '$label:',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textColor),
+          ),
           const SizedBox(height: 4),
           Wrap(
             spacing: 6,
             runSpacing: 4,
             children: words
-                .map((w) => InkWell(
-                      borderRadius: BorderRadius.circular(12),
-                      onTap: onWordTap != null ? () => onWordTap!(w) : null,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: color,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: textColor.withValues(alpha: 0.3)),
-                        ),
-                        child: Text(
-                          w,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: textColor,
-                            decoration: onWordTap != null ? TextDecoration.underline : null,
-                          ),
+                .map(
+                  (w) => InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: onWordTap != null ? () => onWordTap!(w) : null,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: color,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: textColor.withValues(alpha: 0.3)),
+                      ),
+                      child: Text(
+                        w,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: textColor,
+                          decoration: onWordTap != null ? TextDecoration.underline : null,
                         ),
                       ),
-                    ))
+                    ),
+                  ),
+                )
                 .toList(),
           ),
         ],

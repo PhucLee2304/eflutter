@@ -78,7 +78,7 @@ class _DeckFormDialogState extends State<DeckFormDialog> {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng nhập tên bộ thẻ')),
+        const SnackBar(content: Text('Please enter a deck name')),
       );
       return;
     }
@@ -111,7 +111,7 @@ class _DeckFormDialogState extends State<DeckFormDialog> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Thao tác không thành công. Vui lòng thử lại.'),
+            content: Text('Something went wrong. Please try again.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -139,7 +139,7 @@ class _DeckFormDialogState extends State<DeckFormDialog> {
                 children: [
                   CircleAvatar(
                     radius: 20,
-                    backgroundColor: _parseColor(_selectedColorHex).withOpacity(0.15),
+                    backgroundColor: _parseColor(_selectedColorHex).withValues(alpha: 0.15),
                     child: Icon(
                       isEditing ? Icons.edit : Icons.create_new_folder,
                       color: _parseColor(_selectedColorHex),
@@ -148,7 +148,7 @@ class _DeckFormDialogState extends State<DeckFormDialog> {
                   const SizedBox(width: 14),
                   Expanded(
                     child: Text(
-                      isEditing ? 'Sửa bộ thẻ' : 'Tạo bộ thẻ mới',
+                      isEditing ? 'Edit deck' : 'Create new deck',
                       style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                     ),
                   ),
@@ -165,8 +165,8 @@ class _DeckFormDialogState extends State<DeckFormDialog> {
                 controller: _nameController,
                 autofocus: true,
                 decoration: InputDecoration(
-                  labelText: 'Tên bộ thẻ *',
-                  hintText: 'Vd: Từ vựng IELTS, Giao tiếp hằng ngày...',
+                  labelText: 'Deck name *',
+                  hintText: 'E.g. IELTS vocabulary, Everyday English...',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   prefixIcon: const Icon(Icons.label_outline),
                 ),
@@ -178,8 +178,8 @@ class _DeckFormDialogState extends State<DeckFormDialog> {
                 controller: _descController,
                 maxLines: 2,
                 decoration: InputDecoration(
-                  labelText: 'Mô tả (tuỳ chọn)',
-                  hintText: 'Ghi chú mục tiêu hoặc chủ đề của bộ thẻ...',
+                  labelText: 'Description (optional)',
+                  hintText: 'Goal or topic of this deck...',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   prefixIcon: const Icon(Icons.description_outlined),
                 ),
@@ -188,7 +188,7 @@ class _DeckFormDialogState extends State<DeckFormDialog> {
 
               // Chọn màu
               Text(
-                'Màu đại diện:',
+                'Color:',
                 style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 8),
@@ -213,7 +213,7 @@ class _DeckFormDialogState extends State<DeckFormDialog> {
                         boxShadow: [
                           if (isSelected)
                             BoxShadow(
-                              color: color.withOpacity(0.4),
+                              color: color.withValues(alpha: 0.4),
                               blurRadius: 6,
                               spreadRadius: 1,
                             ),
@@ -234,7 +234,7 @@ class _DeckFormDialogState extends State<DeckFormDialog> {
                 children: [
                   TextButton(
                     onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(false),
-                    child: const Text('Huỷ'),
+                    child: const Text('Cancel'),
                   ),
                   const SizedBox(width: 8),
                   FilledButton.icon(
@@ -251,10 +251,10 @@ class _DeckFormDialogState extends State<DeckFormDialog> {
                         : Icon(isEditing ? Icons.save : Icons.add, size: 18),
                     label: Text(
                       _isSubmitting
-                          ? 'Đang lưu...'
+                          ? 'Saving...'
                           : isEditing
-                              ? 'Cập nhật'
-                              : 'Tạo bộ thẻ',
+                              ? 'Update'
+                              : 'Create deck',
                     ),
                   ),
                 ],

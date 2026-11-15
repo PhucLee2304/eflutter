@@ -44,11 +44,13 @@ class DictionaryRepository with RepositorySafeCall {
     String? description,
     String? color,
   }) async {
-    return safeCall(() => _remoteData.createDeck({
-          'name': name,
-          if (description != null && description.isNotEmpty) 'description': description,
-          if (color != null && color.isNotEmpty) 'color': color,
-        }));
+    return safeCall(
+      () => _remoteData.createDeck({
+        'name': name,
+        if (description != null && description.isNotEmpty) 'description': description,
+        if (color != null && color.isNotEmpty) 'color': color,
+      }),
+    );
   }
 
   Future<Result<FlashcardDeck>> getDeckById(int id) async {
@@ -61,11 +63,10 @@ class DictionaryRepository with RepositorySafeCall {
     String? description,
     String? color,
   }) async {
-    return safeCall(() => _remoteData.updateDeck(id, {
-          if (name != null) 'name': name,
-          if (description != null) 'description': description,
-          if (color != null) 'color': color,
-        }));
+    return safeCall(
+      () =>
+          _remoteData.updateDeck(id, {'name': ?name, 'description': ?description, 'color': ?color}),
+    );
   }
 
   Future<Result<void>> deleteDeck(int id) async {
@@ -79,12 +80,14 @@ class DictionaryRepository with RepositorySafeCall {
     String? newDeckName,
     String? note,
   }) async {
-    return safeCall(() => _remoteData.saveWordToDecks({
-          'wordId': wordId,
-          if (deckIds != null) 'deckIds': deckIds,
-          if (newDeckName != null && newDeckName.isNotEmpty) 'newDeckName': newDeckName,
-          if (note != null) 'note': note,
-        }));
+    return safeCall(
+      () => _remoteData.saveWordToDecks({
+        'wordId': wordId,
+        'deckIds': ?deckIds,
+        if (newDeckName != null && newDeckName.isNotEmpty) 'newDeckName': newDeckName,
+        'note': ?note,
+      }),
+    );
   }
 
   Future<Result<WordSaveStatus>> getWordSaveStatus(int wordId) async {
@@ -121,10 +124,9 @@ class DictionaryRepository with RepositorySafeCall {
     String rating, {
     int reviewTimeMs = 0,
   }) async {
-    return safeCall(() => _remoteData.reviewCard(cardId, {
-          'rating': rating,
-          'reviewTimeMs': reviewTimeMs,
-        }));
+    return safeCall(
+      () => _remoteData.reviewCard(cardId, {'rating': rating, 'reviewTimeMs': reviewTimeMs}),
+    );
   }
 
   Future<Result<FlashcardUserStats>> getFlashcardStats() async {

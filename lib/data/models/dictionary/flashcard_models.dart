@@ -158,14 +158,14 @@ class FlashcardItem {
   String get statusLabel {
     switch (status.toLowerCase()) {
       case 'mastered':
-        return 'Thành thạo';
+        return 'Mastered';
       case 'review':
-        return 'Ôn tập';
+        return 'Review';
       case 'learning':
-        return 'Đang học';
+        return 'Learning';
       case 'new':
       default:
-        return 'Mới';
+        return 'New';
     }
   }
 

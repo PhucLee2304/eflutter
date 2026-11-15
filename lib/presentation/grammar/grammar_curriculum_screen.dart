@@ -97,7 +97,7 @@ class _GrammarCurriculumScreenState extends State<GrammarCurriculumScreen> {
       scrolledUnderElevation: 1,
       actions: [
         IconButton(
-          tooltip: 'Làm mới',
+          tooltip: 'Refresh',
           icon: const Icon(Icons.refresh_rounded, color: Color(0xFF4A4A6A)),
           onPressed: () => _cubit.load(),
         ),

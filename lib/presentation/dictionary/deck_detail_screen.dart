@@ -120,24 +120,24 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
     final updatedNote = await showDialog<String?>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Ghi chú cho "${card.wordText}"'),
+        title: Text('Note for "${card.wordText}"'),
         content: TextField(
           controller: controller,
           maxLines: 3,
           autofocus: true,
           decoration: const InputDecoration(
-            hintText: 'Nhập ghi chú, mẹo ghi nhớ...',
+            hintText: 'Enter a note or memory tip...',
             border: OutlineInputBorder(),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, null),
-            child: const Text('Huỷ'),
+            child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: const Text('Lưu ghi chú'),
+            child: const Text('Save note'),
           ),
         ],
       ),
@@ -167,7 +167,7 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
           }
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Đã cập nhật ghi chú')),
+          const SnackBar(content: Text('Note updated')),
         );
       }
     }
@@ -177,19 +177,19 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Xoá từ khỏi bộ thẻ'),
+        title: const Text('Remove word from deck'),
         content: Text(
-          'Bạn có chắc muốn xoá từ "${card.wordText}" khỏi bộ thẻ này?',
+          'Are you sure you want to remove "${card.wordText}" from this deck?',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Huỷ'),
+            child: const Text('Cancel'),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Xoá'),
+            child: const Text('Delete'),
           ),
         ],
       ),
@@ -203,7 +203,7 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
           _totalCards = (_totalCards > 0) ? _totalCards - 1 : 0;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Đã xoá từ "${card.wordText}" khỏi bộ thẻ')),
+          SnackBar(content: Text('Removed "${card.wordText}" from the deck')),
         );
       }
     }
@@ -218,12 +218,12 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(deck?.name ?? 'Chi tiết bộ thẻ'),
+        title: Text(deck?.name ?? 'Deck details'),
         actions: [
           if (deck != null) ...[
             IconButton(
               icon: const Icon(Icons.edit_outlined),
-              tooltip: 'Sửa bộ thẻ',
+              tooltip: 'Edit deck',
               onPressed: () async {
                 final updated = await DeckFormDialog.show(
                   context,
@@ -238,7 +238,7 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
           ],
           IconButton(
             icon: const Icon(Icons.refresh),
-            tooltip: 'Làm mới',
+            tooltip: 'Refresh',
             onPressed: _loadDeckAndCards,
           ),
         ],
@@ -256,7 +256,7 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
                         const SizedBox(height: 12),
                         ElevatedButton(
                           onPressed: _loadDeckAndCards,
-                          child: const Text('Thử lại'),
+                          child: const Text('Retry'),
                         ),
                       ],
                     ),
@@ -271,9 +271,9 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
                         margin: const EdgeInsets.all(16),
                         padding: const EdgeInsets.all(18),
                         decoration: BoxDecoration(
-                          color: deckColor.withOpacity(0.08),
+                          color: deckColor.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: deckColor.withOpacity(0.3)),
+                          border: Border.all(color: deckColor.withValues(alpha: 0.3)),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -327,7 +327,7 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
                                 _buildBadge(
                                   context,
                                   icon: Icons.style_outlined,
-                                  label: '$_totalCards từ vựng',
+                                  label: '$_totalCards words',
                                   color: deckColor,
                                 ),
                                 const SizedBox(width: 10),
@@ -335,7 +335,7 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
                                   _buildBadge(
                                     context,
                                     icon: Icons.alarm,
-                                    label: '${deck.dueCount} cần ôn hôm nay',
+                                    label: '${deck.dueCount} due today',
                                     color: Colors.red,
                                   ),
                               ],
@@ -361,8 +361,8 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
                                 icon: const Icon(Icons.psychology, size: 22),
                                 label: Text(
                                   deck != null && deck.dueCount > 0
-                                      ? 'Bắt đầu ôn tập (${deck.dueCount} từ)'
-                                      : 'Học bộ thẻ này',
+                                      ? 'Start review (${deck.dueCount} words)'
+                                      : 'Study this deck',
                                   style: const TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.bold,
@@ -380,7 +380,7 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         child: Text(
-                          'Danh sách từ trong bộ thẻ ($_totalCards)',
+                          'Words in this deck ($_totalCards)',
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -400,16 +400,16 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
                                 Icon(
                                   Icons.menu_book_outlined,
                                   size: 56,
-                                  color: colorScheme.outline.withOpacity(0.5),
+                                  color: colorScheme.outline.withValues(alpha: 0.5),
                                 ),
                                 const SizedBox(height: 12),
                                 const Text(
-                                  'Chưa có từ nào trong bộ thẻ này',
+                                  'No words in this deck yet',
                                   style: TextStyle(fontWeight: FontWeight.bold),
                                 ),
                                 const SizedBox(height: 6),
                                 const Text(
-                                  'Tra cứu từ điển và nhấn biểu tượng bookmark để thêm từ vào đây.',
+                                  'Search the dictionary and tap the bookmark icon to add words here.',
                                   textAlign: TextAlign.center,
                                   style: TextStyle(color: Colors.grey, fontSize: 13),
                                 ),
@@ -417,7 +417,7 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
                                 OutlinedButton.icon(
                                   onPressed: () => context.go(AppRoutes.dictionary.path),
                                   icon: const Icon(Icons.search),
-                                  label: const Text('Tra cứu từ điển'),
+                                  label: const Text('Search dictionary'),
                                 ),
                               ],
                             ),
@@ -461,7 +461,7 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -487,7 +487,7 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
       margin: const EdgeInsets.only(bottom: 10),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: theme.dividerColor.withOpacity(0.2)),
+        side: BorderSide(color: theme.dividerColor.withValues(alpha: 0.2)),
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
@@ -522,7 +522,7 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: card.statusColor.withOpacity(0.12),
+                                color: card.statusColor.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
@@ -542,7 +542,7 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
                             child: Text(
                               card.phoneticText,
                               style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
+                                color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
                               ),
                             ),
                           ),
@@ -556,12 +556,12 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
                     children: [
                       IconButton(
                         icon: const Icon(Icons.edit_note, size: 20),
-                        tooltip: 'Ghi chú',
+                        tooltip: 'Note',
                         onPressed: () => _showEditNoteDialog(card),
                       ),
                       IconButton(
                         icon: const Icon(Icons.delete_outline, size: 20, color: Colors.red),
-                        tooltip: 'Xoá từ',
+                        tooltip: 'Remove word',
                         onPressed: () => _confirmDeleteCard(card),
                       ),
                     ],
@@ -575,7 +575,7 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
                   margin: const EdgeInsets.only(top: 8),
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: colorScheme.surfaceVariant.withOpacity(0.4),
+                    color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
@@ -599,18 +599,18 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
               Row(
                 children: [
                   Text(
-                    'Lặp lại: ${card.repetitions} lần',
+                    'Repetitions: ${card.repetitions}',
                     style: const TextStyle(fontSize: 11, color: Colors.grey),
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    'Khoảng cách: ${card.intervalDays} ngày',
+                    'Interval: ${card.intervalDays} days',
                     style: const TextStyle(fontSize: 11, color: Colors.grey),
                   ),
                   const Spacer(),
                   if (card.nextReviewAt.isNotEmpty)
                     Text(
-                      'Ôn tiếp: ${_formatDate(card.nextReviewAt)}',
+                      'Next review: ${_formatDate(card.nextReviewAt)}',
                       style: const TextStyle(fontSize: 11, color: Colors.grey),
                     ),
                 ],
