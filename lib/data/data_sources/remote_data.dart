@@ -181,10 +181,17 @@ class RemoteData implements RemoteDataBase {
   }
 
   @override
-  Future<ExamAttempt> submitAttempt(int attemptId, List<SubmitAttemptAnswer> answers) async {
+  Future<ExamAttempt> submitAttempt(
+    int attemptId,
+    List<SubmitAttemptAnswer> answers, {
+    String? sessionToken,
+  }) async {
     final response = await _dio.post(
       '/exams/api/v1/attempts/$attemptId/submit',
-      data: {'answers': answers.map((answer) => answer.toJson()).toList()},
+      data: {
+        'answers': answers.map((answer) => answer.toJson()).toList(),
+        'sessionToken': ?sessionToken,
+      },
     );
     return ExamAttempt.fromJson(response.data as Map<String, dynamic>);
   }

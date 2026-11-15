@@ -34,10 +34,7 @@ void main() {
     expect(state.isPageOpen(1), isFalse);
     expect(state.isPageOpen(2), isFalse);
     final pages = state.navigator!.pages;
-    expect(
-      state.statusOf(0, pages[0].questions.single),
-      PaletteStatus.answered,
-    );
+    expect(state.statusOf(0, pages[0].questions.single), PaletteStatus.answered);
     expect(state.statusOf(2, pages[2].questions.single), PaletteStatus.empty);
     expect(state.answeredCount, 1);
 
@@ -79,20 +76,17 @@ void main() {
     expect(remote.navigatorCalls, 2);
   });
 
-  test(
-    'registerPage nạp đáp án đã lưu vào session, không ghi đè local',
-    () async {
-      await navigator.load();
-      session.selectAnswer(12, 999);
-      remote.pages[1]!['questions'][0]['selectedOptionId'] = 111;
-      navigator.registerPage(await remote.getAttemptPage(1, 1));
-      navigator.registerPage(await remote.getAttemptPage(1, 0));
+  test('registerPage nạp đáp án đã lưu vào session, không ghi đè local', () async {
+    await navigator.load();
+    session.selectAnswer(12, 999);
+    remote.pages[1]!['questions'][0]['selectedOptionId'] = 111;
+    navigator.registerPage(await remote.getAttemptPage(1, 1));
+    navigator.registerPage(await remote.getAttemptPage(1, 0));
 
-      expect(session.state.selectedOptions[12], 999);
-      expect(session.state.selectedOptions[11], 101);
-      expect(navigator.state.pages, isEmpty, reason: 'trang nghe không cache');
-    },
-  );
+    expect(session.state.selectedOptions[12], 999);
+    expect(session.state.selectedOptions[11], 101);
+    expect(navigator.state.pages, isEmpty, reason: 'trang nghe không cache');
+  });
 
   test('Trước/Sau bỏ qua trang nghe đã khóa; đổi trang giữ đáp án', () async {
     remote.navigator = navigatorJson(stage: 'READING', current: null);

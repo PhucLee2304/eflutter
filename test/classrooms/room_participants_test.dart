@@ -3,8 +3,7 @@ import 'package:eflutter/presentation/classrooms/room_participant_widgets.dart';
 import 'package:eflutter/presentation/classrooms/room_participants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:livekit_client/livekit_client.dart'
-    show ConnectionQuality, MediaDevice;
+import 'package:livekit_client/livekit_client.dart' show ConnectionQuality, MediaDevice;
 
 RoomParticipantView participant(
   String identity, {
@@ -33,26 +32,12 @@ void main() {
       final sorted = [
         participant('s-zed', name: 'Zed'),
         participant('s-anna', name: 'anna'),
-        participant(
-          's-late',
-          name: 'Late',
-          handRaisedAt: DateTime(2026, 1, 1, 10, 5),
-        ),
+        participant('s-late', name: 'Late', handRaisedAt: DateTime(2026, 1, 1, 10, 5)),
         participant('t', name: 'Teacher', host: true),
-        participant(
-          's-early',
-          name: 'Early',
-          handRaisedAt: DateTime(2026, 1, 1, 10),
-        ),
+        participant('s-early', name: 'Early', handRaisedAt: DateTime(2026, 1, 1, 10)),
       ]..sort(compareRoomParticipants);
 
-      expect(sorted.map((p) => p.identity), [
-        't',
-        's-early',
-        's-late',
-        's-anna',
-        's-zed',
-      ]);
+      expect(sorted.map((p) => p.identity), ['t', 's-early', 's-late', 's-anna', 's-zed']);
     });
 
     test('keeps grid order stable when hands are raised', () {
@@ -81,44 +66,27 @@ void main() {
         participant('fallback-id', name: '  '),
       ];
 
-      expect(filterRoomParticipants(people, '  van ').map((p) => p.identity), [
-        '1',
-      ]);
-      expect(
-        filterRoomParticipants(people, 'FALLBACK').single.identity,
-        'fallback-id',
-      );
+      expect(filterRoomParticipants(people, '  van ').map((p) => p.identity), ['1']);
+      expect(filterRoomParticipants(people, 'FALLBACK').single.identity, 'fallback-id');
       expect(filterRoomParticipants(people, ''), hasLength(3));
     });
   });
 
   test('maps LiveKit connection quality to a visible status', () {
     expect(
-      roomParticipantConnection(
-        quality: ConnectionQuality.excellent,
-        reconnecting: false,
-      ),
+      roomParticipantConnection(quality: ConnectionQuality.excellent, reconnecting: false),
       RoomParticipantConnection.good,
     );
     expect(
-      roomParticipantConnection(
-        quality: ConnectionQuality.poor,
-        reconnecting: false,
-      ),
+      roomParticipantConnection(quality: ConnectionQuality.poor, reconnecting: false),
       RoomParticipantConnection.weak,
     );
     expect(
-      roomParticipantConnection(
-        quality: ConnectionQuality.lost,
-        reconnecting: false,
-      ),
+      roomParticipantConnection(quality: ConnectionQuality.lost, reconnecting: false),
       RoomParticipantConnection.reconnecting,
     );
     expect(
-      roomParticipantConnection(
-        quality: ConnectionQuality.good,
-        reconnecting: true,
-      ),
+      roomParticipantConnection(quality: ConnectionQuality.good, reconnecting: true),
       RoomParticipantConnection.reconnecting,
     );
   });
@@ -134,24 +102,20 @@ void main() {
   });
 
   group('participant panel', () {
-    Future<void> pumpPanel(
-      WidgetTester tester,
-      List<RoomParticipantView> people,
-    ) => tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: SizedBox(
-            width: 320,
-            height: 600,
-            child: RoomParticipantPanel(participants: people, onClose: () {}),
+    Future<void> pumpPanel(WidgetTester tester, List<RoomParticipantView> people) =>
+        tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                width: 320,
+                height: 600,
+                child: RoomParticipantPanel(participants: people, onClose: () {}),
+              ),
+            ),
           ),
-        ),
-      ),
-    );
+        );
 
-    testWidgets('groups the teacher and lists students with their status', (
-      tester,
-    ) async {
+    testWidgets('groups the teacher and lists students with their status', (tester) async {
       await pumpPanel(tester, [
         participant(
           's1',
@@ -160,19 +124,15 @@ void main() {
           connection: RoomParticipantConnection.weak,
         ),
         participant('t', name: 'Co Lan', host: true),
-        participant(
-          'me',
-          name: 'An',
-          local: true,
-          cameraOn: false,
-          handRaisedAt: DateTime(2026),
-        ),
+        participant('me', name: 'An', local: true, cameraOn: false, handRaisedAt: DateTime(2026)),
       ]);
 
-      expect(find.text('People (3)'), findsOneWidget);
-      // Tiêu đề nhóm và vai trò ở dòng giáo viên.
-      expect(find.text('Teacher'), findsNWidgets(2));
-      expect(find.text('Students (2)'), findsOneWidget);
+      expect(find.text('People'), findsOneWidget);
+      expect(find.text('3'), findsOneWidget);
+      // Tiêu đề nhóm (viết hoa) và vai trò ở dòng giáo viên.
+      expect(find.text('TEACHER'), findsOneWidget);
+      expect(find.text('Teacher'), findsOneWidget);
+      expect(find.text('STUDENTS · 2'), findsOneWidget);
       expect(find.text('An (You)'), findsOneWidget);
       expect(find.text('Student · Weak connection'), findsOneWidget);
       expect(find.byTooltip('Hand raised'), findsOneWidget);
@@ -205,90 +165,81 @@ void main() {
     });
   });
 
-  testWidgets(
-    'tile shows mic, role and reconnecting state without relying on color',
-    (tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: SizedBox(
-            width: 320,
-            height: 200,
-            child: RoomParticipantTile(
-              participant: participant(
-                't',
-                name: 'Co Lan',
-                host: true,
-                microphoneOn: false,
-                cameraOn: false,
-                connection: RoomParticipantConnection.reconnecting,
-              ),
+  testWidgets('tile shows mic, role and reconnecting state without relying on color', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 320,
+          height: 200,
+          child: RoomParticipantTile(
+            participant: participant(
+              't',
+              name: 'Co Lan',
+              host: true,
+              microphoneOn: false,
+              cameraOn: false,
+              connection: RoomParticipantConnection.reconnecting,
             ),
           ),
         ),
-      );
+      ),
+    );
 
-      expect(find.byIcon(Icons.mic_off), findsOneWidget);
-      expect(find.text('Teacher'), findsOneWidget);
-      expect(find.text('Reconnecting'), findsOneWidget);
-      expect(
-        find.bySemanticsLabel(
-          'Co Lan, teacher, microphone off, camera off, Reconnecting',
-        ),
-        findsOneWidget,
-      );
-    },
-  );
+    expect(find.byIcon(Icons.mic_off), findsOneWidget);
+    expect(find.text('Teacher'), findsOneWidget);
+    expect(find.text('Reconnecting'), findsOneWidget);
+    expect(
+      find.bySemanticsLabel('Co Lan, teacher, microphone off, camera off, Reconnecting'),
+      findsOneWidget,
+    );
+  });
 
-  testWidgets(
-    'device dialog follows device changes and explains missing speakers',
-    (tester) async {
-      const first = MediaDevice('mic-1', 'Headset', 'audioinput', null);
-      const second = MediaDevice('mic-2', 'Laptop mic', 'audioinput', null);
-      final options = ValueNotifier(
-        const RoomDeviceOptions(
-          microphones: [first, second],
-          cameras: [],
-          speakers: [],
-          microphone: first,
-        ),
-      );
-      addTearDown(options.dispose);
-      MediaDevice? selected;
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: RoomDeviceSettingsDialog(
-            options: options,
-            onMicrophoneChanged: (device) async => selected = device,
-            onCameraChanged: (_) async {},
-            onSpeakerChanged: (_) async {},
-          ),
-        ),
-      );
-
-      expect(find.text('Headset'), findsOneWidget);
-      expect(find.text('No camera found'), findsOneWidget);
-      expect(
-        find.textContaining('Speaker selection is not supported'),
-        findsOneWidget,
-      );
-
-      await tester.tap(find.text('Headset'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Laptop mic').last);
-      await tester.pumpAndSettle();
-      expect(selected?.deviceId, 'mic-2');
-
-      // Headset bị rút: màn hình phòng cập nhật options, dialog phải theo kịp.
-      options.value = const RoomDeviceOptions(
-        microphones: [second],
+  testWidgets('device dialog follows device changes and explains missing speakers', (tester) async {
+    const first = MediaDevice('mic-1', 'Headset', 'audioinput', null);
+    const second = MediaDevice('mic-2', 'Laptop mic', 'audioinput', null);
+    final options = ValueNotifier(
+      const RoomDeviceOptions(
+        microphones: [first, second],
         cameras: [],
         speakers: [],
-        microphone: second,
-      );
-      await tester.pump();
-      expect(find.text('Headset'), findsNothing);
-      expect(find.text('Laptop mic'), findsOneWidget);
-    },
-  );
+        microphone: first,
+      ),
+    );
+    addTearDown(options.dispose);
+    MediaDevice? selected;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: RoomDeviceSettingsDialog(
+          options: options,
+          onMicrophoneChanged: (device) async => selected = device,
+          onCameraChanged: (_) async {},
+          onSpeakerChanged: (_) async {},
+        ),
+      ),
+    );
+
+    expect(find.text('Headset'), findsOneWidget);
+    expect(find.text('No camera found'), findsOneWidget);
+    expect(find.textContaining('Speaker selection is not supported'), findsOneWidget);
+
+    await tester.tap(find.text('Headset'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Laptop mic').last);
+    await tester.pumpAndSettle();
+    expect(selected?.deviceId, 'mic-2');
+
+    // Headset bị rút: màn hình phòng cập nhật options, dialog phải theo kịp.
+    options.value = const RoomDeviceOptions(
+      microphones: [second],
+      cameras: [],
+      speakers: [],
+      microphone: second,
+    );
+    await tester.pump();
+    expect(find.text('Headset'), findsNothing);
+    expect(find.text('Laptop mic'), findsOneWidget);
+  });
 }

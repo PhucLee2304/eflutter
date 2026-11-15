@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:eflutter/core/base/remote_data_base.dart';
-import 'package:eflutter/data/data_sources/attempt_socket_client.dart';
+import 'package:eflutter/data/data_sources/attempt_socket_protocol.dart';
 import 'package:eflutter/data/models/attempt_page.dart';
 import 'package:eflutter/data/models/exam_attempt.dart';
 import 'package:dio/dio.dart';
@@ -18,10 +18,7 @@ ExamAttempt strictAttempt() => ExamAttempt.fromJson({
   'answeredCount': 0,
 });
 
-Map<String, dynamic> navigatorJson({
-  String stage = 'LISTENING',
-  int? current = 0,
-}) => {
+Map<String, dynamic> navigatorJson({String stage = 'LISTENING', int? current = 0}) => {
   'flow': 'TOEIC_STRICT',
   'stage': stage,
   'currentPage': ?current,
@@ -56,11 +53,7 @@ Map<String, dynamic> navigatorJson({
   ],
 };
 
-Map<String, dynamic> pageJson(
-  int index, {
-  int elapsedMs = 0,
-  int audioMs = 4000,
-}) => {
+Map<String, dynamic> pageJson(int index, {int elapsedMs = 0, int audioMs = 4000}) => {
   'index': index,
   'section': index < 2 ? 'LISTENING' : 'READING',
   'group': {
@@ -81,18 +74,12 @@ Map<String, dynamic> pageJson(
     },
   ],
   if (index < 2)
-    'listening': {
-      'elapsedMs': elapsedMs,
-      'gapMs': 5000,
-      'minAdvanceAt': '2026-10-26T01:00:02Z',
-    },
+    'listening': {'elapsedMs': elapsedMs, 'gapMs': 5000, 'minAdvanceAt': '2026-10-26T01:00:02Z'},
 };
 
 class FakeStrictRemote implements RemoteDataBase {
   Map<String, dynamic> navigator = navigatorJson();
-  final pages = <int, Map<String, dynamic>>{
-    for (var i = 0; i < 3; i++) i: pageJson(i),
-  };
+  final pages = <int, Map<String, dynamic>>{for (var i = 0; i < 3; i++) i: pageJson(i)};
   final lockedPages = <int>{};
   int navigatorCalls = 0;
   final pageCalls = <int>[];
@@ -140,15 +127,10 @@ class FakeStrictSocket implements AttemptSocketGateway {
   Stream<AttemptSocketStatus> get statuses => statusController.stream;
 
   @override
-  Future<void> connect() async =>
-      statusController.add(AttemptSocketStatus.connected);
+  Future<void> connect() async => statusController.add(AttemptSocketStatus.connected);
 
   @override
-  String sendAnswer({
-    required int attemptId,
-    required int questionId,
-    required int? optionId,
-  }) {
+  String sendAnswer({required int attemptId, required int questionId, required int? optionId}) {
     final id = 'answer-${answers.length + 1}';
     answers.add(id);
     return id;
