@@ -1,6 +1,5 @@
 import 'package:eflutter/data/data_sources/dictionary_remote_data.dart';
 import 'package:eflutter/data/models/dictionary/dictionary_topic.dart';
-import 'package:eflutter/data/models/dictionary/flashcard.dart';
 import 'package:eflutter/data/models/dictionary/flashcard_models.dart';
 import 'package:eflutter/data/models/dictionary/search_response.dart';
 import 'package:eflutter/data/models/dictionary/word.dart';
@@ -20,14 +19,6 @@ class DictionaryRepository with RepositorySafeCall {
 
   Future<Result<SearchResponse>> getWords(String query, {int page = 1, int pageSize = 20}) async {
     return safeCall(() => _remoteData.getWords(query, page, pageSize));
-  }
-
-  Future<Result<GetFlashcardsResponse>> getFlashcards(int page, int pageSize) async {
-    return safeCall(() => _remoteData.getFlashcards(page, pageSize));
-  }
-
-  Future<Result<Flashcard>> createFlashcard(int wordId, {String note = ""}) async {
-    return safeCall(() => _remoteData.createFlashcard({'wordId': wordId, 'note': note}));
   }
 
   Future<Result<void>> deleteFlashcard(int id) async {

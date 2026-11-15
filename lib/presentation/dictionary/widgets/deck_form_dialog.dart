@@ -1,3 +1,5 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
+import 'package:eflutter/core/utils/extensions/toast_bar_extension.dart';
 import 'package:eflutter/data/models/dictionary/flashcard_models.dart';
 import 'package:eflutter/presentation/dictionary/cubit/flashcard_cubit.dart';
 import 'package:flutter/material.dart';
@@ -77,9 +79,7 @@ class _DeckFormDialogState extends State<DeckFormDialog> {
   Future<void> _handleSubmit() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a deck name')),
-      );
+      context.showToast('Please enter a deck name', type: ToastType.warning);
       return;
     }
 
@@ -109,12 +109,7 @@ class _DeckFormDialogState extends State<DeckFormDialog> {
       if (success) {
         Navigator.of(context).pop(true);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Something went wrong. Please try again.'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        context.showToast('Something went wrong. Please try again.', type: ToastType.error);
       }
     }
   }
@@ -246,7 +241,7 @@ class _DeckFormDialogState extends State<DeckFormDialog> {
                         ? const SizedBox(
                             width: 16,
                             height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            child: AppLoader(),
                           )
                         : Icon(isEditing ? Icons.save : Icons.add, size: 18),
                     label: Text(

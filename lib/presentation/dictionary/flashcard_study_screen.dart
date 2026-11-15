@@ -1,3 +1,4 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
 import 'dart:math';
 import 'package:eflutter/app/config/app_config.dart';
 import 'package:eflutter/core/di/injection.dart';
@@ -207,7 +208,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
     if (_isLoading) {
       return Scaffold(
         appBar: AppBar(title: Text(title)),
-        body: const Center(child: CircularProgressIndicator()),
+        body: const Center(child: AppLoader()),
       );
     }
 
@@ -502,7 +503,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
                         ? const SizedBox(
                             width: 18,
                             height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            child: AppLoader(),
                           )
                         : const Icon(Icons.volume_up),
                   ),
@@ -582,7 +583,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
                         ? const SizedBox(
                             width: 14,
                             height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            child: AppLoader(),
                           )
                         : Icon(Icons.volume_up, color: colorScheme.primary, size: 20),
                   ),

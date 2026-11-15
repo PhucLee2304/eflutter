@@ -1,3 +1,5 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
+import 'package:eflutter/core/utils/extensions/toast_bar_extension.dart';
 import 'package:eflutter/app/config/app_config.dart';
 import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/presentation/dictionary/cubit/flashcard_cubit.dart';
@@ -65,9 +67,7 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
     final id = await _detailCubit.findWordId(word);
     if (!mounted) return;
     if (id == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('"$word" is not in the dictionary')));
+      context.showToast('"$word" is not in the dictionary', type: ToastType.warning);
       return;
     }
     context.push('/dictionary/$id');
@@ -127,9 +127,7 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
           _isLoadingAudio = false;
           _playingAudioUrl = null;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to play audio: $e'), backgroundColor: Colors.red),
-        );
+        context.showToast('Failed to play audio', type: ToastType.error);
       }
     }
   }
@@ -169,8 +167,9 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
                         if (saved == true && context.mounted) {
                           await _checkWordSaveStatus();
                           if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Updated decks for "${detail.word}"')),
+                            context.showToast(
+                              'Updated decks for "${detail.word}"',
+                              type: ToastType.success,
                             );
                           }
                         }
@@ -187,7 +186,7 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
           builder: (context, state) {
             return state.when(
               initial: () => const SizedBox(),
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const Center(child: AppLoader()),
               error: (message) => Center(
                 child: Padding(
                   padding: const EdgeInsets.all(24.0),
@@ -255,7 +254,7 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
                                   ? const SizedBox(
                                       width: 20,
                                       height: 20,
-                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                      child: AppLoader(),
                                     )
                                   : Icon(
                                       (_playingAudioUrl == primaryAudioUrl)
@@ -291,7 +290,7 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
                                             ? const SizedBox(
                                                 width: 14,
                                                 height: 14,
-                                                child: CircularProgressIndicator(strokeWidth: 1.5),
+                                                child: AppLoader(),
                                               )
                                             : Icon(
                                                 isThisPlaying

@@ -1,3 +1,5 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
+import 'package:eflutter/core/utils/extensions/toast_bar_extension.dart';
 import 'package:eflutter/data/models/dictionary/flashcard_models.dart';
 import 'package:eflutter/presentation/dictionary/cubit/flashcard_cubit.dart';
 import 'package:flutter/material.dart';
@@ -137,12 +139,7 @@ class _SaveWordToDecksDialogState extends State<SaveWordToDecksDialog> {
       if (success) {
         Navigator.of(context).pop(true);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not save the word. Please try again.'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        context.showToast('Could not save the word. Please try again.', type: ToastType.error);
       }
     }
   }
@@ -226,7 +223,7 @@ class _SaveWordToDecksDialogState extends State<SaveWordToDecksDialog> {
                   ? const Center(
                       child: Padding(
                         padding: EdgeInsets.all(32),
-                        child: CircularProgressIndicator(),
+                        child: AppLoader(),
                       ),
                     )
                   : _errorMessage != null
@@ -435,10 +432,7 @@ class _SaveWordToDecksDialogState extends State<SaveWordToDecksDialog> {
                         ? const SizedBox(
                             width: 16,
                             height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
+                            child: AppLoader(),
                           )
                         : const Icon(Icons.check, size: 18),
                     label: Text(_isSaving ? 'Saving...' : 'Save'),

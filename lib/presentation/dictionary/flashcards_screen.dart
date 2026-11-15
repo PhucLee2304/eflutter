@@ -1,3 +1,5 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
+import 'package:eflutter/core/utils/extensions/toast_bar_extension.dart';
 import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/data/models/dictionary/flashcard_models.dart';
 import 'package:eflutter/presentation/app/navigation/app_routes.dart';
@@ -51,11 +53,9 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
     if (confirmed == true && mounted) {
       final success = await _cubit.deleteDeck(deck.id);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(success ? 'Deleted deck "${deck.name}"' : 'Failed to delete deck'),
-            backgroundColor: success ? null : Colors.red,
-          ),
+        context.showToast(
+          success ? 'Deleted deck "${deck.name}"' : 'Failed to delete deck',
+          type: success ? ToastType.success : ToastType.error,
         );
       }
     }
@@ -87,7 +87,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
           builder: (context, state) {
             return switch (state) {
               FlashcardInitial() ||
-              FlashcardLoading() => const Center(child: CircularProgressIndicator()),
+              FlashcardLoading() => const Center(child: AppLoader()),
               FlashcardError(message: final msg) => Center(
                 child: Padding(
                   padding: const EdgeInsets.all(24.0),

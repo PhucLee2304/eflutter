@@ -1,3 +1,5 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
+import 'package:eflutter/core/utils/extensions/toast_bar_extension.dart';
 import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/data/models/dictionary/flashcard_models.dart';
 import 'package:eflutter/presentation/app/navigation/app_routes.dart';
@@ -166,9 +168,7 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
             );
           }
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Note updated')),
-        );
+        context.showToast('Note updated', type: ToastType.success);
       }
     }
   }
@@ -202,9 +202,7 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
           _cards.removeWhere((c) => c.id == card.id);
           _totalCards = (_totalCards > 0) ? _totalCards - 1 : 0;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Removed "${card.wordText}" from the deck')),
-        );
+        context.showToast('Removed "${card.wordText}" from the deck', type: ToastType.success);
       }
     }
   }
@@ -244,7 +242,7 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: AppLoader())
           : _errorMessage != null
               ? Center(
                   child: Padding(
@@ -442,7 +440,7 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
                       const SliverToBoxAdapter(
                         child: Padding(
                           padding: EdgeInsets.all(16),
-                          child: Center(child: CircularProgressIndicator()),
+                          child: Center(child: AppLoader()),
                         ),
                       ),
 

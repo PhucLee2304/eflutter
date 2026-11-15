@@ -78,64 +78,6 @@ class _DictionaryRemoteData implements DictionaryRemoteData {
   }
 
   @override
-  Future<GetFlashcardsResponse> getFlashcards(int page, int pageSize) async {
-    final _extra = <String, dynamic>{};
-    final queryParameters = <String, dynamic>{
-      r'page': page,
-      r'pageSize': pageSize,
-    };
-    final _headers = <String, dynamic>{};
-    const Map<String, dynamic>? _data = null;
-    final _options = _setStreamType<GetFlashcardsResponse>(
-      Options(method: 'GET', headers: _headers, extra: _extra)
-          .compose(
-            _dio.options,
-            '/dictionary/api/v1/flashcards',
-            queryParameters: queryParameters,
-            data: _data,
-          )
-          .copyWith(baseUrl: _combineBaseUrls(_dio.options.baseUrl, baseUrl)),
-    );
-    final _result = await _dio.fetch<Map<String, dynamic>>(_options);
-    late GetFlashcardsResponse _value;
-    try {
-      _value = GetFlashcardsResponse.fromJson(_result.data!);
-    } on Object catch (e, s) {
-      errorLogger?.logError(e, s, _options, response: _result);
-      rethrow;
-    }
-    return _value;
-  }
-
-  @override
-  Future<Flashcard> createFlashcard(Map<String, dynamic> body) async {
-    final _extra = <String, dynamic>{};
-    final queryParameters = <String, dynamic>{};
-    final _headers = <String, dynamic>{};
-    final _data = <String, dynamic>{};
-    _data.addAll(body);
-    final _options = _setStreamType<Flashcard>(
-      Options(method: 'POST', headers: _headers, extra: _extra)
-          .compose(
-            _dio.options,
-            '/dictionary/api/v1/flashcards',
-            queryParameters: queryParameters,
-            data: _data,
-          )
-          .copyWith(baseUrl: _combineBaseUrls(_dio.options.baseUrl, baseUrl)),
-    );
-    final _result = await _dio.fetch<Map<String, dynamic>>(_options);
-    late Flashcard _value;
-    try {
-      _value = Flashcard.fromJson(_result.data!);
-    } on Object catch (e, s) {
-      errorLogger?.logError(e, s, _options, response: _result);
-      rethrow;
-    }
-    return _value;
-  }
-
-  @override
   Future<void> deleteFlashcard(int id) async {
     final _extra = <String, dynamic>{};
     final queryParameters = <String, dynamic>{};
@@ -333,7 +275,11 @@ class _DictionaryRemoteData implements DictionaryRemoteData {
   }
 
   @override
-  Future<GetDeckCardsResponse> getDeckCards(int deckId, int page, int pageSize) async {
+  Future<GetDeckCardsResponse> getDeckCards(
+    int deckId,
+    int page,
+    int pageSize,
+  ) async {
     final _extra = <String, dynamic>{};
     final queryParameters = <String, dynamic>{
       r'page': page,
@@ -363,7 +309,10 @@ class _DictionaryRemoteData implements DictionaryRemoteData {
   }
 
   @override
-  Future<FlashcardItem> updateCardNote(int cardId, Map<String, dynamic> body) async {
+  Future<FlashcardItem> updateCardNote(
+    int cardId,
+    Map<String, dynamic> body,
+  ) async {
     final _extra = <String, dynamic>{};
     final queryParameters = <String, dynamic>{};
     final _headers = <String, dynamic>{};
@@ -449,7 +398,10 @@ class _DictionaryRemoteData implements DictionaryRemoteData {
   }
 
   @override
-  Future<ReviewCardResponse> reviewCard(int cardId, Map<String, dynamic> body) async {
+  Future<ReviewCardResponse> reviewCard(
+    int cardId,
+    Map<String, dynamic> body,
+  ) async {
     final _extra = <String, dynamic>{};
     final queryParameters = <String, dynamic>{};
     final _headers = <String, dynamic>{};
@@ -535,7 +487,11 @@ class _DictionaryRemoteData implements DictionaryRemoteData {
   }
 
   @override
-  Future<TopicWordsResponse> getTopicWords(int topicId, int page, int pageSize) async {
+  Future<TopicWordsResponse> getTopicWords(
+    int topicId,
+    int page,
+    int pageSize,
+  ) async {
     final _extra = <String, dynamic>{};
     final queryParameters = <String, dynamic>{
       r'page': page,
