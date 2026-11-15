@@ -18,8 +18,7 @@ void main() {
     remote = FakeStrictRemote();
     socket = FakeStrictSocket();
     final repository = ExamRepository(remote);
-    session = AttemptSessionCubit(repository, socket)
-      ..load(1, initialAttempt: strictAttempt());
+    session = AttemptSessionCubit(repository, socket)..load(1, initialAttempt: strictAttempt());
     navigator = AttemptNavigatorCubit(repository, session, 1)..load();
     async.flushMicrotasks();
     listening = ListeningCubit(repository, socket, navigator)..start();
@@ -83,18 +82,12 @@ void main() {
       setUpCubits(async);
       listening.audioCompleted();
       async.elapse(const Duration(seconds: 5));
-      socket.reply(
-        socket.advances.last.requestId,
-        code: 'LISTENING_ADVANCE_TOO_EARLY',
-      );
+      socket.reply(socket.advances.last.requestId, code: 'LISTENING_ADVANCE_TOO_EARLY');
       async.elapse(const Duration(seconds: 1));
       expect(socket.advances, hasLength(2));
 
       remote.navigator = navigatorJson(current: 1);
-      socket.reply(
-        socket.advances.last.requestId,
-        code: 'LISTENING_PAGE_MISMATCH',
-      );
+      socket.reply(socket.advances.last.requestId, code: 'LISTENING_PAGE_MISMATCH');
       async.flushMicrotasks();
       expect(remote.navigatorCalls, 2);
       expect(listening.state.page?.index, 1);
@@ -112,8 +105,7 @@ void main() {
       remote.pages[0] = pageJson(0, elapsedMs: 6000, audioMs: 4000);
       socket = FakeStrictSocket();
       final repository = ExamRepository(remote);
-      session = AttemptSessionCubit(repository, socket)
-        ..load(1, initialAttempt: strictAttempt());
+      session = AttemptSessionCubit(repository, socket)..load(1, initialAttempt: strictAttempt());
       navigator = AttemptNavigatorCubit(repository, session, 1)..load();
       async.flushMicrotasks();
       listening = ListeningCubit(repository, socket, navigator)..start();
@@ -132,8 +124,7 @@ void main() {
       remote = FakeStrictRemote();
       socket = FakeStrictSocket();
       final repository = ExamRepository(remote);
-      session = AttemptSessionCubit(repository, socket)
-        ..load(1, initialAttempt: strictAttempt());
+      session = AttemptSessionCubit(repository, socket)..load(1, initialAttempt: strictAttempt());
       navigator = AttemptNavigatorCubit(repository, session, 1)..load();
       async.flushMicrotasks();
       remote.lockedPages.add(0);

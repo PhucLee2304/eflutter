@@ -54,6 +54,9 @@ mixin _AttemptIntegrity on Cubit<AttemptSessionState> {
   void _waitForBackendSubmission();
   void _resendPendingAnswers();
 
+  /// Claim vừa có kết quả: [owned] = kết nối này được trả lời (giữ phiên hoặc bài không giám sát).
+  void _onClaimSettled({required bool owned, bool reportFailure = true});
+
   final _claimRequests = <String>{};
   final _eventByRequest = <String, String>{};
   int? _sessionEpoch;
@@ -197,15 +200,20 @@ mixin _AttemptIntegrity on Cubit<AttemptSessionState> {
       _reporter.bind(attempt.id, _sendIntegrityEvent);
       _startMonitor(attempt.id);
       _resendPendingAnswers();
+      _onClaimSettled(owned: true);
       return;
     }
+    // Bài nộp đang chờ claim chỉ được quyết ở kết quả cuối; SESSION_RECOVERING và lỗi
+    // khác thì cubit tự claim lại, nên vẫn giữ lần nộp chờ đó.
     switch (event.code) {
       case AttemptSocketCode.attemptNotProctored:
         _reporter.ignore(attempt.id);
         emit(state.copyWith(integrity: null, sessionStatus: AttemptSessionStatus.none));
         _resendPendingAnswers();
+        _onClaimSettled(owned: true);
       case AttemptSocketCode.sessionInUse:
         emit(state.copyWith(sessionStatus: AttemptSessionStatus.inUse));
+        _onClaimSettled(owned: false);
       case AttemptSocketCode.sessionRecovering:
         final retryAfter = Duration(
           milliseconds: (event.details?['retryAfterMs'] as num?)?.toInt() ?? 0,
@@ -219,11 +227,15 @@ mixin _AttemptIntegrity on Cubit<AttemptSessionState> {
         _claimRetryTimer = Timer(retryAfter + const Duration(milliseconds: 500), _claimSession);
       case AttemptSocketCode.sessionTakeoverRequired:
         emit(state.copyWith(sessionStatus: AttemptSessionStatus.takeoverRequired));
+        _onClaimSettled(owned: false);
       case AttemptSocketCode.attemptNotActive || AttemptSocketCode.attemptExpired:
+        // Backend đã/sắp tự nộp bài: không báo lỗi nộp, _waitForBackendSubmission sẽ hiện kết quả.
+        _onClaimSettled(owned: false, reportFailure: false);
         _stopIntegrity(attempt.id);
         emit(state.copyWith(isLocked: true));
         _waitForBackendSubmission();
       case AttemptSocketCode.attemptNotFound:
+        _onClaimSettled(owned: false);
         _stopIntegrity(attempt.id);
         emit(state.copyWith(isLocked: true, resetByTeacher: true));
       default:

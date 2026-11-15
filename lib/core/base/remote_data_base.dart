@@ -70,7 +70,11 @@ abstract interface class RemoteDataBase {
 
   Future<ExamAttempt> getAttemptQuestions(int attemptId);
 
-  Future<ExamAttempt> submitAttempt(int attemptId, List<SubmitAttemptAnswer> answers);
+  Future<ExamAttempt> submitAttempt(
+    int attemptId,
+    List<SubmitAttemptAnswer> answers, {
+    String? sessionToken,
+  });
 
   Future<ExamAttempt> cancelAttempt(int attemptId);
 

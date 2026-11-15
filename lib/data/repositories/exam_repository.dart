@@ -52,8 +52,11 @@ class ExamRepository {
   Future<Result<ExamAttempt>> getAttemptQuestions(int attemptId) =>
       _remoteData.getAttemptQuestions(attemptId).safeResult();
 
-  Future<Result<ExamAttempt>> submitAttempt(int attemptId, List<SubmitAttemptAnswer> answers) =>
-      _remoteData.submitAttempt(attemptId, answers).safeResult();
+  Future<Result<ExamAttempt>> submitAttempt(
+    int attemptId,
+    List<SubmitAttemptAnswer> answers, {
+    String? sessionToken,
+  }) => _remoteData.submitAttempt(attemptId, answers, sessionToken: sessionToken).safeResult();
 
   Future<Result<ExamAttempt>> cancelAttempt(int attemptId) =>
       _remoteData.cancelAttempt(attemptId).safeResult();

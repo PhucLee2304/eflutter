@@ -1,33 +1,30 @@
 import 'dart:async';
 
 import 'package:eflutter/core/base/remote_data_base.dart';
-import 'package:eflutter/data/data_sources/attempt_socket_client.dart';
+import 'package:eflutter/data/data_sources/attempt_socket_protocol.dart';
 import 'package:eflutter/data/models/exam_attempt.dart';
 import 'package:eflutter/data/repositories/exam_repository.dart';
 import 'package:eflutter/presentation/exams/cubit/attempt_session_cubit.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test(
-    'hydrates answers, autosaves, and marks matching ACK as synced',
-    () async {
-      final remote = _FakeRemoteData();
-      final socket = _FakeSocket();
-      final cubit = AttemptSessionCubit(ExamRepository(remote), socket);
+  test('hydrates answers, autosaves, and marks matching ACK as synced', () async {
+    final remote = _FakeRemoteData();
+    final socket = _FakeSocket();
+    final cubit = AttemptSessionCubit(ExamRepository(remote), socket);
 
-      await cubit.load(1, initialAttempt: _activeAttempt());
-      await Future<void>.delayed(Duration.zero);
-      cubit.selectAnswer(11, 102);
+    await cubit.load(1, initialAttempt: _activeAttempt());
+    await Future<void>.delayed(Duration.zero);
+    cubit.selectAnswer(11, 102);
 
-      expect(cubit.state.selectedOptions[11], 102);
-      expect(socket.sent.single.optionId, 102);
-      socket.ack(socket.sent.single.requestId);
-      await Future<void>.delayed(Duration.zero);
-      expect(cubit.state.syncStatuses[11], AnswerSyncStatus.synced);
+    expect(cubit.state.selectedOptions[11], 102);
+    expect(socket.sent.single.optionId, 102);
+    socket.ack(socket.sent.single.requestId);
+    await Future<void>.delayed(Duration.zero);
+    expect(cubit.state.syncStatuses[11], AnswerSyncStatus.synced);
 
-      await cubit.close();
-    },
-  );
+    await cubit.close();
+  });
 
   test('submit sends a complete local answer snapshot', () async {
     final remote = _FakeRemoteData();
@@ -110,11 +107,7 @@ class _FakeSocket implements AttemptSocketGateway {
   }
 
   @override
-  String sendAnswer({
-    required int attemptId,
-    required int questionId,
-    required int? optionId,
-  }) {
+  String sendAnswer({required int attemptId, required int questionId, required int? optionId}) {
     final id = 'request-${sent.length + 1}';
     sent.add(_SentAnswer(id, optionId));
     return id;
@@ -127,9 +120,8 @@ class _FakeSocket implements AttemptSocketGateway {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 
-  void ack(String requestId) => eventController.add(
-    AttemptSocketEvent(requestId: requestId, success: true),
-  );
+  void ack(String requestId) =>
+      eventController.add(AttemptSocketEvent(requestId: requestId, success: true));
 
   @override
   Future<void> close() async {
@@ -146,8 +138,9 @@ class _FakeRemoteData implements RemoteDataBase {
   @override
   Future<ExamAttempt> submitAttempt(
     int attemptId,
-    List<SubmitAttemptAnswer> answers,
-  ) async {
+    List<SubmitAttemptAnswer> answers, {
+    String? sessionToken,
+  }) async {
     submittedAnswers = answers;
     final json = _attemptJson('SUBMITTED');
     json['correctAnswers'] = 1;

@@ -3,9 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('không có audio thì báo xong khi hết thời lượng còn lại', (
-    tester,
-  ) async {
+  testWidgets('không có audio thì báo xong khi hết thời lượng còn lại', (tester) async {
     var completed = 0;
     final preloader = ListeningAudioPreloader();
     final playback = ListeningPlayback(

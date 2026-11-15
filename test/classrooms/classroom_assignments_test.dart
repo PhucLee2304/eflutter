@@ -166,6 +166,8 @@ void main() {
 
       expect(called, isFalse);
       expect(find.text('Select at least one classroom'), findsOneWidget);
+      // Toast tự đóng sau 3 giây: chạy hết timer trước khi test kết thúc.
+      await tester.pumpAndSettle(const Duration(seconds: 4));
     });
   });
 
