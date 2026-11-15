@@ -21,11 +21,7 @@ void main() {
                     status: PaletteStatus.empty,
                     enabled: false,
                   ),
-                  PaletteItem(
-                    questionId: 12,
-                    number: 2,
-                    status: PaletteStatus.answered,
-                  ),
+                  PaletteItem(questionId: 12, number: 2, status: PaletteStatus.answered),
                 ],
               ),
             ],

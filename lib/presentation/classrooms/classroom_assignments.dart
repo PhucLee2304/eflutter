@@ -177,20 +177,24 @@ class _ClassworkListState extends State<_ClassworkList> {
           spacing: 12,
           runSpacing: 12,
           children: [
-            Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEEF0F2),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _pill('All', null),
-                  _pill('Open', _Phase.open),
-                  _pill('Upcoming', _Phase.upcoming),
-                  _pill('Closed', _Phase.closed),
-                ],
+            // Cuộn ngang để dải lọc không tràn trên màn hẹp hoặc khi phóng to chữ.
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEEF0F2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _pill('All', null),
+                    _pill('Open', _Phase.open),
+                    _pill('Upcoming', _Phase.upcoming),
+                    _pill('Closed', _Phase.closed),
+                  ],
+                ),
               ),
             ),
             if (v.isTeacher)
@@ -311,7 +315,10 @@ class _AssignmentTile extends StatelessWidget {
     spacing: 6,
     children: [
       Icon(icon, size: 15, color: _faint),
-      Text(label, style: const TextStyle(fontSize: 12, color: _muted)),
+      // Flexible để nhãn dài (lịch mở/hạn) xuống dòng trên màn hẹp thay vì tràn.
+      Flexible(
+        child: Text(label, style: const TextStyle(fontSize: 12, color: _muted)),
+      ),
     ],
   );
 
