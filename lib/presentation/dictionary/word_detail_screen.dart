@@ -1,6 +1,7 @@
 import 'package:eflutter/app/config/app_config.dart';
 import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/data/models/dictionary/word.dart';
+import 'package:eflutter/presentation/ai/word_ai_explain_sheet.dart';
 import 'package:eflutter/presentation/dictionary/cubit/flashcard_cubit.dart';
 import 'package:eflutter/presentation/dictionary/cubit/word_detail_cubit.dart';
 import 'package:eflutter/presentation/dictionary/widgets/save_word_dialog.dart';
@@ -158,33 +159,44 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
               builder: (context, detailState) {
                 return detailState.maybeWhen(
                   success: (detail) {
-                    return IconButton(
-                      icon: Icon(
-                        _isWordSaved ? Icons.bookmark : Icons.bookmark_add_outlined,
-                        color: _isWordSaved
-                            ? Theme.of(context).colorScheme.primary
-                            : null,
-                      ),
-                      tooltip: _isWordSaved ? 'Đã lưu trong bộ thẻ' : 'Lưu vào bộ thẻ',
-                      onPressed: () async {
-                        final saved = await SaveWordToDecksDialog.show(
-                          context,
-                          wordId: detail.id,
-                          wordText: detail.word,
-                          phonetic: detail.phonetic,
-                          cubit: _flashcardCubit,
-                        );
-                        if (saved == true && mounted) {
-                          await _checkWordSaveStatus();
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Đã cập nhật bộ thẻ cho "${detail.word}"'),
-                              ),
+                    return Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // ✨ Nút hỏi AI về từ này (Phase 2 RAG)
+                        IconButton(
+                          icon: const Icon(Icons.auto_awesome_outlined),
+                          tooltip: 'Hỏi AI về từ này',
+                          onPressed: () => WordAiExplainSheet.show(context, detail),
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            _isWordSaved ? Icons.bookmark : Icons.bookmark_add_outlined,
+                            color: _isWordSaved
+                                ? Theme.of(context).colorScheme.primary
+                                : null,
+                          ),
+                          tooltip: _isWordSaved ? 'Đã lưu trong bộ thẻ' : 'Lưu vào bộ thẻ',
+                          onPressed: () async {
+                            final saved = await SaveWordToDecksDialog.show(
+                              context,
+                              wordId: detail.id,
+                              wordText: detail.word,
+                              phonetic: detail.phonetic,
+                              cubit: _flashcardCubit,
                             );
-                          }
-                        }
-                      },
+                            if (saved == true && mounted) {
+                              await _checkWordSaveStatus();
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Đã cập nhật bộ thẻ cho "${detail.word}"'),
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                        ),
+                      ],
                     );
                   },
                   orElse: () => const SizedBox.shrink(),

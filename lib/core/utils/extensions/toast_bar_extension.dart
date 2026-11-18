@@ -1,5 +1,6 @@
 import 'package:eflutter/core/base/result.dart';
 import 'package:eflutter/generated/colors.gen.dart';
+import 'package:eflutter/presentation/app/navigation/app_router.dart';
 import 'package:flutter/material.dart';
 import 'package:solar_icons/solar_icons.dart';
 
@@ -35,7 +36,9 @@ extension ToastExtension on BuildContext {
     _currentToast?.remove();
     _currentToast = null;
 
-    final overlayState = Overlay.of(this);
+    final overlayState =
+        Overlay.maybeOf(this) ?? AppRouter.rootNavigatorKey.currentState?.overlay;
+    if (overlayState == null) return;
     final overlayEntry = OverlayEntry(
       builder: (context) {
         final topPadding = MediaQuery.of(context).padding.top;

@@ -103,7 +103,11 @@ class _MainAppBarState extends State<MainAppBar> {
                       borderRadius: BorderRadius.circular(8),
                       image: avatarUrl == null || avatarUrl.isEmpty
                           ? null
-                          : DecorationImage(image: NetworkImage(avatarUrl), fit: BoxFit.cover),
+                          : DecorationImage(
+                              image: NetworkImage(avatarUrl),
+                              fit: BoxFit.cover,
+                              onError: (_, __) {},
+                            ),
                     ),
                     child: avatarUrl == null || avatarUrl.isEmpty
                         ? const Icon(SolarIconsBold.user, color: Colors.white)

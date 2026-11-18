@@ -16,13 +16,13 @@ import 'package:go_router/go_router.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 
 class AppRouter {
-  static final _rootNavigatorKey = GlobalKey<NavigatorState>();
+  static final rootNavigatorKey = GlobalKey<NavigatorState>();
   static final _authNotifier = getIt<AuthNotifier>();
   static final _attemptLock = getIt<AttemptLockNotifier>();
 
   static final router = GoRouter(
     debugLogDiagnostics: kDebugMode,
-    navigatorKey: _rootNavigatorKey,
+    navigatorKey: rootNavigatorKey,
     initialLocation: AppRoutes.home.path,
     refreshListenable: Listenable.merge([_authNotifier, _attemptLock]),
     redirect: _redirect,

@@ -35,6 +35,8 @@ enum AppRoutes {
   adminStats(path: '/admin/stats'),
   adminUsers(path: '/admin/users'),
 
+  aiChat(path: '/ai-chat'),
+
   other(path: '/other'),
   subOther(path: 'other-sub-route');
 

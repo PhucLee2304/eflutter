@@ -30,6 +30,7 @@ import 'package:eflutter/presentation/dictionary/dictionary_search_screen.dart';
 import 'package:eflutter/presentation/dictionary/word_detail_screen.dart';
 import 'package:eflutter/presentation/grammar/grammar_curriculum_screen.dart';
 import 'package:eflutter/presentation/grammar/grammar_lesson_screen.dart';
+import 'package:eflutter/presentation/ai/ai_chat_screen.dart';
 
 enum NavigationItemGroup {
   general('General');
@@ -95,6 +96,7 @@ class NavigationItem {
       selfStudyItem,
       dictionaryItem,
       grammarItem,
+      aiChatItem,
       profileItem,
       otherItem,
       adminStatsItem,
@@ -412,6 +414,15 @@ class NavigationItem {
         },
       ),
     ],
+  );
+
+  static final aiChatItem = NavigationItem(
+    title: 'AI Tutor',
+    shortTitle: 'AI Tutor',
+    icon: Icons.smart_toy_outlined,
+    selectedIcon: Icons.smart_toy,
+    route: AppRoutes.aiChat,
+    screen: const AiChatScreen(),
   );
 
   @override

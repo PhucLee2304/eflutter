@@ -2,11 +2,13 @@ import 'dart:math';
 import 'package:eflutter/app/config/app_config.dart';
 import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/data/models/dictionary/flashcard_models.dart';
+import 'package:eflutter/data/models/dictionary/word.dart';
+import 'package:eflutter/presentation/ai/word_ai_explain_sheet.dart';
 import 'package:eflutter/presentation/dictionary/cubit/flashcard_cubit.dart';
 import 'package:flutter/material.dart';
+import 'package:eflutter/presentation/app/navigation/app_routes.dart';
 import 'package:go_router/go_router.dart';
 import 'package:video_player/video_player.dart';
-
 class FlashcardStudyScreen extends StatefulWidget {
   final int? deckId;
   final String? deckTitle;
@@ -285,6 +287,11 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
       appBar: AppBar(
         title: Text(title),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.smart_toy_outlined),
+            tooltip: 'Hỏi AI Tutor',
+            onPressed: () => context.push(AppRoutes.aiChat.path),
+          ),
           Center(
             child: Padding(
               padding: const EdgeInsets.only(right: 16),
@@ -538,6 +545,13 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final meanings = card.word?.meanings ?? [];
+    final audio = card.audioUrl;
+
+    // Tạo WordDetail từ card data để truyền vào AI explain sheet
+    WordDetail? wordDetailForAi;
+    if (card.word != null) {
+      wordDetailForAi = card.word!;
+    }
 
     return Card(
       elevation: 4,
@@ -570,15 +584,15 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
                   ),
                   const SizedBox(width: 6),
                 ],
-                if (card.audioUrl != null && card.audioUrl!.isNotEmpty)
+                if (audio != null && audio.isNotEmpty)
                   IconButton(
                     iconSize: 20,
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                     tooltip: 'Nghe phát âm',
-                    onPressed: () => _playAudio(card.audioUrl),
-                    icon: _isPlayingAudio && _playingAudioUrl == card.audioUrl
+                    onPressed: () => _playAudio(audio),
+                    icon: _isPlayingAudio && _playingAudioUrl == audio
                         ? const SizedBox(
                             width: 14,
                             height: 14,
@@ -589,6 +603,40 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
               ],
             ),
             const Divider(height: 16),
+
+            // Nút ✨ Hỏi AI về từ này
+            if (wordDetailForAi != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      side: BorderSide(
+                        color: colorScheme.primary.withOpacity(0.5),
+                      ),
+                    ),
+                    icon: Icon(
+                      Icons.auto_awesome,
+                      size: 16,
+                      color: colorScheme.primary,
+                    ),
+                    label: Text(
+                      'Hỏi AI về từ này',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: colorScheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    onPressed: () => WordAiExplainSheet.show(context, wordDetailForAi!),
+                  ),
+                ),
+              ),
 
             // Danh sách nghĩa & ví dụ
             Expanded(
