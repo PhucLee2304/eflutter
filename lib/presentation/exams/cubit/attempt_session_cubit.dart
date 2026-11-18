@@ -5,7 +5,7 @@ import 'package:eflutter/core/attempt_lock/integrity_away_tracker.dart';
 import 'package:eflutter/core/attempt_lock/integrity_monitor.dart';
 import 'package:eflutter/core/attempt_lock/integrity_session_store.dart';
 import 'package:eflutter/core/base/result.dart';
-import 'package:eflutter/data/data_sources/attempt_socket_client.dart';
+import 'package:eflutter/data/data_sources/attempt_socket_protocol.dart';
 import 'package:eflutter/data/models/exam_attempt.dart';
 import 'package:eflutter/data/models/exam_questions.dart';
 import 'package:eflutter/data/repositories/exam_repository.dart';
@@ -47,6 +47,14 @@ class AttemptSessionCubit extends Cubit<AttemptSessionState> with _AttemptIntegr
   Timer? _completionPollTimer;
   @override
   bool _closing = false;
+
+  /// Lần nộp bị 403 vì token phiên vừa xoay (reconnect claim lại giữa chừng): nộp lại
+  /// một lần sau khi claim xong.
+  bool _submitAfterClaim = false;
+  bool _submitRetried = false;
+
+  /// Lỗi 403 của lần nộp đang chờ claim; hiện ra nếu claim bị từ chối và bài không được nộp.
+  Failure? _pendingSubmitFailure;
 
   Future<void> load(int attemptId, {ExamAttempt? initialAttempt}) async {
     emit(state.copyWith(isLoading: initialAttempt == null, failure: null));
@@ -116,13 +124,31 @@ class AttemptSessionCubit extends Cubit<AttemptSessionState> with _AttemptIntegr
     final answers = state.selectedOptions.entries
         .map((e) => SubmitAttemptAnswer(questionId: e.key, selectedOptionId: e.value))
         .toList();
-    final result = await _repository.submitAttempt(attempt.id, answers);
+    // Bài giám sát: backend chỉ nhận bài nộp từ phiên đang giữ (token của lần claim).
+    final sessionToken = _isProctoredActive ? _sessionStore.read(attempt.id) : null;
+    final result = await _repository.submitAttempt(attempt.id, answers, sessionToken: sessionToken);
     switch (result) {
       case Success(data: final completed):
         _countdownTimer?.cancel();
         await _socket.close();
         emit(state.copyWith(attempt: completed, completedAttempt: completed, isSubmitting: false));
       case Failure():
+        // 403: token phiên vừa xoay vì socket reconnect claim lại giữa chừng. Nộp lại một
+        // lần khi đã có token mới; không thì đây là thiết bị không giữ phiên, báo lỗi như thường.
+        final rotated = _sessionStore.read(attempt.id) != sessionToken;
+        final claiming = state.sessionStatus == AttemptSessionStatus.claiming;
+        if (result.code == 403 &&
+            sessionToken != null &&
+            !_submitRetried &&
+            (rotated || claiming)) {
+          _submitRetried = true;
+          // Hết giờ thì giữ khóa như nhánh lỗi thường: không cho sửa đáp án lúc chờ nộp lại.
+          emit(state.copyWith(isSubmitting: false, isLocked: state.remaining == Duration.zero));
+          if (rotated && state.sessionStatus == AttemptSessionStatus.owned) return submit();
+          _submitAfterClaim = true;
+          _pendingSubmitFailure = result;
+          return;
+        }
         if (result.code == 409) {
           final history = await _repository.getAttemptHistory(attempt.id);
           if (history case Success(data: final completed)) {
@@ -200,19 +226,6 @@ class AttemptSessionCubit extends Cubit<AttemptSessionState> with _AttemptIntegr
 
   void _handleSocketEvent(AttemptSocketEvent event) {
     if (_handleIntegrityEvent(event)) return;
-    if (event.type == 'ATTEMPT_SUBMITTING' && event.attemptId == state.attempt?.id) {
-      _countdownTimer?.cancel();
-      emit(
-        state.copyWith(
-          isLocked: true,
-          isSubmitting: true,
-          failure: null,
-          submitReason: event.payload?['reason'] as String?,
-        ),
-      );
-      _waitForBackendSubmission();
-      return;
-    }
     if (event.type == 'ATTEMPT_SUBMITTED' && event.attemptId == state.attempt?.id) {
       emit(
         state.copyWith(
@@ -263,6 +276,25 @@ class AttemptSessionCubit extends Cubit<AttemptSessionState> with _AttemptIntegr
     } else if (status == AttemptSocketStatus.disconnected) {
       _onIntegrityDisconnected();
       _scheduleReconnect();
+    }
+  }
+
+  /// Lần nộp đang chờ claim chỉ chạy tiếp nếu claim thành công; claim bị từ chối (phiên
+  /// ở thiết bị khác, cần xác nhận takeover…) thì bỏ, để takeover sau này không tự nộp bài.
+  @override
+  void _onClaimSettled({required bool owned, bool reportFailure = true}) {
+    if (!_submitAfterClaim) return;
+    _submitAfterClaim = false;
+    final failure = _pendingSubmitFailure;
+    _pendingSubmitFailure = null;
+    if (owned) {
+      // Lần nộp lại duy nhất; _submitRetried vẫn true để không lặp nếu lại gặp 403.
+      submit();
+    } else {
+      // Bài chưa được nộp: báo cho học sinh thay vì chỉ tắt spinner, và cho phép lần
+      // nộp sau được nộp lại nếu lại trùng lúc reconnect.
+      _submitRetried = false;
+      if (reportFailure) emit(state.copyWith(failure: failure));
     }
   }
 
@@ -360,6 +392,8 @@ class AttemptSessionCubit extends Cubit<AttemptSessionState> with _AttemptIntegr
     final completed = change.nextState.completedAttempt;
     if (completed != null && change.currentState.completedAttempt == null) {
       _stopIntegrity(completed.id);
+      // Bài đã chốt: token phiên không còn dùng, không để lại trong sessionStorage.
+      _sessionStore.remove(completed.id);
     }
   }
 

@@ -4,11 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('create attempt request sends standalone context by default', () {
-    const request = CreateExamAttemptRequest(
-      mode: 'PRACTICE',
-      section: 'LISTENING',
-      duration: 30,
-    );
+    const request = CreateExamAttemptRequest(mode: 'PRACTICE', section: 'LISTENING', duration: 30);
 
     expect(request.toJson(), {
       'mode': 'PRACTICE',
@@ -19,15 +15,9 @@ void main() {
   });
 
   test('assignment attempt omits mode and sends assignment context', () {
-    const request = CreateExamAttemptRequest(
-      contextType: 'CLASSROOM_ASSIGNMENT',
-      contextId: 21,
-    );
+    const request = CreateExamAttemptRequest(contextType: 'CLASSROOM_ASSIGNMENT', contextId: 21);
 
-    expect(request.toJson(), {
-      'contextType': 'CLASSROOM_ASSIGNMENT',
-      'contextId': 21,
-    });
+    expect(request.toJson(), {'contextType': 'CLASSROOM_ASSIGNMENT', 'contextId': 21});
   });
 
   test('parses submitted review fields and nullable option content', () {

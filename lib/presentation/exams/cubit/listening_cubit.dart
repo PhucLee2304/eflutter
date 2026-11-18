@@ -1,7 +1,8 @@
 import 'dart:async';
 
+import 'package:clock/clock.dart';
 import 'package:eflutter/core/base/result.dart';
-import 'package:eflutter/data/data_sources/attempt_socket_client.dart';
+import 'package:eflutter/data/data_sources/attempt_socket_protocol.dart';
 import 'package:eflutter/data/models/attempt_page.dart';
 import 'package:eflutter/data/repositories/exam_repository.dart';
 import 'package:eflutter/presentation/exams/cubit/attempt_navigator_cubit.dart';
@@ -136,9 +137,9 @@ class ListeningCubit extends Cubit<ListeningState> {
       return;
     }
     // Tính theo đồng hồ thật: tab bị ẩn thì timer có thể bị trình duyệt gọi trễ.
-    final deadline = DateTime.now().add(gap);
+    final deadline = clock.now().add(gap);
     _gapTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      remaining = deadline.difference(DateTime.now());
+      remaining = deadline.difference(clock.now());
       if (remaining <= Duration.zero) {
         timer.cancel();
         _advance();

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:js_interop';
 import 'dart:math';
 
 import 'package:dio/dio.dart';
@@ -9,12 +8,12 @@ import 'package:eflutter/data/models/app_notification.dart';
 import 'package:eflutter/data/repositories/notification_repository.dart';
 import 'package:eflutter/presentation/app/navigation/app_router.dart';
 import 'package:eflutter/presentation/app/navigation/app_routes.dart';
+import 'package:eflutter/presentation/notifications/notification_browser.dart';
 import 'package:eflutter/presentation/notifications/notification_controller.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:web/web.dart' as web;
 
 @lazySingleton
 class NotificationPushService {
@@ -36,8 +35,8 @@ class NotificationPushService {
   StreamSubscription<String>? _tokenSubscription;
   StreamSubscription<List<AppNotification>>? _newSubscription;
   late final NotificationSocketClient _socket;
-  StreamSubscription<web.Event>? _pageHideSubscription;
-  StreamSubscription<web.Event>? _pageShowSubscription;
+  StreamSubscription<void>? _pageHideSubscription;
+  StreamSubscription<void>? _pageShowSubscription;
 
   Future<void> initialize() async {
     if (!kIsWeb) return;
@@ -46,14 +45,10 @@ class NotificationPushService {
     _newSubscription ??= _controller.newNotifications.listen(_showSystem);
     unawaited(_socket.connect());
     // Đóng kết nối khi tắt/rời trang; mở lại nếu trang được khôi phục từ cache.
-    _pageHideSubscription ??= web.EventStreamProviders.pageHideEvent
-        .forTarget(web.window)
-        .listen((_) => unawaited(_socket.close()));
-    _pageShowSubscription ??= web.EventStreamProviders.pageShowEvent.forTarget(web.window).listen((
-      event,
-    ) {
-      if ((event as web.PageTransitionEvent).persisted) unawaited(_socket.connect());
-    });
+    _pageHideSubscription ??= NotificationBrowser.onPageHide(() => unawaited(_socket.close()));
+    _pageShowSubscription ??= NotificationBrowser.onPageRestored(
+      () => unawaited(_socket.connect()),
+    );
     // Không await: hộp thoại xin quyền chờ người dùng bấm, không được chặn app.
     unawaited(
       _enablePush().catchError((Object e) {
@@ -87,26 +82,26 @@ class NotificationPushService {
   /// Hiện thông báo hệ thống (góc phải dưới trên Windows). Khi tab bị ẩn và
   /// push đã bật, service worker của FCM tự hiện nên bỏ qua để không trùng.
   void _showSystem(List<AppNotification> items) {
-    if (web.Notification.permission != 'granted') return;
-    final hidden = web.document.visibilityState == 'hidden';
-    if (hidden && _pushActive) return;
+    if (!NotificationBrowser.permissionGranted) return;
+    if (NotificationBrowser.pageHidden && _pushActive) return;
     for (final item in items) {
-      final notification = web.Notification(
-        item.title,
-        web.NotificationOptions(body: item.body, tag: 'ego-${item.id}', icon: 'icons/Icon-192.png'),
+      NotificationBrowser.show(
+        title: item.title,
+        body: item.body,
+        tag: 'ego-${item.id}',
+        onClick: () {
+          final path = notificationPath(item.data);
+          // Bài viết mở chồng lên để Back quay lại; các trang khác vẫn đi thẳng như cũ.
+          if (path == null) return;
+          if (path.contains('/posts/')) {
+            unawaited(
+              AppRouter.router.push(path, extra: int.tryParse(item.data['commentId'] ?? '')),
+            );
+          } else {
+            AppRouter.router.go(path);
+          }
+        },
       );
-      notification.onclick = (web.Event _) {
-        web.window.focus();
-        notification.close();
-        final path = notificationPath(item.data);
-        // Bài viết mở chồng lên để Back quay lại; các trang khác vẫn đi thẳng như cũ.
-        if (path == null) return;
-        if (path.contains('/posts/')) {
-          unawaited(AppRouter.router.push(path, extra: int.tryParse(item.data['commentId'] ?? '')));
-        } else {
-          AppRouter.router.go(path);
-        }
-      }.toJS;
     }
   }
 

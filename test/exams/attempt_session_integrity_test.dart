@@ -4,8 +4,9 @@ import 'package:eflutter/core/attempt_lock/attempt_integrity_reporter.dart';
 import 'package:eflutter/core/attempt_lock/integrity_away_tracker.dart';
 import 'package:eflutter/core/attempt_lock/integrity_monitor.dart';
 import 'package:eflutter/core/attempt_lock/integrity_session_store.dart';
+import 'package:dio/dio.dart';
 import 'package:eflutter/core/base/remote_data_base.dart';
-import 'package:eflutter/data/data_sources/attempt_socket_client.dart';
+import 'package:eflutter/data/data_sources/attempt_socket_protocol.dart';
 import 'package:eflutter/data/models/exam_attempt.dart';
 import 'package:eflutter/data/repositories/exam_repository.dart';
 import 'package:eflutter/presentation/exams/cubit/attempt_session_cubit.dart';
@@ -52,64 +53,55 @@ void main() {
     await flush();
   }
 
-  test(
-    'bài giám sát claim khi nối socket; chưa owned thì không trả lời',
-    () async {
-      await cubit.load(1, initialAttempt: _attempt());
-      await flush();
+  test('bài giám sát claim khi nối socket; chưa owned thì không trả lời', () async {
+    await cubit.load(1, initialAttempt: _attempt());
+    await flush();
 
-      expect(socket.claims.single.token, isNull);
-      expect(cubit.state.sessionStatus, AttemptSessionStatus.claiming);
-      cubit.selectAnswer(11, 101);
-      expect(cubit.state.selectedOptions[11], isNull);
+    expect(socket.claims.single.token, isNull);
+    expect(cubit.state.sessionStatus, AttemptSessionStatus.claiming);
+    cubit.selectAnswer(11, 101);
+    expect(cubit.state.selectedOptions[11], isNull);
 
-      socket.reply(
-        socket.claims.single.requestId,
-        payload: {'sessionToken': 'token-1', 'sessionEpoch': 1},
-      );
-      await flush();
-      expect(cubit.state.sessionStatus, AttemptSessionStatus.owned);
-      expect(store.read(1), 'token-1');
-      expect(monitor.tracker, isNotNull);
-      cubit.selectAnswer(11, 101);
-      expect(socket.answers, hasLength(1));
-    },
-  );
+    socket.reply(
+      socket.claims.single.requestId,
+      payload: {'sessionToken': 'token-1', 'sessionEpoch': 1},
+    );
+    await flush();
+    expect(cubit.state.sessionStatus, AttemptSessionStatus.owned);
+    expect(store.read(1), 'token-1');
+    expect(monitor.tracker, isNotNull);
+    cubit.selectAnswer(11, 101);
+    expect(socket.answers, hasLength(1));
+  });
 
-  test(
-    'claim lại sau reconnect dùng token đã lưu; event rời màn gửi kèm epoch',
-    () async {
-      await loadAndClaim();
-      monitor.tracker!.update(focused: false);
-      expect(socket.sentEvents.single.type, 'AWAY_START');
-      expect(socket.sentEvents.single.epoch, 1);
-      expect(socket.sentEvents.single.replayed, isFalse);
+  test('claim lại sau reconnect dùng token đã lưu; event rời màn gửi kèm epoch', () async {
+    await loadAndClaim();
+    monitor.tracker!.update(focused: false);
+    expect(socket.sentEvents.single.type, 'AWAY_START');
+    expect(socket.sentEvents.single.epoch, 1);
+    expect(socket.sentEvents.single.replayed, isFalse);
 
-      socket.statusController.add(AttemptSocketStatus.disconnected);
-      await flush();
-      monitor.tracker!.update(focused: true);
-      // Quay lại chỉ được chốt sau khoảng ổn định 1,5s.
-      await Future<void>.delayed(const Duration(milliseconds: 1600));
-      expect(socket.sentEvents, hasLength(1));
+    socket.statusController.add(AttemptSocketStatus.disconnected);
+    await flush();
+    monitor.tracker!.update(focused: true);
+    // Quay lại chỉ được chốt sau khoảng ổn định 1,5s.
+    await Future<void>.delayed(const Duration(milliseconds: 1600));
+    expect(socket.sentEvents, hasLength(1));
 
-      await socket.connect();
-      await flush();
-      expect(socket.claims.last.token, 'token-1');
-      socket.reply(
-        socket.claims.last.requestId,
-        payload: {'sessionToken': 'token-2', 'sessionEpoch': 1},
-      );
-      await flush();
-      final types = socket.sentEvents.map((event) => event.type).toList();
-      expect(types, ['AWAY_START', 'AWAY_START', 'AWAY_END']);
-      expect(socket.sentEvents[1].eventId, socket.sentEvents[0].eventId);
-      expect(
-        socket.sentEvents.skip(1).every((event) => event.replayed),
-        isTrue,
-      );
-      expect(socket.sentEvents[2].startEventId, socket.sentEvents[0].eventId);
-    },
-  );
+    await socket.connect();
+    await flush();
+    expect(socket.claims.last.token, 'token-1');
+    socket.reply(
+      socket.claims.last.requestId,
+      payload: {'sessionToken': 'token-2', 'sessionEpoch': 1},
+    );
+    await flush();
+    final types = socket.sentEvents.map((event) => event.type).toList();
+    expect(types, ['AWAY_START', 'AWAY_START', 'AWAY_END']);
+    expect(socket.sentEvents[1].eventId, socket.sentEvents[0].eventId);
+    expect(socket.sentEvents.skip(1).every((event) => event.replayed), isTrue);
+    expect(socket.sentEvents[2].startEventId, socket.sentEvents[0].eventId);
+  });
 
   test('các lỗi claim chuyển trạng thái phiên', () async {
     await cubit.load(1, initialAttempt: _attempt());
@@ -130,10 +122,7 @@ void main() {
     expect(cubit.state.sessionRetryAfter, const Duration(seconds: 12));
 
     cubit.retrySessionClaim();
-    socket.reply(
-      socket.claims.last.requestId,
-      code: 'SESSION_TAKEOVER_REQUIRED',
-    );
+    socket.reply(socket.claims.last.requestId, code: 'SESSION_TAKEOVER_REQUIRED');
     await flush();
     expect(cubit.state.sessionStatus, AttemptSessionStatus.takeoverRequired);
 
@@ -143,11 +132,7 @@ void main() {
 
   test('ATTEMPT_VIOLATION cập nhật x/N và bật cảnh báo', () async {
     await loadAndClaim();
-    socket.push('ATTEMPT_VIOLATION', {
-      'attemptId': 1,
-      'violationCount': 1,
-      'maxViolations': 2,
-    });
+    socket.push('ATTEMPT_VIOLATION', {'attemptId': 1, 'violationCount': 1, 'maxViolations': 2});
     await flush();
 
     expect(cubit.state.integrity?.violationCount, 1);
@@ -156,11 +141,7 @@ void main() {
 
   test('ATTEMPT_VIOLATION_CLEARED giảm x/N, không bật cảnh báo', () async {
     await loadAndClaim();
-    socket.push('ATTEMPT_VIOLATION', {
-      'attemptId': 1,
-      'violationCount': 1,
-      'maxViolations': 2,
-    });
+    socket.push('ATTEMPT_VIOLATION', {'attemptId': 1, 'violationCount': 1, 'maxViolations': 2});
     socket.push('ATTEMPT_VIOLATION_CLEARED', {
       'attemptId': 1,
       'violationCount': 0,
@@ -174,13 +155,8 @@ void main() {
 
   test('ATTEMPT_TERMINATED khóa bài, dừng giám sát và tải kết quả', () async {
     await loadAndClaim();
-    reporter.report(
-      AttemptIntegrityEvent(type: AttemptIntegrityEventType.copy, attemptId: 1),
-    );
-    socket.push('ATTEMPT_TERMINATED', {
-      'attemptId': 1,
-      'reason': 'MAX_VIOLATIONS',
-    });
+    reporter.report(AttemptIntegrityEvent(type: AttemptIntegrityEventType.copy, attemptId: 1));
+    socket.push('ATTEMPT_TERMINATED', {'attemptId': 1, 'reason': 'MAX_VIOLATIONS'});
     await flush();
     await flush();
 
@@ -207,12 +183,7 @@ void main() {
     await loadAndClaim();
     socket.statusController.add(AttemptSocketStatus.disconnected);
     await flush();
-    reporter.report(
-      AttemptIntegrityEvent(
-        type: AttemptIntegrityEventType.paste,
-        attemptId: 1,
-      ),
-    );
+    reporter.report(AttemptIntegrityEvent(type: AttemptIntegrityEventType.paste, attemptId: 1));
     socket.push('ATTEMPT_RESET', {'attemptId': 1});
     await flush();
 
@@ -229,6 +200,94 @@ void main() {
     cubit.selectAnswer(11, 101);
     expect(socket.answers, hasLength(1));
   });
+  group('nộp bài bị 403 vì token phiên vừa xoay', () {
+    /// Trả request nộp đang chờ (bọc record để `async` không gộp Future lồng nhau).
+    Future<(Future<void>,)> submitDuringReconnect() async {
+      await loadAndClaim();
+      remote.firstSubmit = Completer<int>();
+      final pending = cubit.submit();
+      await flush();
+      // Socket rớt và claim lại trong lúc request nộp đang bay.
+      socket.statusController.add(AttemptSocketStatus.disconnected);
+      await flush();
+      await socket.connect();
+      await flush();
+      expect(cubit.state.sessionStatus, AttemptSessionStatus.claiming);
+      remote.firstSubmit!.complete(403);
+      return (pending,);
+    }
+
+    test('claim xong thì nộp lại một lần bằng token mới', () async {
+      final (pending,) = await submitDuringReconnect();
+      await pending;
+      expect(remote.submitTokens, ['token-1']);
+      expect(cubit.state.isSubmitting, isFalse);
+
+      socket.reply(
+        socket.claims.last.requestId,
+        payload: {'sessionToken': 'token-2', 'sessionEpoch': 1},
+      );
+      await flush();
+      await flush();
+      expect(remote.submitTokens, ['token-1', 'token-2']);
+      expect(cubit.state.completedAttempt, isNotNull);
+      // Bài đã chốt: token phiên bị xóa khỏi store.
+      expect(store.read(1), isNull);
+    });
+
+    test('SESSION_RECOVERING giữ lần nộp chờ; claim lại thành công thì nộp', () async {
+      final (pending,) = await submitDuringReconnect();
+      await pending;
+      socket.reply(
+        socket.claims.last.requestId,
+        code: 'SESSION_RECOVERING',
+        details: {'retryAfterMs': 0},
+      );
+      await flush();
+      expect(cubit.state.failure, isNull);
+      expect(remote.submitTokens, ['token-1']);
+
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+      socket.reply(
+        socket.claims.last.requestId,
+        payload: {'sessionToken': 'token-2', 'sessionEpoch': 1},
+      );
+      await flush();
+      await flush();
+      expect(remote.submitTokens, ['token-1', 'token-2']);
+      expect(cubit.state.completedAttempt, isNotNull);
+    });
+
+    test('claim bị từ chối thì takeover sau đó không tự nộp', () async {
+      final (pending,) = await submitDuringReconnect();
+      await pending;
+      socket.reply(socket.claims.last.requestId, code: 'SESSION_TAKEOVER_REQUIRED');
+      await flush();
+      expect(cubit.state.sessionStatus, AttemptSessionStatus.takeoverRequired);
+      // Bài chưa được nộp: học sinh thấy lỗi thay vì chỉ thấy spinner tắt.
+      expect(cubit.state.failure?.code, 403);
+
+      cubit.takeoverSession();
+      socket.reply(
+        socket.claims.last.requestId,
+        payload: {'sessionToken': 'token-3', 'sessionEpoch': 2},
+      );
+      await flush();
+      await flush();
+      expect(cubit.state.sessionStatus, AttemptSessionStatus.owned);
+      expect(remote.submitTokens, ['token-1']);
+      expect(cubit.state.completedAttempt, isNull);
+    });
+
+    test('claim báo hết giờ thì không báo lỗi nộp (backend tự nộp)', () async {
+      final (pending,) = await submitDuringReconnect();
+      await pending;
+      socket.reply(socket.claims.last.requestId, code: 'ATTEMPT_EXPIRED');
+      await flush();
+      expect(cubit.state.isLocked, isTrue);
+      expect(cubit.state.failure, isNull);
+    });
+  });
 }
 
 ExamAttempt _attempt({bool proctored = true}) => ExamAttempt.fromJson({
@@ -239,11 +298,7 @@ ExamAttempt _attempt({bool proctored = true}) => ExamAttempt.fromJson({
   'totalQuestions': 1,
   'answeredCount': 0,
   'proctored': proctored,
-  if (proctored) ...{
-    'maxViolations': 2,
-    'violationCount': 0,
-    'integrityOutcome': 'NONE',
-  },
+  if (proctored) ...{'maxViolations': 2, 'violationCount': 0, 'integrityOutcome': 'NONE'},
   'sections': [
     {
       'id': 3,
@@ -273,13 +328,7 @@ class _Claim {
 }
 
 class _Event {
-  const _Event(
-    this.type,
-    this.eventId,
-    this.epoch,
-    this.replayed,
-    this.startEventId,
-  );
+  const _Event(this.type, this.eventId, this.epoch, this.replayed, this.startEventId);
   final String type;
   final String eventId;
   final int epoch;
@@ -301,26 +350,17 @@ class _FakeSocket implements AttemptSocketGateway {
   Stream<AttemptSocketStatus> get statuses => statusController.stream;
 
   @override
-  Future<void> connect() async =>
-      statusController.add(AttemptSocketStatus.connected);
+  Future<void> connect() async => statusController.add(AttemptSocketStatus.connected);
 
   @override
-  String sendAnswer({
-    required int attemptId,
-    required int questionId,
-    required int? optionId,
-  }) {
+  String sendAnswer({required int attemptId, required int questionId, required int? optionId}) {
     final id = 'answer-${++_seq}';
     answers.add(id);
     return id;
   }
 
   @override
-  String sendSessionClaim({
-    required int attemptId,
-    String? sessionToken,
-    bool takeover = false,
-  }) {
+  String sendSessionClaim({required int attemptId, String? sessionToken, bool takeover = false}) {
     final id = 'claim-${++_seq}';
     claims.add(_Claim(id, sessionToken, takeover));
     return id;
@@ -390,20 +430,44 @@ class _FakeMonitor implements IntegrityMonitor {
 }
 
 class _FakeRemote implements RemoteDataBase {
+  /// Token gửi kèm mỗi lần nộp; lần nộp đầu chờ [firstSubmit] (null thì trả ngay).
+  final submitTokens = <String?>[];
+  Completer<int>? firstSubmit;
+
   @override
-  Future<ExamAttempt> getAttemptHistory(int attemptId) async =>
-      ExamAttempt.fromJson({
-        'id': 1,
-        'examId': 2,
-        'mode': 'ASSIGNMENT',
-        'status': 'SUBMITTED',
-        'proctored': true,
-        'maxViolations': 2,
-        'violationCount': 3,
-        'integrityOutcome': 'TERMINATED',
-        'terminationReason': 'MAX_VIOLATIONS',
-        'score': 0,
-      });
+  Future<ExamAttempt> submitAttempt(
+    int attemptId,
+    List<SubmitAttemptAnswer> answers, {
+    String? sessionToken,
+  }) async {
+    submitTokens.add(sessionToken);
+    if (submitTokens.length == 1 && firstSubmit != null) {
+      final status = await firstSubmit!.future;
+      if (status != 200) {
+        final options = RequestOptions(path: '/submit');
+        throw DioException(
+          requestOptions: options,
+          response: Response(requestOptions: options, statusCode: status),
+          type: DioExceptionType.badResponse,
+        );
+      }
+    }
+    return getAttemptHistory(attemptId);
+  }
+
+  @override
+  Future<ExamAttempt> getAttemptHistory(int attemptId) async => ExamAttempt.fromJson({
+    'id': 1,
+    'examId': 2,
+    'mode': 'ASSIGNMENT',
+    'status': 'SUBMITTED',
+    'proctored': true,
+    'maxViolations': 2,
+    'violationCount': 3,
+    'integrityOutcome': 'TERMINATED',
+    'terminationReason': 'MAX_VIOLATIONS',
+    'score': 0,
+  });
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
