@@ -35,7 +35,8 @@ class GrammarUnitCubit extends Cubit<GrammarUnitState> {
     }
   }
 
-  Future<void> submitProgress(int unitId) async {
-    await _repository.submitProgress(unitId);
+  Future<bool> submitProgress(int unitId, int correctAnswers) async {
+    final result = await _repository.submitProgress(unitId, correctAnswers);
+    return result is Success<void>;
   }
 }

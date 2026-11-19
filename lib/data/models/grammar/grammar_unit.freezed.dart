@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$UnitSummary {
 
- int get id; int get unit; String get title; bool get completed; int get total;
+ int get id; int get unit; String get title; bool get completed; int get total; int get correctAnswers; int get totalQuestions;
 /// Create a copy of UnitSummary
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -28,16 +28,16 @@ $UnitSummaryCopyWith<UnitSummary> get copyWith => _$UnitSummaryCopyWithImpl<Unit
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is UnitSummary&&(identical(other.id, id) || other.id == id)&&(identical(other.unit, unit) || other.unit == unit)&&(identical(other.title, title) || other.title == title)&&(identical(other.completed, completed) || other.completed == completed)&&(identical(other.total, total) || other.total == total));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is UnitSummary&&(identical(other.id, id) || other.id == id)&&(identical(other.unit, unit) || other.unit == unit)&&(identical(other.title, title) || other.title == title)&&(identical(other.completed, completed) || other.completed == completed)&&(identical(other.total, total) || other.total == total)&&(identical(other.correctAnswers, correctAnswers) || other.correctAnswers == correctAnswers)&&(identical(other.totalQuestions, totalQuestions) || other.totalQuestions == totalQuestions));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,unit,title,completed,total);
+int get hashCode => Object.hash(runtimeType,id,unit,title,completed,total,correctAnswers,totalQuestions);
 
 @override
 String toString() {
-  return 'UnitSummary(id: $id, unit: $unit, title: $title, completed: $completed, total: $total)';
+  return 'UnitSummary(id: $id, unit: $unit, title: $title, completed: $completed, total: $total, correctAnswers: $correctAnswers, totalQuestions: $totalQuestions)';
 }
 
 
@@ -48,7 +48,7 @@ abstract mixin class $UnitSummaryCopyWith<$Res>  {
   factory $UnitSummaryCopyWith(UnitSummary value, $Res Function(UnitSummary) _then) = _$UnitSummaryCopyWithImpl;
 @useResult
 $Res call({
- int id, int unit, String title, bool completed, int total
+ int id, int unit, String title, bool completed, int total, int correctAnswers, int totalQuestions
 });
 
 
@@ -65,13 +65,15 @@ class _$UnitSummaryCopyWithImpl<$Res>
 
 /// Create a copy of UnitSummary
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? unit = null,Object? title = null,Object? completed = null,Object? total = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? unit = null,Object? title = null,Object? completed = null,Object? total = null,Object? correctAnswers = null,Object? totalQuestions = null,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as int,unit: null == unit ? _self.unit : unit // ignore: cast_nullable_to_non_nullable
 as int,title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
 as String,completed: null == completed ? _self.completed : completed // ignore: cast_nullable_to_non_nullable
 as bool,total: null == total ? _self.total : total // ignore: cast_nullable_to_non_nullable
+as int,correctAnswers: null == correctAnswers ? _self.correctAnswers : correctAnswers // ignore: cast_nullable_to_non_nullable
+as int,totalQuestions: null == totalQuestions ? _self.totalQuestions : totalQuestions // ignore: cast_nullable_to_non_nullable
 as int,
   ));
 }
@@ -157,10 +159,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int id,  int unit,  String title,  bool completed,  int total)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int id,  int unit,  String title,  bool completed,  int total,  int correctAnswers,  int totalQuestions)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _UnitSummary() when $default != null:
-return $default(_that.id,_that.unit,_that.title,_that.completed,_that.total);case _:
+return $default(_that.id,_that.unit,_that.title,_that.completed,_that.total,_that.correctAnswers,_that.totalQuestions);case _:
   return orElse();
 
 }
@@ -178,10 +180,10 @@ return $default(_that.id,_that.unit,_that.title,_that.completed,_that.total);cas
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int id,  int unit,  String title,  bool completed,  int total)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int id,  int unit,  String title,  bool completed,  int total,  int correctAnswers,  int totalQuestions)  $default,) {final _that = this;
 switch (_that) {
 case _UnitSummary():
-return $default(_that.id,_that.unit,_that.title,_that.completed,_that.total);case _:
+return $default(_that.id,_that.unit,_that.title,_that.completed,_that.total,_that.correctAnswers,_that.totalQuestions);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -198,10 +200,10 @@ return $default(_that.id,_that.unit,_that.title,_that.completed,_that.total);cas
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int id,  int unit,  String title,  bool completed,  int total)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int id,  int unit,  String title,  bool completed,  int total,  int correctAnswers,  int totalQuestions)?  $default,) {final _that = this;
 switch (_that) {
 case _UnitSummary() when $default != null:
-return $default(_that.id,_that.unit,_that.title,_that.completed,_that.total);case _:
+return $default(_that.id,_that.unit,_that.title,_that.completed,_that.total,_that.correctAnswers,_that.totalQuestions);case _:
   return null;
 
 }
@@ -213,7 +215,7 @@ return $default(_that.id,_that.unit,_that.title,_that.completed,_that.total);cas
 @JsonSerializable()
 
 class _UnitSummary extends UnitSummary {
-  const _UnitSummary({required this.id, this.unit = 1, required this.title, this.completed = false, this.total = 0}): super._();
+  const _UnitSummary({required this.id, this.unit = 1, required this.title, this.completed = false, this.total = 0, this.correctAnswers = 0, this.totalQuestions = 0}): super._();
   factory _UnitSummary.fromJson(Map<String, dynamic> json) => _$UnitSummaryFromJson(json);
 
 @override final  int id;
@@ -221,6 +223,8 @@ class _UnitSummary extends UnitSummary {
 @override final  String title;
 @override@JsonKey() final  bool completed;
 @override@JsonKey() final  int total;
+@override@JsonKey() final  int correctAnswers;
+@override@JsonKey() final  int totalQuestions;
 
 /// Create a copy of UnitSummary
 /// with the given fields replaced by the non-null parameter values.
@@ -235,16 +239,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _UnitSummary&&(identical(other.id, id) || other.id == id)&&(identical(other.unit, unit) || other.unit == unit)&&(identical(other.title, title) || other.title == title)&&(identical(other.completed, completed) || other.completed == completed)&&(identical(other.total, total) || other.total == total));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _UnitSummary&&(identical(other.id, id) || other.id == id)&&(identical(other.unit, unit) || other.unit == unit)&&(identical(other.title, title) || other.title == title)&&(identical(other.completed, completed) || other.completed == completed)&&(identical(other.total, total) || other.total == total)&&(identical(other.correctAnswers, correctAnswers) || other.correctAnswers == correctAnswers)&&(identical(other.totalQuestions, totalQuestions) || other.totalQuestions == totalQuestions));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,unit,title,completed,total);
+int get hashCode => Object.hash(runtimeType,id,unit,title,completed,total,correctAnswers,totalQuestions);
 
 @override
 String toString() {
-  return 'UnitSummary(id: $id, unit: $unit, title: $title, completed: $completed, total: $total)';
+  return 'UnitSummary(id: $id, unit: $unit, title: $title, completed: $completed, total: $total, correctAnswers: $correctAnswers, totalQuestions: $totalQuestions)';
 }
 
 
@@ -255,7 +259,7 @@ abstract mixin class _$UnitSummaryCopyWith<$Res> implements $UnitSummaryCopyWith
   factory _$UnitSummaryCopyWith(_UnitSummary value, $Res Function(_UnitSummary) _then) = __$UnitSummaryCopyWithImpl;
 @override @useResult
 $Res call({
- int id, int unit, String title, bool completed, int total
+ int id, int unit, String title, bool completed, int total, int correctAnswers, int totalQuestions
 });
 
 
@@ -272,13 +276,15 @@ class __$UnitSummaryCopyWithImpl<$Res>
 
 /// Create a copy of UnitSummary
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? unit = null,Object? title = null,Object? completed = null,Object? total = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? unit = null,Object? title = null,Object? completed = null,Object? total = null,Object? correctAnswers = null,Object? totalQuestions = null,}) {
   return _then(_UnitSummary(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as int,unit: null == unit ? _self.unit : unit // ignore: cast_nullable_to_non_nullable
 as int,title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
 as String,completed: null == completed ? _self.completed : completed // ignore: cast_nullable_to_non_nullable
 as bool,total: null == total ? _self.total : total // ignore: cast_nullable_to_non_nullable
+as int,correctAnswers: null == correctAnswers ? _self.correctAnswers : correctAnswers // ignore: cast_nullable_to_non_nullable
+as int,totalQuestions: null == totalQuestions ? _self.totalQuestions : totalQuestions // ignore: cast_nullable_to_non_nullable
 as int,
   ));
 }
@@ -846,7 +852,7 @@ as int?,
 /// @nodoc
 mixin _$UnitDetail {
 
- int get id; int get unit; String get title; String get theory; List<String> get examples; List<PracticeQuestion> get practices; bool get completed;
+ int get id; int get unit; String get title; String get theory; List<String> get examples; List<PracticeQuestion> get practices; bool get completed; int get correctAnswers; int get totalQuestions;
 /// Create a copy of UnitDetail
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -859,16 +865,16 @@ $UnitDetailCopyWith<UnitDetail> get copyWith => _$UnitDetailCopyWithImpl<UnitDet
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is UnitDetail&&(identical(other.id, id) || other.id == id)&&(identical(other.unit, unit) || other.unit == unit)&&(identical(other.title, title) || other.title == title)&&(identical(other.theory, theory) || other.theory == theory)&&const DeepCollectionEquality().equals(other.examples, examples)&&const DeepCollectionEquality().equals(other.practices, practices)&&(identical(other.completed, completed) || other.completed == completed));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is UnitDetail&&(identical(other.id, id) || other.id == id)&&(identical(other.unit, unit) || other.unit == unit)&&(identical(other.title, title) || other.title == title)&&(identical(other.theory, theory) || other.theory == theory)&&const DeepCollectionEquality().equals(other.examples, examples)&&const DeepCollectionEquality().equals(other.practices, practices)&&(identical(other.completed, completed) || other.completed == completed)&&(identical(other.correctAnswers, correctAnswers) || other.correctAnswers == correctAnswers)&&(identical(other.totalQuestions, totalQuestions) || other.totalQuestions == totalQuestions));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,unit,title,theory,const DeepCollectionEquality().hash(examples),const DeepCollectionEquality().hash(practices),completed);
+int get hashCode => Object.hash(runtimeType,id,unit,title,theory,const DeepCollectionEquality().hash(examples),const DeepCollectionEquality().hash(practices),completed,correctAnswers,totalQuestions);
 
 @override
 String toString() {
-  return 'UnitDetail(id: $id, unit: $unit, title: $title, theory: $theory, examples: $examples, practices: $practices, completed: $completed)';
+  return 'UnitDetail(id: $id, unit: $unit, title: $title, theory: $theory, examples: $examples, practices: $practices, completed: $completed, correctAnswers: $correctAnswers, totalQuestions: $totalQuestions)';
 }
 
 
@@ -879,7 +885,7 @@ abstract mixin class $UnitDetailCopyWith<$Res>  {
   factory $UnitDetailCopyWith(UnitDetail value, $Res Function(UnitDetail) _then) = _$UnitDetailCopyWithImpl;
 @useResult
 $Res call({
- int id, int unit, String title, String theory, List<String> examples, List<PracticeQuestion> practices, bool completed
+ int id, int unit, String title, String theory, List<String> examples, List<PracticeQuestion> practices, bool completed, int correctAnswers, int totalQuestions
 });
 
 
@@ -896,7 +902,7 @@ class _$UnitDetailCopyWithImpl<$Res>
 
 /// Create a copy of UnitDetail
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? unit = null,Object? title = null,Object? theory = null,Object? examples = null,Object? practices = null,Object? completed = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? unit = null,Object? title = null,Object? theory = null,Object? examples = null,Object? practices = null,Object? completed = null,Object? correctAnswers = null,Object? totalQuestions = null,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as int,unit: null == unit ? _self.unit : unit // ignore: cast_nullable_to_non_nullable
@@ -905,7 +911,9 @@ as String,theory: null == theory ? _self.theory : theory // ignore: cast_nullabl
 as String,examples: null == examples ? _self.examples : examples // ignore: cast_nullable_to_non_nullable
 as List<String>,practices: null == practices ? _self.practices : practices // ignore: cast_nullable_to_non_nullable
 as List<PracticeQuestion>,completed: null == completed ? _self.completed : completed // ignore: cast_nullable_to_non_nullable
-as bool,
+as bool,correctAnswers: null == correctAnswers ? _self.correctAnswers : correctAnswers // ignore: cast_nullable_to_non_nullable
+as int,totalQuestions: null == totalQuestions ? _self.totalQuestions : totalQuestions // ignore: cast_nullable_to_non_nullable
+as int,
   ));
 }
 
@@ -990,10 +998,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int id,  int unit,  String title,  String theory,  List<String> examples,  List<PracticeQuestion> practices,  bool completed)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int id,  int unit,  String title,  String theory,  List<String> examples,  List<PracticeQuestion> practices,  bool completed,  int correctAnswers,  int totalQuestions)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _UnitDetail() when $default != null:
-return $default(_that.id,_that.unit,_that.title,_that.theory,_that.examples,_that.practices,_that.completed);case _:
+return $default(_that.id,_that.unit,_that.title,_that.theory,_that.examples,_that.practices,_that.completed,_that.correctAnswers,_that.totalQuestions);case _:
   return orElse();
 
 }
@@ -1011,10 +1019,10 @@ return $default(_that.id,_that.unit,_that.title,_that.theory,_that.examples,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int id,  int unit,  String title,  String theory,  List<String> examples,  List<PracticeQuestion> practices,  bool completed)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int id,  int unit,  String title,  String theory,  List<String> examples,  List<PracticeQuestion> practices,  bool completed,  int correctAnswers,  int totalQuestions)  $default,) {final _that = this;
 switch (_that) {
 case _UnitDetail():
-return $default(_that.id,_that.unit,_that.title,_that.theory,_that.examples,_that.practices,_that.completed);case _:
+return $default(_that.id,_that.unit,_that.title,_that.theory,_that.examples,_that.practices,_that.completed,_that.correctAnswers,_that.totalQuestions);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -1031,10 +1039,10 @@ return $default(_that.id,_that.unit,_that.title,_that.theory,_that.examples,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int id,  int unit,  String title,  String theory,  List<String> examples,  List<PracticeQuestion> practices,  bool completed)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int id,  int unit,  String title,  String theory,  List<String> examples,  List<PracticeQuestion> practices,  bool completed,  int correctAnswers,  int totalQuestions)?  $default,) {final _that = this;
 switch (_that) {
 case _UnitDetail() when $default != null:
-return $default(_that.id,_that.unit,_that.title,_that.theory,_that.examples,_that.practices,_that.completed);case _:
+return $default(_that.id,_that.unit,_that.title,_that.theory,_that.examples,_that.practices,_that.completed,_that.correctAnswers,_that.totalQuestions);case _:
   return null;
 
 }
@@ -1046,7 +1054,7 @@ return $default(_that.id,_that.unit,_that.title,_that.theory,_that.examples,_tha
 @JsonSerializable()
 
 class _UnitDetail extends UnitDetail {
-  const _UnitDetail({required this.id, this.unit = 1, required this.title, required this.theory, final  List<String> examples = const [], final  List<PracticeQuestion> practices = const [], this.completed = false}): _examples = examples,_practices = practices,super._();
+  const _UnitDetail({required this.id, this.unit = 1, required this.title, required this.theory, final  List<String> examples = const [], final  List<PracticeQuestion> practices = const [], this.completed = false, this.correctAnswers = 0, this.totalQuestions = 0}): _examples = examples,_practices = practices,super._();
   factory _UnitDetail.fromJson(Map<String, dynamic> json) => _$UnitDetailFromJson(json);
 
 @override final  int id;
@@ -1068,6 +1076,8 @@ class _UnitDetail extends UnitDetail {
 }
 
 @override@JsonKey() final  bool completed;
+@override@JsonKey() final  int correctAnswers;
+@override@JsonKey() final  int totalQuestions;
 
 /// Create a copy of UnitDetail
 /// with the given fields replaced by the non-null parameter values.
@@ -1082,16 +1092,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _UnitDetail&&(identical(other.id, id) || other.id == id)&&(identical(other.unit, unit) || other.unit == unit)&&(identical(other.title, title) || other.title == title)&&(identical(other.theory, theory) || other.theory == theory)&&const DeepCollectionEquality().equals(other._examples, _examples)&&const DeepCollectionEquality().equals(other._practices, _practices)&&(identical(other.completed, completed) || other.completed == completed));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _UnitDetail&&(identical(other.id, id) || other.id == id)&&(identical(other.unit, unit) || other.unit == unit)&&(identical(other.title, title) || other.title == title)&&(identical(other.theory, theory) || other.theory == theory)&&const DeepCollectionEquality().equals(other._examples, _examples)&&const DeepCollectionEquality().equals(other._practices, _practices)&&(identical(other.completed, completed) || other.completed == completed)&&(identical(other.correctAnswers, correctAnswers) || other.correctAnswers == correctAnswers)&&(identical(other.totalQuestions, totalQuestions) || other.totalQuestions == totalQuestions));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,unit,title,theory,const DeepCollectionEquality().hash(_examples),const DeepCollectionEquality().hash(_practices),completed);
+int get hashCode => Object.hash(runtimeType,id,unit,title,theory,const DeepCollectionEquality().hash(_examples),const DeepCollectionEquality().hash(_practices),completed,correctAnswers,totalQuestions);
 
 @override
 String toString() {
-  return 'UnitDetail(id: $id, unit: $unit, title: $title, theory: $theory, examples: $examples, practices: $practices, completed: $completed)';
+  return 'UnitDetail(id: $id, unit: $unit, title: $title, theory: $theory, examples: $examples, practices: $practices, completed: $completed, correctAnswers: $correctAnswers, totalQuestions: $totalQuestions)';
 }
 
 
@@ -1102,7 +1112,7 @@ abstract mixin class _$UnitDetailCopyWith<$Res> implements $UnitDetailCopyWith<$
   factory _$UnitDetailCopyWith(_UnitDetail value, $Res Function(_UnitDetail) _then) = __$UnitDetailCopyWithImpl;
 @override @useResult
 $Res call({
- int id, int unit, String title, String theory, List<String> examples, List<PracticeQuestion> practices, bool completed
+ int id, int unit, String title, String theory, List<String> examples, List<PracticeQuestion> practices, bool completed, int correctAnswers, int totalQuestions
 });
 
 
@@ -1119,7 +1129,7 @@ class __$UnitDetailCopyWithImpl<$Res>
 
 /// Create a copy of UnitDetail
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? unit = null,Object? title = null,Object? theory = null,Object? examples = null,Object? practices = null,Object? completed = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? unit = null,Object? title = null,Object? theory = null,Object? examples = null,Object? practices = null,Object? completed = null,Object? correctAnswers = null,Object? totalQuestions = null,}) {
   return _then(_UnitDetail(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as int,unit: null == unit ? _self.unit : unit // ignore: cast_nullable_to_non_nullable
@@ -1128,7 +1138,9 @@ as String,theory: null == theory ? _self.theory : theory // ignore: cast_nullabl
 as String,examples: null == examples ? _self._examples : examples // ignore: cast_nullable_to_non_nullable
 as List<String>,practices: null == practices ? _self._practices : practices // ignore: cast_nullable_to_non_nullable
 as List<PracticeQuestion>,completed: null == completed ? _self.completed : completed // ignore: cast_nullable_to_non_nullable
-as bool,
+as bool,correctAnswers: null == correctAnswers ? _self.correctAnswers : correctAnswers // ignore: cast_nullable_to_non_nullable
+as int,totalQuestions: null == totalQuestions ? _self.totalQuestions : totalQuestions // ignore: cast_nullable_to_non_nullable
+as int,
   ));
 }
 

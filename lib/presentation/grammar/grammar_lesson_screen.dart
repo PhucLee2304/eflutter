@@ -1,5 +1,6 @@
 import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/data/models/grammar/grammar_unit.dart';
+import 'package:eflutter/presentation/ai/grammar_ai_explain_sheet.dart';
 import 'package:eflutter/presentation/grammar/cubit/grammar_unit_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -118,11 +119,17 @@ class _LessonBodyState extends State<_LessonBody> {
           ? _PracticeEngine(
               key: const ValueKey('practice'),
               unit: widget.unit,
-              onComplete: () async {
-                await widget.cubit.submitProgress(widget.unit.id);
-                if (mounted) {
+              onComplete: (correctAnswers) async {
+                final saved = await widget.cubit.submitProgress(widget.unit.id, correctAnswers);
+                if (!mounted) return false;
+                if (saved) {
                   setState(() => _inPracticeMode = false);
+                } else {
+                  ScaffoldMessenger.of(this.context).showSnackBar(
+                    const SnackBar(content: Text('Could not save your score. Please try again.')),
+                  );
                 }
+                return saved;
               },
             )
           : _TheoryView(
@@ -387,7 +394,7 @@ class _ExampleCard extends StatelessWidget {
 
 class _PracticeEngine extends StatefulWidget {
   final UnitDetail unit;
-  final Future<void> Function() onComplete;
+  final Future<bool> Function(int correctAnswers) onComplete;
 
   const _PracticeEngine({
     super.key,
@@ -402,6 +409,7 @@ class _PracticeEngine extends StatefulWidget {
 class _PracticeEngineState extends State<_PracticeEngine> {
   int _currentIndex = 0;
   String? _selectedAnswer;
+  int? _selectedOptionIndex;
   bool _answered = false;
   int _score = 0;
   bool _completed = false;
@@ -411,10 +419,11 @@ class _PracticeEngineState extends State<_PracticeEngine> {
 
   bool get _isCorrect => _selectedAnswer == _currentQuestion.correct;
 
-  void _selectAnswer(String option) {
+  void _selectAnswer(int index) {
     if (_answered) return;
     setState(() {
-      _selectedAnswer = option;
+      _selectedAnswer = _currentQuestion.options[index];
+      _selectedOptionIndex = index;
       _answered = true;
       if (_isCorrect) _score++;
     });
@@ -425,11 +434,12 @@ class _PracticeEngineState extends State<_PracticeEngine> {
       setState(() {
         _currentIndex++;
         _selectedAnswer = null;
+        _selectedOptionIndex = null;
         _answered = false;
       });
     } else {
-      setState(() => _completed = true);
-      await widget.onComplete();
+      final saved = await widget.onComplete(_score);
+      if (saved && mounted) setState(() => _completed = true);
     }
   }
 
@@ -545,7 +555,7 @@ class _PracticeEngineState extends State<_PracticeEngine> {
                   selectedAnswer: _selectedAnswer,
                   correctAnswer: _currentQuestion.correct,
                   answered: _answered,
-                  onTap: () => _selectAnswer(entry.value),
+                  onTap: () => _selectAnswer(entry.key),
                 ),
               )),
 
@@ -557,6 +567,35 @@ class _PracticeEngineState extends State<_PracticeEngine> {
                   explanation: _currentQuestion.explanation,
                   isCorrect: _isCorrect,
                 ),
+                if (!_isCorrect && _selectedOptionIndex != null) ...[
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () => GrammarAiExplainSheet.show(
+                        context,
+                        unit: widget.unit,
+                        question: _currentQuestion,
+                        selectedOptionIndex: _selectedOptionIndex!,
+                      ),
+                      icon: const Icon(Icons.auto_awesome_outlined, size: 18),
+                      label: Text(
+                        'Why was my answer ${String.fromCharCode(65 + _selectedOptionIndex!)} wrong?',
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF7C6CF0),
+                        side: const BorderSide(color: Color(0xFF7C6CF0)),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 20),
               ],
 

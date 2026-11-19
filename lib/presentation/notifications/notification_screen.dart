@@ -340,6 +340,7 @@ IconData _categoryIcon(NotificationCategory c) => switch (c) {
   NotificationCategory.assignments => Icons.assignment_outlined,
   NotificationCategory.rooms => Icons.videocam_outlined,
   NotificationCategory.exams => Icons.check_box_outlined,
+  NotificationCategory.flashcards => Icons.style_outlined,
 };
 
 IconData _typeIcon(String? type) => switch (type) {
@@ -351,6 +352,7 @@ IconData _typeIcon(String? type) => switch (type) {
   'ASSIGNMENT' => Icons.assignment_outlined,
   'ROOM' => Icons.videocam_outlined,
   'ATTEMPT' => Icons.check_box_outlined,
+  'FLASHCARD_DUE' => Icons.style_outlined,
   _ => Icons.notifications_none,
 };
 

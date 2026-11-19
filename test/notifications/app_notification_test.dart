@@ -1,7 +1,21 @@
 import 'package:eflutter/data/models/app_notification.dart';
+import 'package:eflutter/presentation/app/navigation/app_routes.dart';
+import 'package:eflutter/presentation/notifications/notification_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('flashcard due notification opens the relevant study deck', () {
+    final notification = AppNotification.fromJson({
+      'id': 9,
+      'title': 'Review due',
+      'body': 'Review adjective',
+      'data': {'type': 'FLASHCARD_DUE', 'deckId': '7', 'cardId': '42'},
+      'createdAt': '2026-11-19T05:00:00Z',
+    });
+    expect(NotificationCategory.of(notification), NotificationCategory.flashcards);
+    expect(notificationPath(notification.data), flashcardStudyPath(deckId: 7));
+  });
+
   test('parses a notification page and preserves navigation data', () {
     final page = NotificationPage.fromJson({
       'notifications': [

@@ -190,12 +190,14 @@ class FlashcardUserStats {
   final int masteredCards;
   final int dueToday;
   final int streak;
+  final bool reviewedToday;
 
   const FlashcardUserStats({
     this.totalCards = 0,
     this.masteredCards = 0,
     this.dueToday = 0,
     this.streak = 0,
+    this.reviewedToday = false,
   });
 
   factory FlashcardUserStats.fromJson(Map<String, dynamic> json) {
@@ -204,6 +206,7 @@ class FlashcardUserStats {
       masteredCards: json['masteredCards'] as int? ?? 0,
       dueToday: json['dueToday'] as int? ?? 0,
       streak: json['streak'] as int? ?? 0,
+      reviewedToday: json['reviewedToday'] as bool? ?? false,
     );
   }
 }

@@ -178,26 +178,33 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
     final currentCard = _cards[_currentIndex];
     final reviewTimeMs = DateTime.now().difference(_cardStartTime).inMilliseconds;
 
-    await _cubit.reviewCard(currentCard.id, rating, reviewTimeMs: reviewTimeMs);
+    final reviewed = await _cubit.reviewCard(currentCard.id, rating, reviewTimeMs: reviewTimeMs);
+    if (!mounted) return;
+    if (reviewed == null) {
+      setState(() => _isSubmitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Chưa lưu được lượt ôn. Vui lòng thử lại.')),
+      );
+      return;
+    }
 
     _ratingStats[rating] = (_ratingStats[rating] ?? 0) + 1;
     _reviewedCount++;
 
-    if (mounted) {
-      if (_isFlipped) {
-        _flipController.reverse();
-      }
-
-      // Đợi lật về mặt trước rồi chuyển thẻ tiếp theo
-      await Future.delayed(const Duration(milliseconds: 200));
-
-      setState(() {
-        _currentIndex++;
-        _isFlipped = false;
-        _isSubmitting = false;
-        _cardStartTime = DateTime.now();
-      });
+    if (_isFlipped) {
+      _flipController.reverse();
     }
+
+    // Đợi lật về mặt trước rồi chuyển thẻ tiếp theo
+    await Future.delayed(const Duration(milliseconds: 200));
+    if (!mounted) return;
+
+    setState(() {
+      _currentIndex++;
+      _isFlipped = false;
+      _isSubmitting = false;
+      _cardStartTime = DateTime.now();
+    });
   }
 
   @override

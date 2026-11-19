@@ -135,6 +135,9 @@ String? notificationPath(Map<String, String> data) {
       return classroomId == null ? null : classroomTabPath(classroomId, 1);
     case 'ATTEMPT':
       return id == null ? null : attemptHistoryDetailPath(id);
+    case 'FLASHCARD_DUE':
+      final deckId = int.tryParse(data['deckId'] ?? '');
+      return flashcardStudyPath(deckId: deckId);
     case 'ROOM':
       return id == null || classroomId == null ? null : classroomRoomPath(classroomId, id);
     case 'CLASSROOM_POST':

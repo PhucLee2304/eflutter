@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
-import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/data/models/dictionary/word.dart';
+import 'package:eflutter/data/models/grammar/grammar_unit.dart';
 import 'package:injectable/injectable.dart';
 
 @lazySingleton
@@ -39,6 +39,27 @@ class AiRemoteData {
         'word': word.word,
         'phonetic': word.phonetic ?? '',
         'meanings': meaningsJson,
+      },
+    );
+    final data = response.data as Map<String, dynamic>;
+    return data['answer'] as String? ?? '';
+  }
+
+  /// Send the displayed grammar practice and selected option to the AI service.
+  Future<String> explainGrammar({
+    required UnitDetail unit,
+    required PracticeQuestion question,
+    required int selectedOptionIndex,
+  }) async {
+    final response = await _dio.post(
+      '/ai/api/v1/grammar/explain',
+      data: {
+        'unitTitle': unit.title,
+        'question': question.question,
+        'options': question.options,
+        'correct': question.correct,
+        'explanation': question.explanation,
+        'selectedOptionIndex': selectedOptionIndex,
       },
     );
     final data = response.data as Map<String, dynamic>;

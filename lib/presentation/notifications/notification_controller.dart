@@ -15,7 +15,8 @@ enum NotificationCategory {
   classrooms('CLASSROOMS', 'Classrooms'),
   assignments('ASSIGNMENTS', 'Assignments'),
   rooms('ROOMS', 'Live classes'),
-  exams('EXAMS', 'Exam results');
+  exams('EXAMS', 'Exam results'),
+  flashcards('FLASHCARDS', 'Flashcards');
 
   const NotificationCategory(this.value, this.label);
   final String value;
@@ -32,6 +33,7 @@ enum NotificationCategory {
     'ASSIGNMENT' => assignments,
     'ROOM' => rooms,
     'ATTEMPT' => exams,
+    'FLASHCARD_DUE' => flashcards,
     _ => null,
   };
 }

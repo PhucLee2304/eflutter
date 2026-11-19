@@ -226,8 +226,45 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
             );
           },
         ),
+        const SizedBox(height: 12),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF7E6),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.local_fire_department, color: Color(0xFFF59E0B)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  _streakMessage(stats),
+                  style: const TextStyle(color: Color(0xFF92400E), fontSize: 13),
+                ),
+              ),
+            ],
+          ),
+        ),
       ],
     );
+  }
+
+  String _streakMessage(FlashcardUserStats stats) {
+    if (stats.reviewedToday) {
+      return 'Bạn đã ôn hôm nay. Chuỗi ${stats.streak} ngày đang tiếp tục!';
+    }
+    if (stats.streak > 0 && stats.dueToday > 0) {
+      return 'Ôn ít nhất một thẻ hôm nay để giữ chuỗi ${stats.streak} ngày.';
+    }
+    if (stats.streak > 0) {
+      return 'Hôm nay chưa có thẻ cần ôn. Thêm và ôn từ mới để giữ chuỗi.';
+    }
+    if (stats.dueToday > 0) {
+      return 'Ôn một thẻ hôm nay để bắt đầu chuỗi học mỗi ngày.';
+    }
+    return 'Lưu và ôn từ mới hôm nay để bắt đầu chuỗi học mỗi ngày.';
   }
 
   Widget _buildStatCard(
@@ -332,8 +369,9 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
               foregroundColor: const Color(0xFF4F46E5),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             ),
-            onPressed: () {
-              context.push('${AppRoutes.flashcards.path}/study');
+            onPressed: () async {
+              await context.push('${AppRoutes.flashcards.path}/study');
+              if (mounted) await _cubit.loadDashboard();
             },
             child: const Text('Ôn ngay', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
@@ -424,7 +462,10 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => context.push('${AppRoutes.flashcards.path}/deck/${deck.id}'),
+        onTap: () async {
+          await context.push('${AppRoutes.flashcards.path}/deck/${deck.id}');
+          if (mounted) await _cubit.loadDashboard();
+        },
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -570,8 +611,10 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                         visualDensity: VisualDensity.compact,
                         foregroundColor: theme.textTheme.bodyMedium?.color,
                       ),
-                      onPressed: () =>
-                          context.push('${AppRoutes.flashcards.path}/deck/${deck.id}'),
+                      onPressed: () async {
+                        await context.push('${AppRoutes.flashcards.path}/deck/${deck.id}');
+                        if (mounted) await _cubit.loadDashboard();
+                      },
                       icon: const Icon(Icons.list_alt, size: 16),
                       label: const Text('Danh sách', style: TextStyle(fontSize: 13)),
                     ),
@@ -585,10 +628,11 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                       ),
                       onPressed: deck.cardCount == 0
                           ? null
-                          : () {
-                              context.push(
+                          : () async {
+                              await context.push(
                                 '${AppRoutes.flashcards.path}/study?deckId=${deck.id}&title=${Uri.encodeComponent(deck.name)}',
                               );
+                              if (mounted) await _cubit.loadDashboard();
                             },
                       icon: const Icon(Icons.play_arrow_rounded, size: 18),
                       label: const Text(

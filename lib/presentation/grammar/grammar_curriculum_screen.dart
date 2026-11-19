@@ -259,7 +259,7 @@ class _UnitCard extends StatelessWidget {
 
   bool get _isCompleted => unit.completed;
 
-  double get _progressValue => unit.completed ? 1.0 : 0.0;
+  double get _progressValue => unit.progressPercent;
 
   Color get _accentColor {
     const colors = [

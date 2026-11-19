@@ -15,11 +15,15 @@ abstract class UnitSummary with _$UnitSummary {
     required String title,
     @Default(false) bool completed,
     @Default(0) int total,
+    @Default(0) int correctAnswers,
+    @Default(0) int totalQuestions,
   }) = _UnitSummary;
 
-  int get progressCompleted => completed ? 1 : 0;
-  int get progressTotal => 1;
-  double get progressPercent => completed ? 1.0 : 0.0;
+  int get progressCompleted => correctAnswers;
+  int get progressTotal => totalQuestions;
+  double get progressPercent => totalQuestions == 0
+      ? 0
+      : (correctAnswers / totalQuestions).clamp(0.0, 1.0);
 
   factory UnitSummary.fromJson(Map<String, dynamic> json) => _$UnitSummaryFromJson(json);
 }
@@ -67,6 +71,8 @@ abstract class UnitDetail with _$UnitDetail {
     @Default([]) List<String> examples,
     @Default([]) List<PracticeQuestion> practices,
     @Default(false) bool completed,
+    @Default(0) int correctAnswers,
+    @Default(0) int totalQuestions,
   }) = _UnitDetail;
 
   List<PracticeQuestion> get practice => practices;
