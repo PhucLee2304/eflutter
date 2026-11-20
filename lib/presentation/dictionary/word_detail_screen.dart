@@ -1,13 +1,13 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
+import 'package:eflutter/core/utils/extensions/toast_bar_extension.dart';
 import 'package:eflutter/app/config/app_config.dart';
 import 'package:eflutter/core/di/injection.dart';
-import 'package:eflutter/data/models/dictionary/flashcard.dart';
-import 'package:eflutter/data/models/dictionary/word.dart';
 import 'package:eflutter/presentation/dictionary/cubit/flashcard_cubit.dart';
 import 'package:eflutter/presentation/dictionary/cubit/word_detail_cubit.dart';
+import 'package:eflutter/presentation/dictionary/widgets/save_word_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
 
@@ -26,12 +26,22 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
   VideoPlayerController? _audioController;
   String? _playingAudioUrl;
   bool _isLoadingAudio = false;
+  bool _isWordSaved = false;
 
   @override
   void initState() {
     super.initState();
     _detailCubit.loadWord(widget.wordId);
-    _flashcardCubit.loadFlashcards();
+    _checkWordSaveStatus();
+  }
+
+  Future<void> _checkWordSaveStatus() async {
+    final status = await _flashcardCubit.getWordSaveStatus(widget.wordId);
+    if (mounted && status != null) {
+      setState(() {
+        _isWordSaved = status.isSaved;
+      });
+    }
   }
 
   @override
@@ -57,9 +67,7 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
     final id = await _detailCubit.findWordId(word);
     if (!mounted) return;
     if (id == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('"$word" is not in the dictionary')),
-      );
+      context.showToast('"$word" is not in the dictionary', type: ToastType.warning);
       return;
     }
     context.push('/dictionary/$id');
@@ -119,143 +127,7 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
           _isLoadingAudio = false;
           _playingAudioUrl = null;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to play audio: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  Flashcard? _findSavedFlashcard(WordDetail detail, FlashcardState state) {
-    return state.maybeWhen(
-      success: (resp) {
-        for (final item in resp.data) {
-          if (item.word.id == detail.id ||
-              item.word.word.trim().toLowerCase() == detail.word.trim().toLowerCase()) {
-            return item;
-          }
-        }
-        return null;
-      },
-      orElse: () => null,
-    );
-  }
-
-  String _formatDate(String isoDate) {
-    try {
-      final dt = DateTime.parse(isoDate).toLocal();
-      return DateFormat('dd/MM/yyyy HH:mm').format(dt);
-    } catch (_) {
-      return isoDate;
-    }
-  }
-
-  Future<void> _showAddFlashcardDialog(int wordId, String wordText) async {
-    final noteController = TextEditingController();
-    final result = await showDialog<String?>(
-      context: context,
-      builder: (dialogCtx) => AlertDialog(
-        title: Text('Save "$wordText" to Flashcards'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Personal note (optional):',
-                style: TextStyle(fontSize: 13, color: Colors.grey)),
-            const SizedBox(height: 8),
-            TextField(
-              controller: noteController,
-              decoration: const InputDecoration(
-                hintText: 'e.g. Common meaning, memory tips...',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 3,
-              autofocus: true,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogCtx).pop(null),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogCtx).pop(noteController.text.trim()),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-
-    if (result != null && mounted) {
-      final success = await _flashcardCubit.createFlashcard(wordId, note: result);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(success ? 'Saved "$wordText" to Flashcards' : 'Failed to save flashcard'),
-            backgroundColor: success ? Colors.green : Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _showFlashcardDetailDialog(Flashcard card) async {
-    final action = await showDialog<String>(
-      context: context,
-      builder: (dialogCtx) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.bookmark, color: Colors.blue),
-            const SizedBox(width: 8),
-            Expanded(child: Text(card.word.word)),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (card.word.phonetic != null && card.word.phonetic!.isNotEmpty)
-              Text(card.word.phonetic!, style: const TextStyle(color: Colors.grey)),
-            const SizedBox(height: 12),
-            const Text('Your note:',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-            const SizedBox(height: 4),
-            Text(card.note ?? '(No note)',
-                style: const TextStyle(fontSize: 14)),
-            const SizedBox(height: 12),
-            Text('Saved at: ${_formatDate(card.createdAt)}',
-                style: const TextStyle(fontSize: 11, color: Colors.grey)),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogCtx).pop('close'),
-            child: const Text('Close'),
-          ),
-          FilledButton.tonal(
-            style: FilledButton.styleFrom(
-              foregroundColor: Colors.red,
-            ),
-            onPressed: () => Navigator.of(dialogCtx).pop('delete'),
-            child: const Text('Remove from Flashcards'),
-          ),
-        ],
-      ),
-    );
-
-    if (action == 'delete' && mounted) {
-      final success = await _flashcardCubit.deleteFlashcard(card.id);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(success ? 'Removed from Flashcards' : 'Failed to remove flashcard'),
-            backgroundColor: success ? null : Colors.red,
-          ),
-        );
+        context.showToast('Failed to play audio', type: ToastType.error);
       }
     }
   }
@@ -270,36 +142,37 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
       child: Scaffold(
         appBar: AppBar(
           title: BlocBuilder<WordDetailCubit, WordDetailState>(
-            builder: (context, state) => Text(
-              state.maybeWhen(success: (detail) => detail.word, orElse: () => ''),
-            ),
+            builder: (context, state) =>
+                Text(state.maybeWhen(success: (detail) => detail.word, orElse: () => '')),
           ),
           actions: [
             BlocBuilder<WordDetailCubit, WordDetailState>(
               builder: (context, detailState) {
                 return detailState.maybeWhen(
                   success: (detail) {
-                    return BlocBuilder<FlashcardCubit, FlashcardState>(
-                      builder: (context, flashState) {
-                        final savedCard = _findSavedFlashcard(detail, flashState);
-                        final isSaved = savedCard != null;
-
-                        return IconButton(
-                          icon: Icon(
-                            isSaved ? Icons.bookmark : Icons.bookmark_add_outlined,
-                            color: isSaved
-                                ? Theme.of(context).colorScheme.primary
-                                : null,
-                          ),
-                          tooltip: isSaved ? 'Saved in Flashcards' : 'Save Flashcard',
-                          onPressed: () {
-                            if (isSaved) {
-                              _showFlashcardDetailDialog(savedCard);
-                            } else {
-                              _showAddFlashcardDialog(detail.id, detail.word);
-                            }
-                          },
+                    return IconButton(
+                      icon: Icon(
+                        _isWordSaved ? Icons.bookmark : Icons.bookmark_add_outlined,
+                        color: _isWordSaved ? Theme.of(context).colorScheme.primary : null,
+                      ),
+                      tooltip: _isWordSaved ? 'Saved in a deck' : 'Save to deck',
+                      onPressed: () async {
+                        final saved = await SaveWordToDecksDialog.show(
+                          context,
+                          wordId: detail.id,
+                          wordText: detail.word,
+                          phonetic: detail.phonetic,
+                          cubit: _flashcardCubit,
                         );
+                        if (saved == true && context.mounted) {
+                          await _checkWordSaveStatus();
+                          if (context.mounted) {
+                            context.showToast(
+                              'Updated decks for "${detail.word}"',
+                              type: ToastType.success,
+                            );
+                          }
+                        }
                       },
                     );
                   },
@@ -313,7 +186,7 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
           builder: (context, state) {
             return state.when(
               initial: () => const SizedBox(),
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const Center(child: AppLoader()),
               error: (message) => Center(
                 child: Padding(
                   padding: const EdgeInsets.all(24.0),
@@ -355,9 +228,9 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
                               children: [
                                 Text(
                                   detail.word,
-                                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
                                 ),
                                 if (detail.phonetic != null && detail.phonetic!.isNotEmpty)
                                   Padding(
@@ -381,7 +254,7 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
                                   ? const SizedBox(
                                       width: 20,
                                       height: 20,
-                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                      child: AppLoader(),
                                     )
                                   : Icon(
                                       (_playingAudioUrl == primaryAudioUrl)
@@ -403,19 +276,21 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
                           spacing: 8,
                           runSpacing: 6,
                           children: detail.phonetics
-                              .where((p) =>
-                                  (p.text?.isNotEmpty ?? false) || (p.audioUrl != null && p.audioUrl!.isNotEmpty))
-                              .map(
-                                (p) {
-                                  final hasAudio = p.audioUrl != null && p.audioUrl!.isNotEmpty;
-                                  final isThisPlaying = _playingAudioUrl == p.audioUrl;
-                                  return ActionChip(
-                                    avatar: hasAudio
-                                        ? (_isLoadingAudio && isThisPlaying)
+                              .where(
+                                (p) =>
+                                    (p.text?.isNotEmpty ?? false) ||
+                                    (p.audioUrl != null && p.audioUrl!.isNotEmpty),
+                              )
+                              .map((p) {
+                                final hasAudio = p.audioUrl != null && p.audioUrl!.isNotEmpty;
+                                final isThisPlaying = _playingAudioUrl == p.audioUrl;
+                                return ActionChip(
+                                  avatar: hasAudio
+                                      ? (_isLoadingAudio && isThisPlaying)
                                             ? const SizedBox(
                                                 width: 14,
                                                 height: 14,
-                                                child: CircularProgressIndicator(strokeWidth: 1.5),
+                                                child: AppLoader(),
                                               )
                                             : Icon(
                                                 isThisPlaying
@@ -426,15 +301,16 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
                                                     ? Theme.of(context).colorScheme.primary
                                                     : null,
                                               )
-                                        : null,
-                                    label: Text((p.text?.isNotEmpty ?? false) ? p.text! : 'Pronounce'),
-                                    backgroundColor: isThisPlaying
-                                        ? Theme.of(context).colorScheme.primaryContainer
-                                        : Theme.of(context).colorScheme.surfaceContainerHighest,
-                                    onPressed: hasAudio ? () => _playAudio(p.audioUrl!) : null,
-                                  );
-                                },
-                              )
+                                      : null,
+                                  label: Text(
+                                    (p.text?.isNotEmpty ?? false) ? p.text! : 'Pronounce',
+                                  ),
+                                  backgroundColor: isThisPlaying
+                                      ? Theme.of(context).colorScheme.primaryContainer
+                                      : Theme.of(context).colorScheme.surfaceContainerHighest,
+                                  onPressed: hasAudio ? () => _playAudio(p.audioUrl!) : null,
+                                );
+                              })
                               .toList(),
                         ),
                       ],
@@ -442,121 +318,126 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
                       const Divider(height: 32),
 
                       // Meanings grouped by Part of Speech
-                      ...detail.meanings.map((meaning) => Padding(
-                            padding: const EdgeInsets.only(bottom: 24.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Part of speech badge
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 5),
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(context).colorScheme.primaryContainer,
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  child: Text(
-                                    meaning.partOfSpeech.toUpperCase(),
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
-                                      letterSpacing: 0.5,
-                                      color: Theme.of(context).colorScheme.onPrimaryContainer,
-                                    ),
+                      ...detail.meanings.map(
+                        (meaning) => Padding(
+                          padding: const EdgeInsets.only(bottom: 24.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Part of speech badge
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).colorScheme.primaryContainer,
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Text(
+                                  meaning.partOfSpeech.toUpperCase(),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                    letterSpacing: 0.5,
+                                    color: Theme.of(context).colorScheme.onPrimaryContainer,
                                   ),
                                 ),
-                                const SizedBox(height: 12),
+                              ),
+                              const SizedBox(height: 12),
 
-                                // Definitions
-                                ...meaning.definitions.asMap().entries.map((entry) {
-                                  final i = entry.key;
-                                  final def = entry.value;
-                                  return Padding(
-                                    padding: const EdgeInsets.only(bottom: 12.0),
-                                    child: Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Container(
-                                          width: 22,
-                                          height: 22,
-                                          margin: const EdgeInsets.only(top: 2, right: 8),
-                                          alignment: Alignment.center,
-                                          decoration: BoxDecoration(
-                                            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: Text(
-                                            '${i + 1}',
-                                            style: const TextStyle(
-                                                fontSize: 12, fontWeight: FontWeight.bold),
+                              // Definitions
+                              ...meaning.definitions.asMap().entries.map((entry) {
+                                final i = entry.key;
+                                final def = entry.value;
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 12.0),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Container(
+                                        width: 22,
+                                        height: 22,
+                                        margin: const EdgeInsets.only(top: 2, right: 8),
+                                        alignment: Alignment.center,
+                                        decoration: BoxDecoration(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.surfaceContainerHighest,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Text(
+                                          '${i + 1}',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
                                           ),
                                         ),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                def.definition,
-                                                style: const TextStyle(fontSize: 15, height: 1.35),
-                                              ),
-                                              if (def.example != null && def.example!.isNotEmpty)
-                                                Padding(
-                                                  padding: const EdgeInsets.only(top: 4.0),
-                                                  child: Text(
-                                                    'Example: "${def.example}"',
-                                                    style: TextStyle(
-                                                      color: Colors.grey.shade600,
-                                                      fontStyle: FontStyle.italic,
-                                                      fontSize: 13,
-                                                    ),
+                                      ),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              def.definition,
+                                              style: const TextStyle(fontSize: 15, height: 1.35),
+                                            ),
+                                            if (def.example != null && def.example!.isNotEmpty)
+                                              Padding(
+                                                padding: const EdgeInsets.only(top: 4.0),
+                                                child: Text(
+                                                  'Example: "${def.example}"',
+                                                  style: TextStyle(
+                                                    color: Colors.grey.shade600,
+                                                    fontStyle: FontStyle.italic,
+                                                    fontSize: 13,
                                                   ),
                                                 ),
-                                              if (def.synonyms.isNotEmpty)
-                                                _WordChipRow(
-                                                  label: 'Synonyms',
-                                                  words: def.synonyms,
-                                                  color: Colors.green.shade50,
-                                                  textColor: Colors.green.shade800,
-                                                  onWordTap: _openWord,
-                                                ),
-                                              if (def.antonyms.isNotEmpty)
-                                                _WordChipRow(
-                                                  label: 'Antonyms',
-                                                  words: def.antonyms,
-                                                  color: Colors.red.shade50,
-                                                  textColor: Colors.red.shade800,
-                                                  onWordTap: _openWord,
-                                                ),
-                                            ],
-                                          ),
+                                              ),
+                                            if (def.synonyms.isNotEmpty)
+                                              _WordChipRow(
+                                                label: 'Synonyms',
+                                                words: def.synonyms,
+                                                color: Colors.green.shade50,
+                                                textColor: Colors.green.shade800,
+                                                onWordTap: _openWord,
+                                              ),
+                                            if (def.antonyms.isNotEmpty)
+                                              _WordChipRow(
+                                                label: 'Antonyms',
+                                                words: def.antonyms,
+                                                color: Colors.red.shade50,
+                                                textColor: Colors.red.shade800,
+                                                onWordTap: _openWord,
+                                              ),
+                                          ],
                                         ),
-                                      ],
-                                    ),
-                                  );
-                                }),
-
-                                // Meaning-level synonyms
-                                if (meaning.synonyms.isNotEmpty)
-                                  _WordChipRow(
-                                    label: 'Synonyms (${meaning.partOfSpeech})',
-                                    words: meaning.synonyms,
-                                    color: Colors.green.shade50,
-                                    textColor: Colors.green.shade800,
-                                    onWordTap: _openWord,
+                                      ),
+                                    ],
                                   ),
+                                );
+                              }),
 
-                                // Meaning-level antonyms
-                                if (meaning.antonyms.isNotEmpty)
-                                  _WordChipRow(
-                                    label: 'Antonyms (${meaning.partOfSpeech})',
-                                    words: meaning.antonyms,
-                                    color: Colors.red.shade50,
-                                    textColor: Colors.red.shade800,
-                                    onWordTap: _openWord,
-                                  ),
-                              ],
-                            ),
-                          )),
+                              // Meaning-level synonyms
+                              if (meaning.synonyms.isNotEmpty)
+                                _WordChipRow(
+                                  label: 'Synonyms (${meaning.partOfSpeech})',
+                                  words: meaning.synonyms,
+                                  color: Colors.green.shade50,
+                                  textColor: Colors.green.shade800,
+                                  onWordTap: _openWord,
+                                ),
+
+                              // Meaning-level antonyms
+                              if (meaning.antonyms.isNotEmpty)
+                                _WordChipRow(
+                                  label: 'Antonyms (${meaning.partOfSpeech})',
+                                  words: meaning.antonyms,
+                                  color: Colors.red.shade50,
+                                  textColor: Colors.red.shade800,
+                                  onWordTap: _openWord,
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
 
                       // Source URLs & License
                       if (detail.sourceUrls.isNotEmpty || detail.licenseName != null) ...[
@@ -570,28 +451,36 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
                             ),
                           ),
                         if (detail.sourceUrls.isNotEmpty) ...[
-                          const Text('Sources:',
-                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+                          const Text(
+                            'Sources:',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey,
+                            ),
+                          ),
                           const SizedBox(height: 4),
-                          ...detail.sourceUrls.map((url) => Padding(
-                                padding: const EdgeInsets.only(bottom: 2.0),
-                                child: InkWell(
-                                  onTap: () async {
-                                    final uri = Uri.parse(url);
-                                    if (await canLaunchUrl(uri)) {
-                                      await launchUrl(uri);
-                                    }
-                                  },
-                                  child: Text(
-                                    url,
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.blue,
-                                      decoration: TextDecoration.underline,
-                                    ),
+                          ...detail.sourceUrls.map(
+                            (url) => Padding(
+                              padding: const EdgeInsets.only(bottom: 2.0),
+                              child: InkWell(
+                                onTap: () async {
+                                  final uri = Uri.parse(url);
+                                  if (await canLaunchUrl(uri)) {
+                                    await launchUrl(uri);
+                                  }
+                                },
+                                child: Text(
+                                  url,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.blue,
+                                    decoration: TextDecoration.underline,
                                   ),
                                 ),
-                              )),
+                              ),
+                            ),
+                          ),
                         ],
                       ],
 
@@ -630,36 +519,37 @@ class _WordChipRow extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('$label:',
-              style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: textColor)),
+          Text(
+            '$label:',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textColor),
+          ),
           const SizedBox(height: 4),
           Wrap(
             spacing: 6,
             runSpacing: 4,
             children: words
-                .map((w) => InkWell(
-                      borderRadius: BorderRadius.circular(12),
-                      onTap: onWordTap != null ? () => onWordTap!(w) : null,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: color,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: textColor.withValues(alpha: 0.3)),
-                        ),
-                        child: Text(
-                          w,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: textColor,
-                            decoration: onWordTap != null ? TextDecoration.underline : null,
-                          ),
+                .map(
+                  (w) => InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: onWordTap != null ? () => onWordTap!(w) : null,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: color,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: textColor.withValues(alpha: 0.3)),
+                      ),
+                      child: Text(
+                        w,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: textColor,
+                          decoration: onWordTap != null ? TextDecoration.underline : null,
                         ),
                       ),
-                    ))
+                    ),
+                  ),
+                )
                 .toList(),
           ),
         ],
