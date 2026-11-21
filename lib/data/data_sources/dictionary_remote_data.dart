@@ -1,6 +1,5 @@
 import 'package:dio/dio.dart';
 import 'package:eflutter/data/models/dictionary/dictionary_topic.dart';
-import 'package:eflutter/data/models/dictionary/flashcard.dart';
 import 'package:eflutter/data/models/dictionary/flashcard_models.dart';
 import 'package:eflutter/data/models/dictionary/search_response.dart';
 import 'package:eflutter/data/models/dictionary/word.dart';
@@ -24,16 +23,6 @@ abstract class DictionaryRemoteData {
     @Query('page') int page,
     @Query('pageSize') int pageSize,
   );
-
-  // Flashcards (Legacy)
-  @GET('/dictionary/api/v1/flashcards')
-  Future<GetFlashcardsResponse> getFlashcards(
-    @Query('page') int page,
-    @Query('pageSize') int pageSize,
-  );
-
-  @POST('/dictionary/api/v1/flashcards')
-  Future<Flashcard> createFlashcard(@Body() Map<String, dynamic> body);
 
   @DELETE('/dictionary/api/v1/flashcards/{id}')
   Future<void> deleteFlashcard(@Path('id') int id);

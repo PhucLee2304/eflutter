@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:eflutter/core/di/injection.dart';
+import 'package:eflutter/core/loading/loading_service.dart';
 import 'package:eflutter/data/data_sources/dictionary_remote_data.dart';
 import 'package:eflutter/data/models/dictionary/flashcard_models.dart';
 import 'package:eflutter/data/models/dictionary/word.dart';
@@ -57,11 +58,13 @@ class _WordDetailCubitStub extends WordDetailCubit {
 
 void main() {
   testWidgets('Back follows word, deck, Flashcards, Dictionary', (tester) async {
+    getIt.registerSingleton(LoadingService());
     getIt.registerFactory<FlashcardCubit>(_FlashcardCubitStub.new);
     getIt.registerFactory<WordDetailCubit>(_WordDetailCubitStub.new);
     addTearDown(() {
       getIt.unregister<FlashcardCubit>();
       getIt.unregister<WordDetailCubit>();
+      getIt.unregister<LoadingService>(disposingFunction: (service) => service.dispose());
     });
 
     final router = GoRouter(

@@ -1,3 +1,4 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
 import 'dart:math';
 import 'package:eflutter/app/config/app_config.dart';
 import 'package:eflutter/core/di/injection.dart';
@@ -216,7 +217,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
     if (_isLoading) {
       return Scaffold(
         appBar: AppBar(title: Text(title)),
-        body: const Center(child: CircularProgressIndicator()),
+        body: const Center(child: AppLoader()),
       );
     }
 
@@ -313,7 +314,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
           preferredSize: const Size.fromHeight(4),
           child: LinearProgressIndicator(
             value: progress,
-            backgroundColor: colorScheme.surfaceVariant,
+            backgroundColor: colorScheme.surfaceContainerHighest,
             valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
           ),
         ),
@@ -364,7 +365,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
                 color: theme.scaffoldBackgroundColor,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 10,
                     offset: const Offset(0, -4),
                   ),
@@ -458,7 +459,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
       elevation: 4,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24),
-        side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.5)),
+        side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
       ),
       child: Container(
         height: 380,
@@ -470,7 +471,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: card.statusColor.withOpacity(0.12),
+                color: card.statusColor.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
@@ -516,7 +517,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
                         ? const SizedBox(
                             width: 18,
                             height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            child: AppLoader(),
                           )
                         : const Icon(Icons.volume_up),
                   ),
@@ -564,7 +565,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
       elevation: 4,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24),
-        side: BorderSide(color: colorScheme.primary.withOpacity(0.4)),
+        side: BorderSide(color: colorScheme.primary.withValues(alpha: 0.4)),
       ),
       child: Container(
         height: 380,
@@ -603,7 +604,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
                         ? const SizedBox(
                             width: 14,
                             height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            child: AppLoader(),
                           )
                         : Icon(Icons.volume_up, color: colorScheme.primary, size: 20),
                   ),
@@ -624,7 +625,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
                         borderRadius: BorderRadius.circular(10),
                       ),
                       side: BorderSide(
-                        color: colorScheme.primary.withOpacity(0.5),
+                        color: colorScheme.primary.withValues(alpha: 0.5),
                       ),
                     ),
                     icon: Icon(
@@ -655,7 +656,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
                           Icon(
                             Icons.menu_book_outlined,
                             size: 44,
-                            color: colorScheme.primary.withOpacity(0.5),
+                            color: colorScheme.primary.withValues(alpha: 0.5),
                           ),
                           const SizedBox(height: 10),
                           Text(
@@ -690,7 +691,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: colorScheme.surfaceVariant,
+                                  color: colorScheme.surfaceContainerHighest,
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
@@ -747,7 +748,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
                                         (s) => Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                                           decoration: BoxDecoration(
-                                            color: colorScheme.surfaceVariant.withOpacity(0.6),
+                                            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
                                             borderRadius: BorderRadius.circular(4),
                                           ),
                                           child: Text(
@@ -829,9 +830,9 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.12),
+          color: color.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.3)),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
         ),
         child: Column(
           children: [
@@ -847,7 +848,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
             Text(
               subLabel,
               style: TextStyle(
-                color: color.withOpacity(0.8),
+                color: color.withValues(alpha: 0.8),
                 fontSize: 10,
               ),
             ),
@@ -894,7 +895,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceVariant.withOpacity(0.4),
+                    color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Row(

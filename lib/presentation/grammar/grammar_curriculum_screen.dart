@@ -1,3 +1,4 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/data/models/grammar/grammar_unit.dart';
 import 'package:eflutter/presentation/grammar/cubit/grammar_curriculum_cubit.dart';
@@ -55,9 +56,7 @@ class _GrammarCurriculumScreenState extends State<GrammarCurriculumScreen> {
                           child: Center(
                             child: Padding(
                               padding: EdgeInsets.only(top: 120),
-                              child: CircularProgressIndicator(
-                                color: Color(0xFF7C6CF0),
-                              ),
+                              child: AppLoader(),
                             ),
                           ),
                         );
@@ -66,9 +65,7 @@ class _GrammarCurriculumScreenState extends State<GrammarCurriculumScreen> {
                         child: Center(
                           child: Padding(
                             padding: EdgeInsets.only(top: 120),
-                            child: CircularProgressIndicator(
-                              color: Color(0xFF7C6CF0),
-                            ),
+                            child: AppLoader(),
                           ),
                         ),
                       ),
@@ -97,7 +94,7 @@ class _GrammarCurriculumScreenState extends State<GrammarCurriculumScreen> {
       scrolledUnderElevation: 1,
       actions: [
         IconButton(
-          tooltip: 'Làm mới',
+          tooltip: 'Refresh',
           icon: const Icon(Icons.refresh_rounded, color: Color(0xFF4A4A6A)),
           onPressed: () => _cubit.load(),
         ),

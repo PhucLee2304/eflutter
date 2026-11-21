@@ -1,3 +1,5 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
+import 'package:eflutter/core/utils/extensions/toast_bar_extension.dart';
 import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/data/models/dictionary/flashcard_models.dart';
 import 'package:eflutter/presentation/app/navigation/app_routes.dart';
@@ -166,9 +168,7 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
             );
           }
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Note updated')),
-        );
+        context.showToast('Note updated', type: ToastType.success);
       }
     }
   }
@@ -202,9 +202,7 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
           _cards.removeWhere((c) => c.id == card.id);
           _totalCards = (_totalCards > 0) ? _totalCards - 1 : 0;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Removed "${card.wordText}" from the deck')),
-        );
+        context.showToast('Removed "${card.wordText}" from the deck', type: ToastType.success);
       }
     }
   }
@@ -245,7 +243,7 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: AppLoader())
           : _errorMessage != null
               ? Center(
                   child: Padding(
@@ -272,9 +270,9 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
                         margin: const EdgeInsets.all(16),
                         padding: const EdgeInsets.all(18),
                         decoration: BoxDecoration(
-                          color: deckColor.withOpacity(0.08),
+                          color: deckColor.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: deckColor.withOpacity(0.3)),
+                          border: Border.all(color: deckColor.withValues(alpha: 0.3)),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -401,7 +399,7 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
                                 Icon(
                                   Icons.menu_book_outlined,
                                   size: 56,
-                                  color: colorScheme.outline.withOpacity(0.5),
+                                  color: colorScheme.outline.withValues(alpha: 0.5),
                                 ),
                                 const SizedBox(height: 12),
                                 const Text(
@@ -443,7 +441,7 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
                       const SliverToBoxAdapter(
                         child: Padding(
                           padding: EdgeInsets.all(16),
-                          child: Center(child: CircularProgressIndicator()),
+                          child: Center(child: AppLoader()),
                         ),
                       ),
 
@@ -462,7 +460,7 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -488,7 +486,7 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
       margin: const EdgeInsets.only(bottom: 10),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: theme.dividerColor.withOpacity(0.2)),
+        side: BorderSide(color: theme.dividerColor.withValues(alpha: 0.2)),
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
@@ -523,7 +521,7 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: card.statusColor.withOpacity(0.12),
+                                color: card.statusColor.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
@@ -543,7 +541,7 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
                             child: Text(
                               card.phoneticText,
                               style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
+                                color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
                               ),
                             ),
                           ),
@@ -576,7 +574,7 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
                   margin: const EdgeInsets.only(top: 8),
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: colorScheme.surfaceVariant.withOpacity(0.4),
+                    color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(

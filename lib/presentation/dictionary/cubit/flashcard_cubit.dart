@@ -58,8 +58,8 @@ class FlashcardCubit extends Cubit<FlashcardState> {
     final statsRes = results[1] as Result<FlashcardUserStats>;
 
     switch (decksRes) {
-      case Failure():
-        emit(const FlashcardError('Could not load decks. Please try again.'));
+      case Failure(message: final msg):
+        emit(FlashcardError(msg ?? 'Could not load decks'));
         return;
       case Cancelled():
         return;

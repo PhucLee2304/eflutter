@@ -1,3 +1,4 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/data/models/dictionary/dictionary_topic.dart';
 import 'package:eflutter/data/models/dictionary/word.dart';
@@ -143,7 +144,7 @@ class _DictionarySearchScreenState extends State<DictionarySearchScreen> {
                   return topicState.maybeWhen(
                     loadingTopics: () => const Padding(
                       padding: EdgeInsets.symmetric(vertical: 12),
-                      child: Center(child: LinearProgressIndicator()),
+                      child: Center(child: AppLoader()),
                     ),
                     orElse: () => const SizedBox.shrink(),
                   );
@@ -325,12 +326,12 @@ class _TopicWordsView extends StatelessWidget {
       builder: (context, state) {
         return state.when(
           initial: () => _emptyHint(),
-          loadingTopics: () => const Center(child: CircularProgressIndicator()),
+          loadingTopics: () => const Center(child: AppLoader()),
           topicsLoaded: (_) => _emptyHint(),
           loadingWords: (_, topic) => Column(
             children: [
               _TopicHeader(topic: topic),
-              const Expanded(child: Center(child: CircularProgressIndicator())),
+              const Expanded(child: Center(child: AppLoader())),
             ],
           ),
           wordsLoaded: (_, topic, words, currentPage, totalPages, isLoadingMore) {
@@ -347,7 +348,7 @@ class _TopicWordsView extends StatelessWidget {
                       if (index == words.length) {
                         return const Padding(
                           padding: EdgeInsets.all(16),
-                          child: Center(child: CircularProgressIndicator()),
+                          child: Center(child: AppLoader()),
                         );
                       }
                       return _WordListTile(word: words[index]);
@@ -541,7 +542,7 @@ class _SearchResultsView extends StatelessWidget {
               ],
             ),
           ),
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => const Center(child: AppLoader()),
           success: (response, _, isLoadingMore) {
             if (response.data.isEmpty) {
               return const Center(child: Text('No words found.'));

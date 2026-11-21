@@ -1,3 +1,4 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
 import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/data/models/grammar/grammar_unit.dart';
 import 'package:eflutter/presentation/ai/grammar_ai_explain_sheet.dart';
@@ -41,7 +42,7 @@ class _GrammarLessonScreenState extends State<GrammarLessonScreen> {
             return state.when(
               initial: () => const SizedBox(),
               loading: () => const Center(
-                child: CircularProgressIndicator(color: Color(0xFF7C6CF0)),
+                child: AppLoader(),
               ),
               success: (unit) => _LessonBody(unit: unit, cubit: _cubit),
               error: (message) => _buildError(message),

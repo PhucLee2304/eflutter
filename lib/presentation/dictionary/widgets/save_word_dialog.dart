@@ -1,3 +1,5 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
+import 'package:eflutter/core/utils/extensions/toast_bar_extension.dart';
 import 'package:eflutter/data/models/dictionary/flashcard_models.dart';
 import 'package:eflutter/presentation/dictionary/cubit/flashcard_cubit.dart';
 import 'package:flutter/material.dart';
@@ -137,12 +139,7 @@ class _SaveWordToDecksDialogState extends State<SaveWordToDecksDialog> {
       if (success) {
         Navigator.of(context).pop(true);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not save the word. Please try again.'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        context.showToast('Could not save the word. Please try again.', type: ToastType.error);
       }
     }
   }
@@ -165,9 +162,9 @@ class _SaveWordToDecksDialogState extends State<SaveWordToDecksDialog> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               decoration: BoxDecoration(
-                color: colorScheme.primaryContainer.withOpacity(0.3),
+                color: colorScheme.primaryContainer.withValues(alpha: 0.3),
                 border: Border(
-                  bottom: BorderSide(color: theme.dividerColor.withOpacity(0.2)),
+                  bottom: BorderSide(color: theme.dividerColor.withValues(alpha: 0.2)),
                 ),
               ),
               child: Row(
@@ -203,7 +200,7 @@ class _SaveWordToDecksDialogState extends State<SaveWordToDecksDialog> {
                               Text(
                                 widget.phonetic!,
                                 style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
+                                  color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
                                 ),
                               ),
                             ],
@@ -227,7 +224,7 @@ class _SaveWordToDecksDialogState extends State<SaveWordToDecksDialog> {
                   ? const Center(
                       child: Padding(
                         padding: EdgeInsets.all(32),
-                        child: CircularProgressIndicator(),
+                        child: AppLoader(),
                       ),
                     )
                   : _errorMessage != null
@@ -258,7 +255,7 @@ class _SaveWordToDecksDialogState extends State<SaveWordToDecksDialog> {
                                   padding: const EdgeInsets.all(14),
                                   margin: const EdgeInsets.only(bottom: 12),
                                   decoration: BoxDecoration(
-                                    color: colorScheme.surfaceVariant.withOpacity(0.4),
+                                    color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Row(
@@ -283,11 +280,11 @@ class _SaveWordToDecksDialogState extends State<SaveWordToDecksDialog> {
                                       border: Border.all(
                                         color: isChecked
                                             ? colorScheme.primary
-                                            : theme.dividerColor.withOpacity(0.3),
+                                            : theme.dividerColor.withValues(alpha: 0.3),
                                       ),
                                       borderRadius: BorderRadius.circular(10),
                                       color: isChecked
-                                          ? colorScheme.primary.withOpacity(0.06)
+                                          ? colorScheme.primary.withValues(alpha: 0.06)
                                           : null,
                                     ),
                                     child: CheckboxListTile(
@@ -347,10 +344,10 @@ class _SaveWordToDecksDialogState extends State<SaveWordToDecksDialog> {
                                 Container(
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
-                                    color: colorScheme.surfaceVariant.withOpacity(0.3),
+                                    color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
-                                      color: colorScheme.primary.withOpacity(0.3),
+                                      color: colorScheme.primary.withValues(alpha: 0.3),
                                     ),
                                   ),
                                   child: Column(
@@ -436,10 +433,7 @@ class _SaveWordToDecksDialogState extends State<SaveWordToDecksDialog> {
                         ? const SizedBox(
                             width: 16,
                             height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
+                            child: AppLoader(),
                           )
                         : const Icon(Icons.check, size: 18),
                     label: Text(_isSaving ? 'Saving...' : 'Save to decks'),

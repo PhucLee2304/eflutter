@@ -1,3 +1,5 @@
+import 'package:eflutter/core/loading/loading_widget.dart';
+import 'package:eflutter/core/utils/extensions/toast_bar_extension.dart';
 import 'package:eflutter/core/di/injection.dart';
 import 'package:eflutter/data/models/dictionary/flashcard_models.dart';
 import 'package:eflutter/presentation/app/navigation/app_routes.dart';
@@ -54,13 +56,9 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
     if (confirmed == true && mounted) {
       final success = await _cubit.deleteDeck(deck.id);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              success ? 'Deleted "${deck.name}"' : 'Could not delete the deck',
-            ),
-            backgroundColor: success ? null : Colors.red,
-          ),
+        context.showToast(
+          success ? 'Deleted deck "${deck.name}"' : 'Failed to delete deck',
+          type: success ? ToastType.success : ToastType.error,
         );
       }
     }
@@ -69,7 +67,6 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
 
     return BlocProvider.value(
       value: _cubit,
@@ -93,9 +90,8 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
         body: BlocBuilder<FlashcardCubit, FlashcardState>(
           builder: (context, state) {
             return switch (state) {
-              FlashcardInitial() || FlashcardLoading() => const Center(
-                  child: CircularProgressIndicator(),
-                ),
+              FlashcardInitial() ||
+              FlashcardLoading() => const Center(child: AppLoader()),
               FlashcardError(message: final msg) => Center(
                   child: Padding(
                     padding: const EdgeInsets.all(24.0),
@@ -119,23 +115,22 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                     ),
                   ),
                 ),
-              FlashcardLoaded(decks: final decks, stats: final stats) =>
-                RefreshIndicator(
-                  onRefresh: () => _cubit.loadDashboard(),
-                  child: SingleChildScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Thống kê SRS
-                        if (stats != null) _buildStatsSection(context, stats),
+              FlashcardLoaded(decks: final decks, stats: final stats) => RefreshIndicator(
+                onRefresh: () => _cubit.loadDashboard(),
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Thống kê SRS
+                      if (stats != null) _buildStatsSection(context, stats),
 
-                        // Banner nhắc nhở ôn tập hôm nay nếu có thẻ cần ôn
-                        if (stats != null && stats.dueToday > 0)
-                          _buildDueTodayBanner(context, stats.dueToday),
+                      // Banner nhắc nhở ôn tập hôm nay nếu có thẻ cần ôn
+                      if (stats != null && stats.dueToday > 0)
+                        _buildDueTodayBanner(context, stats.dueToday),
 
-                        const SizedBox(height: 20),
+                      const SizedBox(height: 20),
 
                         // Tiêu đề danh sách bộ thẻ
                         Row(
@@ -157,15 +152,15 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                         ),
                         const SizedBox(height: 10),
 
-                        // Danh sách bộ thẻ
-                        if (decks.isEmpty)
-                          _buildEmptyDecks(context)
-                        else
-                          _buildDeckGrid(context, decks),
-                      ],
-                    ),
+                      // Danh sách bộ thẻ
+                      if (decks.isEmpty)
+                        _buildEmptyDecks(context)
+                      else
+                        _buildDeckGrid(context, decks),
+                    ],
                   ),
                 ),
+              ),
             };
           },
         ),
@@ -174,9 +169,6 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
   }
 
   Widget _buildStatsSection(BuildContext context, FlashcardUserStats stats) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -197,7 +189,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                   value: '${stats.totalCards}',
                   icon: Icons.style,
                   iconColor: const Color(0xFF6366F1),
-                  bgColor: const Color(0xFF6366F1).withOpacity(0.08),
+                  bgColor: const Color(0xFF6366F1).withValues(alpha: 0.08),
                 ),
                 _buildStatCard(
                   context,
@@ -205,7 +197,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                   value: '${stats.dueToday}',
                   icon: Icons.alarm,
                   iconColor: const Color(0xFFEF4444),
-                  bgColor: const Color(0xFFEF4444).withOpacity(0.08),
+                  bgColor: const Color(0xFFEF4444).withValues(alpha: 0.08),
                 ),
                 _buildStatCard(
                   context,
@@ -213,7 +205,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                   value: '${stats.masteredCards}',
                   icon: Icons.verified,
                   iconColor: const Color(0xFF10B981),
-                  bgColor: const Color(0xFF10B981).withOpacity(0.08),
+                  bgColor: const Color(0xFF10B981).withValues(alpha: 0.08),
                 ),
                 _buildStatCard(
                   context,
@@ -221,7 +213,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                   value: '${stats.streak} ${stats.streak == 1 ? 'day' : 'days'}',
                   icon: Icons.local_fire_department,
                   iconColor: const Color(0xFFF59E0B),
-                  bgColor: const Color(0xFFF59E0B).withOpacity(0.08),
+                  bgColor: const Color(0xFFF59E0B).withValues(alpha: 0.08),
                 ),
               ],
             );
@@ -283,7 +275,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: iconColor.withOpacity(0.2)),
+        border: Border.all(color: iconColor.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -315,8 +307,6 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
   }
 
   Widget _buildDueTodayBanner(BuildContext context, int dueCount) {
-    final theme = Theme.of(context);
-
     return Container(
       margin: const EdgeInsets.only(top: 16),
       padding: const EdgeInsets.all(16),
@@ -329,7 +319,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF4F46E5).withOpacity(0.3),
+            color: const Color(0xFF4F46E5).withValues(alpha: 0.3),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -389,18 +379,14 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceVariant.withOpacity(0.3),
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.dividerColor.withOpacity(0.2)),
+        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.2)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.style_outlined,
-            size: 64,
-            color: colorScheme.primary.withOpacity(0.5),
-          ),
+          Icon(Icons.style_outlined, size: 64, color: colorScheme.primary.withValues(alpha: 0.5)),
           const SizedBox(height: 16),
           Text(
             'No decks yet',
@@ -410,9 +396,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
           Text(
             'Create a deck to save words by topic and review them with spaced repetition.',
             textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.textTheme.bodySmall?.color,
-            ),
+            style: theme.textTheme.bodyMedium?.copyWith(color: theme.textTheme.bodySmall?.color),
           ),
           const SizedBox(height: 20),
           FilledButton.icon(
@@ -459,7 +443,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: theme.dividerColor.withOpacity(0.2)),
+        side: BorderSide(color: theme.dividerColor.withValues(alpha: 0.2)),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -477,14 +461,10 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                 children: [
                   CircleAvatar(
                     radius: 18,
-                    backgroundColor: deckColor.withOpacity(0.15),
+                    backgroundColor: deckColor.withValues(alpha: 0.15),
                     child: Text(
                       deck.name.isNotEmpty ? deck.name[0].toUpperCase() : 'D',
-                      style: TextStyle(
-                        color: deckColor,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
+                      style: TextStyle(color: deckColor, fontWeight: FontWeight.bold, fontSize: 16),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -496,9 +476,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                           deck.name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                         ),
                         if (deck.description != null && deck.description!.isNotEmpty)
                           Padding(
@@ -508,7 +486,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
+                                color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
                               ),
                             ),
                           ),
@@ -520,11 +498,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                     padding: EdgeInsets.zero,
                     onSelected: (val) {
                       if (val == 'edit') {
-                        DeckFormDialog.show(
-                          context,
-                          existingDeck: deck,
-                          cubit: _cubit,
-                        );
+                        DeckFormDialog.show(context, existingDeck: deck, cubit: _cubit);
                       } else if (val == 'delete') {
                         _handleDeleteDeck(deck);
                       }
@@ -566,7 +540,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: colorScheme.surfaceVariant.withOpacity(0.5),
+                      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
@@ -579,7 +553,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.12),
+                        color: Colors.red.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
@@ -614,7 +588,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                       label: const Text('View words', style: TextStyle(fontSize: 13)),
                     ),
                   ),
-                  Container(width: 1, height: 20, color: theme.dividerColor.withOpacity(0.3)),
+                  Container(width: 1, height: 20, color: theme.dividerColor.withValues(alpha: 0.3)),
                   Expanded(
                     child: TextButton.icon(
                       style: TextButton.styleFrom(
