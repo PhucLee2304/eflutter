@@ -76,7 +76,7 @@ class _DictionarySearchScreenState extends State<DictionarySearchScreen> {
           actions: [
             IconButton(
               icon: const Icon(Icons.smart_toy_outlined),
-              tooltip: 'Hỏi AI Tutor',
+              tooltip: 'Ask AI Tutor',
               onPressed: () => context.push(AppRoutes.aiChat.path),
             ),
             IconButton(

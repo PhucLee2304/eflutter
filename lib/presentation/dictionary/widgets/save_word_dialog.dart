@@ -86,10 +86,10 @@ class _SaveWordToDecksDialogState extends State<SaveWordToDecksDialog> {
           _isLoading = false;
         });
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
         setState(() {
-          _errorMessage = e.toString();
+          _errorMessage = 'Could not load decks. Please try again.';
           _isLoading = false;
         });
       }
@@ -102,19 +102,19 @@ class _SaveWordToDecksDialogState extends State<SaveWordToDecksDialog> {
       final confirm = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('Bỏ lưu từ?'),
+          title: const Text('Remove saved word?'),
           content: Text(
-            'Từ "${widget.wordText}" sẽ được gỡ khỏi tất cả các bộ thẻ. Bạn có chắc chắn không?',
+            '"${widget.wordText}" will be removed from all decks. Continue?',
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Huỷ'),
+              child: const Text('Cancel'),
             ),
             FilledButton(
               style: FilledButton.styleFrom(backgroundColor: Colors.red),
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Đồng ý gỡ'),
+              child: const Text('Remove word'),
             ),
           ],
         ),
@@ -139,7 +139,7 @@ class _SaveWordToDecksDialogState extends State<SaveWordToDecksDialog> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Không thể lưu thẻ từ vựng. Vui lòng thử lại.'),
+            content: Text('Could not save the word. Please try again.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -183,7 +183,7 @@ class _SaveWordToDecksDialogState extends State<SaveWordToDecksDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Lưu từ vựng',
+                          'Save word to decks',
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -214,6 +214,7 @@ class _SaveWordToDecksDialogState extends State<SaveWordToDecksDialog> {
                   ),
                   IconButton(
                     icon: const Icon(Icons.close),
+                    tooltip: 'Close',
                     onPressed: _isSaving ? null : () => Navigator.of(context).pop(false),
                   ),
                 ],
@@ -245,7 +246,7 @@ class _SaveWordToDecksDialogState extends State<SaveWordToDecksDialog> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Chọn bộ thẻ muốn lưu:',
+                                'Choose decks:',
                                 style: theme.textTheme.titleSmall?.copyWith(
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -266,7 +267,7 @@ class _SaveWordToDecksDialogState extends State<SaveWordToDecksDialog> {
                                       const SizedBox(width: 10),
                                       const Expanded(
                                         child: Text(
-                                          'Bạn chưa có bộ thẻ nào. Hãy tạo bộ thẻ đầu tiên bên dưới!',
+                                          'You have no decks yet. Create your first deck below!',
                                           style: TextStyle(fontSize: 13),
                                         ),
                                       ),
@@ -314,7 +315,7 @@ class _SaveWordToDecksDialogState extends State<SaveWordToDecksDialog> {
                                         ),
                                       ),
                                       subtitle: Text(
-                                        '${deck.cardCount} từ ${deck.dueCount > 0 ? '• ${deck.dueCount} cần ôn' : ''}',
+                                        '${deck.cardCount} ${deck.cardCount == 1 ? 'word' : 'words'}${deck.dueCount > 0 ? ' • ${deck.dueCount} due' : ''}',
                                         style: TextStyle(
                                           fontSize: 12,
                                           color: deck.dueCount > 0 ? Colors.orange.shade800 : null,
@@ -340,7 +341,7 @@ class _SaveWordToDecksDialogState extends State<SaveWordToDecksDialog> {
                                 TextButton.icon(
                                   onPressed: () => setState(() => _showNewDeckInput = true),
                                   icon: const Icon(Icons.add_circle_outline, size: 20),
-                                  label: const Text('Tạo bộ thẻ mới'),
+                                  label: const Text('Create new deck'),
                                 )
                               else
                                 Container(
@@ -359,7 +360,7 @@ class _SaveWordToDecksDialogState extends State<SaveWordToDecksDialog> {
                                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
                                           Text(
-                                            'Tạo & thêm vào bộ thẻ mới:',
+                                            'Create and add to a new deck:',
                                             style: theme.textTheme.labelMedium?.copyWith(
                                               fontWeight: FontWeight.bold,
                                               color: colorScheme.primary,
@@ -380,7 +381,7 @@ class _SaveWordToDecksDialogState extends State<SaveWordToDecksDialog> {
                                         controller: _newDeckController,
                                         autofocus: _decks.isEmpty,
                                         decoration: InputDecoration(
-                                          hintText: 'Nhập tên bộ thẻ (vd: TOEIC 600, Idioms...)',
+                                          hintText: 'Deck name (e.g. TOEIC 600, Idioms...)',
                                           isDense: true,
                                           border: OutlineInputBorder(
                                             borderRadius: BorderRadius.circular(8),
@@ -396,7 +397,7 @@ class _SaveWordToDecksDialogState extends State<SaveWordToDecksDialog> {
 
                               // Personal note
                               Text(
-                                'Ghi chú cá nhân (tuỳ chọn):',
+                                'Personal note (optional):',
                                 style: theme.textTheme.titleSmall?.copyWith(
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -406,7 +407,7 @@ class _SaveWordToDecksDialogState extends State<SaveWordToDecksDialog> {
                                 controller: _noteController,
                                 maxLines: 2,
                                 decoration: InputDecoration(
-                                  hintText: 'Mẹo nhớ từ, ngữ cảnh áp dụng, ví dụ riêng...',
+                                  hintText: 'Memory tip, context, or your own example...',
                                   isDense: true,
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(8),
@@ -426,7 +427,7 @@ class _SaveWordToDecksDialogState extends State<SaveWordToDecksDialog> {
                 children: [
                   TextButton(
                     onPressed: _isSaving ? null : () => Navigator.of(context).pop(false),
-                    child: const Text('Huỷ'),
+                    child: const Text('Cancel'),
                   ),
                   const SizedBox(width: 8),
                   FilledButton.icon(
@@ -441,7 +442,7 @@ class _SaveWordToDecksDialogState extends State<SaveWordToDecksDialog> {
                             ),
                           )
                         : const Icon(Icons.check, size: 18),
-                    label: Text(_isSaving ? 'Đang lưu...' : 'Lưu vào thẻ'),
+                    label: Text(_isSaving ? 'Saving...' : 'Save to decks'),
                   ),
                 ],
               ),

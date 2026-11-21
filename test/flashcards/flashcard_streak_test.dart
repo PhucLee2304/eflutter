@@ -47,17 +47,17 @@ void main() {
 
     await tester.pumpWidget(const MaterialApp(home: FlashcardsScreen()));
     await tester.pumpAndSettle();
-    expect(find.text('4 ngày'), findsOneWidget);
+    expect(find.text('4 days'), findsOneWidget);
     expect(
-      find.text('Ôn ít nhất một thẻ hôm nay để giữ chuỗi 4 ngày.'),
+      find.text('Review at least one card today to keep your 4-day streak.'),
       findsOneWidget,
     );
 
     cubit.showReviewedToday();
     await tester.pumpAndSettle();
-    expect(find.text('5 ngày'), findsOneWidget);
+    expect(find.text('5 days'), findsOneWidget);
     expect(
-      find.text('Bạn đã ôn hôm nay. Chuỗi 5 ngày đang tiếp tục!'),
+      find.text('You reviewed today. Your 5-day streak continues!'),
       findsOneWidget,
     );
   });

@@ -149,10 +149,10 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
         });
         _flipController.reset();
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
         setState(() {
-          _errorMessage = e.toString();
+          _errorMessage = 'Could not load flashcards. Please try again.';
           _isLoading = false;
         });
       }
@@ -183,7 +183,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
     if (reviewed == null) {
       setState(() => _isSubmitting = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Chưa lưu được lượt ôn. Vui lòng thử lại.')),
+        const SnackBar(content: Text('Could not save this review. Please try again.')),
       );
       return;
     }
@@ -211,7 +211,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final title = widget.deckTitle ?? 'Ôn tập thẻ ghi nhớ';
+    final title = widget.deckTitle ?? 'Review flashcards';
 
     if (_isLoading) {
       return Scaffold(
@@ -235,7 +235,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: _loadCards,
-                  child: const Text('Thử lại'),
+                  child: const Text('Try again'),
                 ),
               ],
             ),
@@ -260,12 +260,12 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
                 ),
                 const SizedBox(height: 20),
                 const Text(
-                  'Không có thẻ nào cần ôn tập!',
+                  'No cards due for review!',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Tất cả các thẻ trong bộ đã được hoàn thành hoặc chưa đến thời hạn ôn tập tiếp theo.',
+                  'All cards in this deck are complete or not due for review yet.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.grey, fontSize: 14),
                 ),
@@ -273,7 +273,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
                 FilledButton.icon(
                   onPressed: () => Navigator.of(context).pop(),
                   icon: const Icon(Icons.arrow_back),
-                  label: const Text('Quay lại'),
+                  label: const Text('Go back'),
                 ),
               ],
             ),
@@ -296,7 +296,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
         actions: [
           IconButton(
             icon: const Icon(Icons.smart_toy_outlined),
-            tooltip: 'Hỏi AI Tutor',
+            tooltip: 'Ask AI Tutor',
             onPressed: () => context.push(AppRoutes.aiChat.path),
           ),
           Center(
@@ -388,14 +388,14 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
                           onPressed: _flipCard,
                           icon: const Icon(Icons.flip),
                           label: const Text(
-                            'Xem đáp án (Lật thẻ)',
+                            'Show answer (flip card)',
                             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                           ),
                         ),
                       )
                     else ...[
                       const Text(
-                        'Bạn nhớ từ này ở mức độ nào?',
+                        'How well did you remember this word?',
                         style: TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.w500),
                       ),
                       const SizedBox(height: 10),
@@ -403,8 +403,8 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
                         children: [
                           Expanded(
                             child: _buildRatingButton(
-                              label: 'Quên',
-                              subLabel: '< 1 ngày',
+                              label: 'Again',
+                              subLabel: '< 1 day',
                               color: const Color(0xFFEF4444),
                               onPressed: () => _rateCard('again'),
                             ),
@@ -412,8 +412,8 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
                           const SizedBox(width: 8),
                           Expanded(
                             child: _buildRatingButton(
-                              label: 'Khó',
-                              subLabel: 'Ôn sớm',
+                              label: 'Hard',
+                              subLabel: 'Soon',
                               color: const Color(0xFFF59E0B),
                               onPressed: () => _rateCard('hard'),
                             ),
@@ -421,8 +421,8 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
                           const SizedBox(width: 8),
                           Expanded(
                             child: _buildRatingButton(
-                              label: 'Nhớ',
-                              subLabel: 'Chu kỳ chuẩn',
+                              label: 'Good',
+                              subLabel: 'Standard',
                               color: const Color(0xFF10B981),
                               onPressed: () => _rateCard('good'),
                             ),
@@ -430,8 +430,8 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
                           const SizedBox(width: 8),
                           Expanded(
                             child: _buildRatingButton(
-                              label: 'Rất dễ',
-                              subLabel: 'Khoảng cách dài',
+                              label: 'Easy',
+                              subLabel: 'Later',
                               color: const Color(0xFF3B82F6),
                               onPressed: () => _rateCard('easy'),
                             ),
@@ -533,7 +533,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
                 Icon(Icons.touch_app_outlined, size: 16, color: colorScheme.primary),
                 const SizedBox(width: 6),
                 Text(
-                  'Chạm để xem định nghĩa & ví dụ',
+                  'Tap to see definitions and examples',
                   style: TextStyle(
                     fontSize: 13,
                     color: colorScheme.primary,
@@ -597,7 +597,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
-                    tooltip: 'Nghe phát âm',
+                    tooltip: 'Play pronunciation',
                     onPressed: () => _playAudio(audio),
                     icon: _isPlayingAudio && _playingAudioUrl == audio
                         ? const SizedBox(
@@ -633,7 +633,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
                       color: colorScheme.primary,
                     ),
                     label: Text(
-                      'Hỏi AI về từ này',
+                      'Ask AI about this word',
                       style: TextStyle(
                         fontSize: 13,
                         color: colorScheme.primary,
@@ -659,7 +659,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
                           ),
                           const SizedBox(height: 10),
                           Text(
-                            'Chưa có dữ liệu định nghĩa chi tiết',
+                            'No detailed definitions available',
                             style: TextStyle(
                               color: colorScheme.onSurfaceVariant,
                               fontWeight: FontWeight.w600,
@@ -668,7 +668,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Bạn có thể thêm ghi chú/nghĩa cá nhân để ôn tập từ này',
+                            'Add your own note or meaning to help review this word',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               color: Colors.grey.shade500,
@@ -736,7 +736,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
                                     runSpacing: 2,
                                     children: [
                                       Text(
-                                        'Đồng nghĩa: ',
+                                        'Synonyms: ',
                                         style: TextStyle(
                                           fontSize: 11,
                                           fontWeight: FontWeight.w600,
@@ -789,7 +789,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Ghi chú của bạn:',
+                            'Your note:',
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
@@ -861,7 +861,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Hoàn thành phiên học')),
+      appBar: AppBar(title: const Text('Review complete')),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(32),
@@ -877,14 +877,14 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
                 ),
                 const SizedBox(height: 24),
                 Text(
-                  'Tuyệt vời!',
+                  'Great work!',
                   style: theme.textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Bạn đã hoàn thành phiên ôn tập với $_reviewedCount thẻ ghi nhớ.',
+                  'You reviewed $_reviewedCount ${_reviewedCount == 1 ? 'flashcard' : 'flashcards'} in this session.',
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: Colors.grey, fontSize: 15),
                 ),
@@ -900,10 +900,10 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _buildSummaryItem('Quên', '${_ratingStats['again']}', const Color(0xFFEF4444)),
-                      _buildSummaryItem('Khó', '${_ratingStats['hard']}', const Color(0xFFF59E0B)),
-                      _buildSummaryItem('Nhớ', '${_ratingStats['good']}', const Color(0xFF10B981)),
-                      _buildSummaryItem('Dễ', '${_ratingStats['easy']}', const Color(0xFF3B82F6)),
+                      _buildSummaryItem('Again', '${_ratingStats['again']}', const Color(0xFFEF4444)),
+                      _buildSummaryItem('Hard', '${_ratingStats['hard']}', const Color(0xFFF59E0B)),
+                      _buildSummaryItem('Good', '${_ratingStats['good']}', const Color(0xFF10B981)),
+                      _buildSummaryItem('Easy', '${_ratingStats['easy']}', const Color(0xFF3B82F6)),
                     ],
                   ),
                 ),
@@ -917,7 +917,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: const Text('Về trang Flashcards', style: TextStyle(fontWeight: FontWeight.bold)),
+                    child: const Text('Back to Flashcards', style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -929,7 +929,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen>
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: const Text('Ôn tập lại'),
+                    child: const Text('Review again'),
                   ),
                 ),
               ],

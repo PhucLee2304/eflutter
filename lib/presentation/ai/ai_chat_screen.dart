@@ -28,10 +28,10 @@ class _AiChatScreenState extends State<AiChatScreen> {
   bool _isLoading = false;
 
   static const _suggestions = [
-    'Hello nghĩa là gì?',
-    'Giải thích Present Perfect',
-    'Cho tôi câu hỏi TOEIC Part 5',
-    'Sự khác nhau giữa "do" và "make"',
+    'What does "hello" mean?',
+    'Explain the present perfect tense',
+    'Give me a TOEIC Part 5 question',
+    'What is the difference between "do" and "make"?',
   ];
 
   @override
@@ -65,7 +65,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
       if (mounted) {
         setState(() {
           _messages.add(_ChatMessage(
-            text: 'Xin lỗi, đã xảy ra lỗi. Vui lòng thử lại.',
+            text: 'Sorry, something went wrong. Please try again.',
             isUser: false,
           ));
           _isLoading = false;
@@ -110,7 +110,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
                   style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 Text(
-                  'Trợ lý học tiếng Anh',
+                  'Your English learning assistant',
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                   ),
@@ -154,13 +154,13 @@ class _AiChatScreenState extends State<AiChatScreen> {
             ),
             const SizedBox(height: 20),
             Text(
-              'Xin chào! Tôi là AI Tutor',
+              'Hi! I’m your AI Tutor',
               style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
-              'Hỏi tôi bất kỳ điều gì về tiếng Anh, từ vựng, ngữ pháp hay TOEIC!',
+              'Ask me anything about English, vocabulary, grammar, or TOEIC!',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colorScheme.onSurfaceVariant,
               ),
@@ -232,7 +232,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
                 minLines: 1,
                 textInputAction: TextInputAction.newline,
                 decoration: InputDecoration(
-                  hintText: 'Nhập câu hỏi của bạn...',
+                  hintText: 'Ask a question...',
                   filled: true,
                   fillColor: colorScheme.surfaceVariant.withOpacity(0.5),
                   border: OutlineInputBorder(

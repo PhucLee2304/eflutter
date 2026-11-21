@@ -387,7 +387,10 @@ class NavigationItem {
         path: AppRoutes.dictionaryWord.path,
         builder: (context, state) {
           final wordId = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
-          return WordDetailScreen(wordId: wordId);
+          final returnDeckId = int.tryParse(
+            state.uri.queryParameters['returnDeckId'] ?? '',
+          );
+          return WordDetailScreen(wordId: wordId, returnDeckId: returnDeckId);
         },
       ),
     ],

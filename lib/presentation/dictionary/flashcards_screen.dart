@@ -33,19 +33,19 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Xoá bộ thẻ'),
+        title: const Text('Delete deck'),
         content: Text(
-          'Bạn có chắc muốn xoá bộ thẻ "${deck.name}" (${deck.cardCount} từ)?\nCác từ vựng trong từ điển sẽ không bị mất.',
+          'Delete "${deck.name}" (${deck.cardCount} ${deck.cardCount == 1 ? 'word' : 'words'})?\nWords in the dictionary will remain available.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Huỷ'),
+            child: const Text('Cancel'),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Xoá'),
+            child: const Text('Delete'),
           ),
         ],
       ),
@@ -57,7 +57,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              success ? 'Đã xoá bộ thẻ "${deck.name}"' : 'Xoá bộ thẻ thất bại',
+              success ? 'Deleted "${deck.name}"' : 'Could not delete the deck',
             ),
             backgroundColor: success ? null : Colors.red,
           ),
@@ -75,11 +75,12 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
       value: _cubit,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Bộ thẻ từ vựng (Flashcards)'),
+          title: const Text('Flashcards'),
+          leading: BackButton(onPressed: () => context.go(AppRoutes.dictionary.path)),
           actions: [
             IconButton(
               icon: const Icon(Icons.refresh),
-              tooltip: 'Làm mới',
+              tooltip: 'Refresh',
               onPressed: () => _cubit.loadDashboard(),
             ),
           ],
@@ -87,7 +88,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
         floatingActionButton: FloatingActionButton.extended(
           onPressed: () => DeckFormDialog.show(context, cubit: _cubit),
           icon: const Icon(Icons.add),
-          label: const Text('Tạo bộ thẻ'),
+          label: const Text('Create deck'),
         ),
         body: BlocBuilder<FlashcardCubit, FlashcardState>(
           builder: (context, state) {
@@ -112,7 +113,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                         ElevatedButton.icon(
                           onPressed: () => _cubit.loadDashboard(),
                           icon: const Icon(Icons.refresh),
-                          label: const Text('Thử lại'),
+                          label: const Text('Try again'),
                         ),
                       ],
                     ),
@@ -141,7 +142,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              'Bộ thẻ của bạn (${decks.length})',
+                              'Your decks (${decks.length})',
                               style: theme.textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
                               ),
@@ -150,7 +151,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                               onPressed: () =>
                                   DeckFormDialog.show(context, cubit: _cubit),
                               icon: const Icon(Icons.add, size: 18),
-                              label: const Text('Bộ thẻ mới'),
+                              label: const Text('New deck'),
                             ),
                           ],
                         ),
@@ -192,7 +193,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
               children: [
                 _buildStatCard(
                   context,
-                  title: 'Tổng số từ',
+                  title: 'Total words',
                   value: '${stats.totalCards}',
                   icon: Icons.style,
                   iconColor: const Color(0xFF6366F1),
@@ -200,7 +201,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                 ),
                 _buildStatCard(
                   context,
-                  title: 'Cần ôn hôm nay',
+                  title: 'Due today',
                   value: '${stats.dueToday}',
                   icon: Icons.alarm,
                   iconColor: const Color(0xFFEF4444),
@@ -208,7 +209,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                 ),
                 _buildStatCard(
                   context,
-                  title: 'Thành thạo',
+                  title: 'Mastered',
                   value: '${stats.masteredCards}',
                   icon: Icons.verified,
                   iconColor: const Color(0xFF10B981),
@@ -216,8 +217,8 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                 ),
                 _buildStatCard(
                   context,
-                  title: 'Chuỗi ôn tập',
-                  value: '${stats.streak} ngày',
+                  title: 'Review streak',
+                  value: '${stats.streak} ${stats.streak == 1 ? 'day' : 'days'}',
                   icon: Icons.local_fire_department,
                   iconColor: const Color(0xFFF59E0B),
                   bgColor: const Color(0xFFF59E0B).withOpacity(0.08),
@@ -253,18 +254,18 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
 
   String _streakMessage(FlashcardUserStats stats) {
     if (stats.reviewedToday) {
-      return 'Bạn đã ôn hôm nay. Chuỗi ${stats.streak} ngày đang tiếp tục!';
+      return 'You reviewed today. Your ${stats.streak}-day streak continues!';
     }
     if (stats.streak > 0 && stats.dueToday > 0) {
-      return 'Ôn ít nhất một thẻ hôm nay để giữ chuỗi ${stats.streak} ngày.';
+      return 'Review at least one card today to keep your ${stats.streak}-day streak.';
     }
     if (stats.streak > 0) {
-      return 'Hôm nay chưa có thẻ cần ôn. Thêm và ôn từ mới để giữ chuỗi.';
+      return 'No cards are due today. Add and review new words to keep your streak.';
     }
     if (stats.dueToday > 0) {
-      return 'Ôn một thẻ hôm nay để bắt đầu chuỗi học mỗi ngày.';
+      return 'Review a card today to start a daily streak.';
     }
-    return 'Lưu và ôn từ mới hôm nay để bắt đầu chuỗi học mỗi ngày.';
+    return 'Save and review a new word today to start a daily streak.';
   }
 
   Widget _buildStatCard(
@@ -347,7 +348,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Thời điểm vàng để ôn tập!',
+                  'Time to review!',
                   style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
@@ -356,7 +357,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Bạn có $dueCount thẻ đến hạn ôn tập (Spaced Repetition)',
+                  'You have $dueCount ${dueCount == 1 ? 'card' : 'cards'} due for review',
                   style: const TextStyle(color: Colors.white70, fontSize: 13),
                 ),
               ],
@@ -373,7 +374,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
               await context.push('${AppRoutes.flashcards.path}/study');
               if (mounted) await _cubit.loadDashboard();
             },
-            child: const Text('Ôn ngay', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text('Review now', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -402,12 +403,12 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Chưa có bộ thẻ nào',
+            'No decks yet',
             style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 6),
           Text(
-            'Tạo bộ thẻ để lưu từ vựng theo chủ đề hoặc ôn tập thông minh bằng thuật toán lặp lại ngắt quãng SM-2.',
+            'Create a deck to save words by topic and review them with spaced repetition.',
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.textTheme.bodySmall?.color,
@@ -417,7 +418,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
           FilledButton.icon(
             onPressed: () => DeckFormDialog.show(context, cubit: _cubit),
             icon: const Icon(Icons.add),
-            label: const Text('Tạo bộ thẻ đầu tiên'),
+            label: const Text('Create your first deck'),
           ),
         ],
       ),
@@ -462,10 +463,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () async {
-          await context.push('${AppRoutes.flashcards.path}/deck/${deck.id}');
-          if (mounted) await _cubit.loadDashboard();
-        },
+        onTap: () => context.go('${AppRoutes.flashcards.path}/deck/${deck.id}'),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -538,7 +536,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                           children: [
                             Icon(Icons.edit_outlined, size: 18),
                             SizedBox(width: 8),
-                            Text('Chỉnh sửa'),
+                            Text('Edit'),
                           ],
                         ),
                       ),
@@ -548,7 +546,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                           children: [
                             Icon(Icons.delete_outline, size: 18, color: Colors.red),
                             SizedBox(width: 8),
-                            Text('Xoá bộ thẻ', style: TextStyle(color: Colors.red)),
+                            Text('Delete deck', style: TextStyle(color: Colors.red)),
                           ],
                         ),
                       ),
@@ -572,7 +570,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      '${deck.cardCount} từ',
+                      '${deck.cardCount} ${deck.cardCount == 1 ? 'word' : 'words'}',
                       style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
                     ),
                   ),
@@ -585,7 +583,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        '${deck.dueCount} cần ôn',
+                        '${deck.dueCount} due',
                         style: const TextStyle(
                           fontSize: 12,
                           color: Colors.red,
@@ -611,12 +609,9 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                         visualDensity: VisualDensity.compact,
                         foregroundColor: theme.textTheme.bodyMedium?.color,
                       ),
-                      onPressed: () async {
-                        await context.push('${AppRoutes.flashcards.path}/deck/${deck.id}');
-                        if (mounted) await _cubit.loadDashboard();
-                      },
+                      onPressed: () => context.go('${AppRoutes.flashcards.path}/deck/${deck.id}'),
                       icon: const Icon(Icons.list_alt, size: 16),
-                      label: const Text('Danh sách', style: TextStyle(fontSize: 13)),
+                      label: const Text('View words', style: TextStyle(fontSize: 13)),
                     ),
                   ),
                   Container(width: 1, height: 20, color: theme.dividerColor.withOpacity(0.3)),
@@ -636,7 +631,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                             },
                       icon: const Icon(Icons.play_arrow_rounded, size: 18),
                       label: const Text(
-                        'Học ngay',
+                        'Study now',
                         style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                       ),
                     ),

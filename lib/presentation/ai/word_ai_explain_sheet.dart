@@ -56,7 +56,7 @@ class _WordAiExplainSheetState extends State<WordAiExplainSheet> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = 'Không thể lấy giải thích từ AI. Vui lòng thử lại.';
+          _error = 'Could not load the AI explanation. Please try again.';
           _isLoading = false;
         });
       }
@@ -113,7 +113,7 @@ class _WordAiExplainSheetState extends State<WordAiExplainSheet> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'AI Giải thích từ',
+                          'AI Word Explanation',
                           style: textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -147,6 +147,7 @@ class _WordAiExplainSheetState extends State<WordAiExplainSheet> {
                   ),
                   IconButton(
                     icon: const Icon(Icons.close),
+                    tooltip: 'Close',
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
@@ -179,7 +180,7 @@ class _WordAiExplainSheetState extends State<WordAiExplainSheet> {
             CircularProgressIndicator(color: colorScheme.primary),
             const SizedBox(height: 16),
             Text(
-              'AI đang soạn giải thích...',
+              'AI is preparing an explanation...',
               style: TextStyle(
                 color: colorScheme.onSurfaceVariant,
                 fontSize: 14,
@@ -208,7 +209,7 @@ class _WordAiExplainSheetState extends State<WordAiExplainSheet> {
               FilledButton.icon(
                 onPressed: _fetchExplanation,
                 icon: const Icon(Icons.refresh),
-                label: const Text('Thử lại'),
+                label: const Text('Try again'),
               ),
             ],
           ),
@@ -237,14 +238,11 @@ class _WordAiExplainSheetState extends State<WordAiExplainSheet> {
           ),
         ),
         const SizedBox(height: 16),
-        // Nút mở chat đầy đủ
+        // Close the explanation sheet.
         OutlinedButton.icon(
-          onPressed: () {
-            Navigator.of(context).pop();
-            // Có thể navigate đến AiChatScreen nếu muốn tiếp tục hội thoại
-          },
-          icon: const Icon(Icons.chat_outlined, size: 18),
-          label: const Text('Hỏi thêm trong AI Chat'),
+          onPressed: () => Navigator.of(context).pop(),
+          icon: const Icon(Icons.close, size: 18),
+          label: const Text('Close'),
           style: OutlinedButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 12),
             shape: RoundedRectangleBorder(

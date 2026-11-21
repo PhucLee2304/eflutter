@@ -157,6 +157,13 @@ String grammarUnitPath(int unitId) =>
 
 String flashcardDeckPath(int deckId) => '${AppRoutes.flashcards.path}/deck/$deckId';
 
+String dictionaryWordPath(int wordId, {int? returnDeckId}) => Uri(
+  path: '${AppRoutes.dictionary.path}/$wordId',
+  queryParameters: returnDeckId == null
+      ? null
+      : {'returnDeckId': returnDeckId.toString()},
+).toString();
+
 String flashcardStudyPath({int? deckId, String? title}) {
   final query = <String, String>{};
   if (deckId != null) query['deckId'] = deckId.toString();
